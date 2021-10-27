@@ -12,6 +12,7 @@ pub enum CompileErrorKind {
     InvalidEscape(String),
     ExpectedFound(String, String),
     UnclosedString,
+    UnclosedChar,
     IncompatibleBinTypes(Op, Const, Const),
     NoBinaryImplementation(Op),
     NoUnaryImplementation(Op),
@@ -28,6 +29,7 @@ impl fmt::Display for CompileErrorKind {
             CompileErrorKind::InvalidNumber(s) => write!(f, "Invalid number `{}`", s),
             CompileErrorKind::InvalidEscape(s) => write!(f, "Invalid escape `{}`", s),
             CompileErrorKind::UnclosedString => write!(f, "Unclosed string literal"),
+            CompileErrorKind::UnclosedChar => write!(f, "Unclosed character literal"),
             CompileErrorKind::ExpectedFound(expected, found) => {
                 write!(f, "Expected {}, found {}", expected, found)
             }

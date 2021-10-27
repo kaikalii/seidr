@@ -165,8 +165,17 @@ impl Parser {
                 None
             }
         }
+        fn char(tt: &TT) -> Option<char> {
+            if let TT::Char(c) = tt {
+                Some(*c)
+            } else {
+                None
+            }
+        }
         Ok(Some(if let Some((num, span)) = self.match_to(num) {
             Expr::Num(num, span)
+        } else if let Some((c, span)) = self.match_to(char) {
+            Expr::Char(c, span)
         } else if let Some((ident, span)) = self.ident() {
             Expr::Ident(ident, span)
         } else {

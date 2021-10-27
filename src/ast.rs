@@ -20,6 +20,7 @@ impl fmt::Debug for Item {
 
 pub enum Expr {
     Num(Num, Span),
+    Char(char, Span),
     Ident(Ident, Span),
     Un(Box<UnExpr>),
     Bin(Box<BinExpr>),
@@ -28,7 +29,7 @@ pub enum Expr {
 impl Expr {
     pub fn span(&self) -> &Span {
         match self {
-            Expr::Num(_, span) | Expr::Ident(_, span) => span,
+            Expr::Char(_, span) | Expr::Num(_, span) | Expr::Ident(_, span) => span,
             Expr::Un(expr) => &expr.span,
             Expr::Bin(expr) => &expr.span,
         }
@@ -39,6 +40,7 @@ impl fmt::Debug for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Expr::Num(n, _) => n.fmt(f),
+            Expr::Char(c, _) => c.fmt(f),
             Expr::Ident(ident, _) => ident.fmt(f),
             Expr::Un(expr) => expr.fmt(f),
             Expr::Bin(expr) => expr.fmt(f),

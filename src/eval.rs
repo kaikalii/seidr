@@ -70,6 +70,12 @@ impl From<Num> for Const {
     }
 }
 
+impl From<char> for Const {
+    fn from(c: char) -> Self {
+        Const::Value(c.into())
+    }
+}
+
 impl From<Array> for Const {
     fn from(arr: Array) -> Self {
         Const::Value(arr.into())
@@ -106,6 +112,7 @@ impl Evaler {
         match expr {
             Expr::Ident(..) => todo!(),
             Expr::Num(num, _) => Ok(num.into()),
+            Expr::Char(c, _) => Ok(c.into()),
             Expr::Un(expr) => {
                 let inner = self.expr(expr.inner)?;
                 expr.op.visit_un(inner, self)

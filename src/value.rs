@@ -113,7 +113,13 @@ impl From<Atom> for Value {
 
 impl From<Num> for Value {
     fn from(num: Num) -> Self {
-        Value::Atom(Atom::Num(num))
+        Atom::Num(num).into()
+    }
+}
+
+impl From<char> for Value {
+    fn from(c: char) -> Self {
+        Atom::Char(c).into()
     }
 }
 

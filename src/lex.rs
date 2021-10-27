@@ -98,6 +98,7 @@ pub enum TT {
     // Literals
     Num(Num, Rc<str>),
     Ident(Ident),
+    Char(char),
     String(Rc<str>),
     // Ops
     Op(Op),
@@ -145,6 +146,7 @@ impl fmt::Display for TT {
                 }
             }
             TT::Ident(ident) => ident.fmt(f),
+            TT::Char(c) => write!(f, "{:?}", c),
             TT::String(s) => write!(f, "{:?}", s),
             TT::OpenParen => '('.fmt(f),
             TT::CloseParen => ')'.fmt(f),
@@ -372,6 +374,16 @@ impl Lexer {
                 ']' => self.token(TT::CloseSquare),
                 ',' => self.token(TT::Comma),
                 '"' => self.string()?,
+                '\'' => {
+                    if let Some(c) = self.char_literal('\'', CompileErrorKind::UnclosedChar)? {
+                        if self.next() != Some('\'') {
+                            return self.error(CompileErrorKind::UnclosedChar);
+                        }
+                        self.token(TT::Char(c));
+                    } else {
+                        return self.error(CompileErrorKind::UnclosedChar);
+                    }
+                }
                 '\\' => self.escape()?,
                 c if is_sep(c) => self.sep(c),
                 c if c.is_digit(10) => self.number(c)?,
@@ -456,28 +468,41 @@ impl Lexer {
         }
         Ok(())
     }
+    fn char_literal(
+        &mut self,
+        delimeter: char,
+        error: CompileErrorKind,
+    ) -> CompileResult<Option<char>> {
+        let c = if let Some(c) = self.next() {
+            c
+        } else {
+            return Ok(None);
+        };
+        Ok(Some(match c {
+            '\\' => {
+                if let Some(c) = self.next() {
+                    match c {
+                        '\\' => '\\',
+                        '"' => '"',
+                        'r' => '\r',
+                        'n' => '\n',
+                        't' => '\t',
+                        '0' => '\0',
+                        c if c == delimeter => delimeter,
+                        c => c,
+                    }
+                } else {
+                    return self.error(error);
+                }
+            }
+            c if c == delimeter => return Ok(None),
+            c => c,
+        }))
+    }
     fn string(&mut self) -> CompileResult {
         let mut s = String::new();
-        let mut escaped = false;
-        let mut closed = false;
-        while let Some(c) = self.next() {
-            match c {
-                '\\' if escaped.take() => s.push('\\'),
-                '"' if escaped.take() => s.push('"'),
-                'r' if escaped.take() => s.push('\r'),
-                'n' if escaped.take() => s.push('\n'),
-                't' if escaped.take() => s.push('\t'),
-                '0' if escaped.take() => s.push('\0'),
-                '\\' => escaped = true,
-                '"' => {
-                    closed = true;
-                    break;
-                }
-                c => s.push(c),
-            }
-        }
-        if !closed {
-            return self.error(CompileErrorKind::UnclosedString);
+        while let Some(c) = self.char_literal('"', CompileErrorKind::UnclosedString)? {
+            s.push(c);
         }
         self.token(TT::String(s.into()));
         Ok(())
