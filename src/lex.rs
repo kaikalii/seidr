@@ -524,5 +524,9 @@ fn ident_head_char(c: char) -> bool {
 }
 
 fn ident_body_char(c: char) -> bool {
-    !c.is_whitespace() && !"()[]{}|=.,+-*/<>!:\"".contains(c)
+    c.is_alphanumeric() && !is_runic(c) || c == '_'
+}
+
+fn is_runic(c: char) -> bool {
+    ('ᚠ'..='ᛪ').contains(&c)
 }
