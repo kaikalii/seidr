@@ -11,7 +11,7 @@ use std::{
 
 use colored::{Color, Colorize};
 
-use crate::{error::*, num::Num};
+use crate::{error::*, num::Num, op::Op};
 
 pub fn lex<P>(input: &str, file: P) -> CompileResult<Vec<Token>>
 where
@@ -99,6 +99,8 @@ pub enum TT {
     Num(Num, Rc<str>),
     Ident(Ident),
     String(Rc<str>),
+    // Ops
+    Op(Op),
     // Brackets
     OpenParen,
     CloseParen,
@@ -106,18 +108,6 @@ pub enum TT {
     CloseCurly,
     OpenSquare,
     CloseSquare,
-    // Math
-    Plus,
-    Minus,
-    Multiply,
-    Divide,
-    // Comparison
-    Less,
-    LessOrEqual,
-    Greater,
-    GreaterOrEqual,
-    Equal,
-    NotEqual,
     // Misc
     Comma,
     Whitespace,
@@ -162,16 +152,7 @@ impl fmt::Display for TT {
             TT::CloseCurly => '}'.fmt(f),
             TT::OpenSquare => '['.fmt(f),
             TT::CloseSquare => ']'.fmt(f),
-            TT::Plus => '+'.fmt(f),
-            TT::Minus => '-'.fmt(f),
-            TT::Multiply => '×'.fmt(f),
-            TT::Divide => '÷'.fmt(f),
-            TT::Less => '<'.fmt(f),
-            TT::LessOrEqual => '≤'.fmt(f),
-            TT::Greater => '>'.fmt(f),
-            TT::GreaterOrEqual => '≥'.fmt(f),
-            TT::Equal => '='.fmt(f),
-            TT::NotEqual => '≠'.fmt(f),
+            TT::Op(op) => op.glyph().fmt(f),
             TT::Comma => ','.fmt(f),
             TT::Whitespace => ' '.fmt(f),
             TT::Sep(s) => s.fmt(f),
@@ -389,16 +370,6 @@ impl Lexer {
                 '}' => self.token(TT::CloseCurly),
                 '[' => self.token(TT::OpenSquare),
                 ']' => self.token(TT::CloseSquare),
-                '+' => self.token(TT::Plus),
-                '-' => self.token(TT::Minus),
-                '×' => self.token(TT::Multiply),
-                '÷' => self.token(TT::Divide),
-                '<' => self.token(TT::Less),
-                '≤' => self.token(TT::LessOrEqual),
-                '>' => self.token(TT::Greater),
-                '≥' => self.token(TT::GreaterOrEqual),
-                '=' => self.token(TT::Equal),
-                '≠' => self.token(TT::NotEqual),
                 ',' => self.token(TT::Comma),
                 '"' => self.string()?,
                 '\\' => self.escape()?,
@@ -417,7 +388,13 @@ impl Lexer {
                     while self.next_if(char::is_whitespace).is_some() {}
                     self.token(TT::Whitespace);
                 }
-                c => return self.error(CompileErrorKind::InvalidCharacter(c)),
+                c => {
+                    if let Some(op) = Op::from_glyph(c) {
+                        self.token(TT::Op(op))
+                    } else {
+                        return self.error(CompileErrorKind::InvalidCharacter(c));
+                    }
+                }
             }
             self.start = self.loc;
         }
@@ -437,11 +414,11 @@ impl Lexer {
             return self.error(CompileErrorKind::InvalidEscape(String::new()));
         };
         match c {
-            '*' => self.token(TT::Multiply),
-            '/' => self.token(TT::Divide),
-            '<' => self.token(TT::LessOrEqual),
-            '>' => self.token(TT::GreaterOrEqual),
-            '=' => self.token(TT::NotEqual),
+            '*' => self.token(TT::Op(Op::Mul)),
+            '/' => self.token(TT::Op(Op::Div)),
+            '<' => self.token(TT::Op(Op::LessOrEqual)),
+            '>' => self.token(TT::Op(Op::GreaterOrEqual)),
+            '=' => self.token(TT::Op(Op::NotEqual)),
             c => return self.error(CompileErrorKind::InvalidEscape(c.into())),
         }
         Ok(())
