@@ -1,6 +1,9 @@
 use std::{
     borrow::Borrow,
     fmt,
+    fs::{File, OpenOptions},
+    io::Write,
+    mem::take,
     ops::Deref,
     path::{Path, MAIN_SEPARATOR},
     rc::Rc,
@@ -15,6 +18,28 @@ where
     P: AsRef<Path>,
 {
     Lexer::new(input, file).lex()
+}
+
+pub fn lex_format<P>(input: &str, file: P) -> CompileResult<Vec<Token>>
+where
+    P: AsRef<Path>,
+{
+    let mut lexer = Lexer::new(input, &file);
+    let tokens = lexer.lex()?;
+    match OpenOptions::new().write(true).truncate(true).open(&file) {
+        Ok(mut file) => {
+            for token in &tokens {
+                write!(file, "{}", token.tt).unwrap();
+            }
+        }
+        Err(error) => {
+            return lexer.error(CompileErrorKind::IO(IoError {
+                message: format!("Unable to format `{}`", file.as_ref().to_string_lossy()),
+                error,
+            }))
+        }
+    }
+    Ok(tokens)
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -78,7 +103,7 @@ impl PartialEq<str> for Ident {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TT {
     // Literals
-    Num(Num),
+    Num(Num, Rc<str>),
     Ident(Ident),
     String(Rc<str>),
     // Brackets
@@ -100,18 +125,63 @@ pub enum TT {
     GreaterOrEqual,
     Equal,
     NotEqual,
+    // Misc
+    Newline,
+    Comma,
+    Whitespace,
 }
 
 impl fmt::Display for TT {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TT::OpenParen => write!(f, "("),
-            TT::CloseParen => write!(f, ")"),
-            TT::OpenCurly => write!(f, "{{"),
-            TT::CloseCurly => write!(f, "}}"),
-            TT::OpenSquare => write!(f, "["),
-            TT::CloseSquare => write!(f, "]"),
-            _ => write!(f, "{:?}", self),
+            TT::Num(n, s) => {
+                if s.contains('e') || s.contains('E') {
+                    s.fmt(f)
+                } else {
+                    let n = n.to_string();
+                    let mut parts = n.split('.');
+                    let left = parts.next().unwrap();
+                    let right = parts.next();
+                    for (i, c) in left.chars().enumerate() {
+                        let i = left.len() - i - 1;
+                        write!(f, "{}", c)?;
+                        if i > 0 && i % 3 == 0 {
+                            write!(f, "_")?;
+                        }
+                    }
+                    if let Some(right) = right {
+                        write!(f, ".")?;
+                        for (i, c) in right.chars().enumerate() {
+                            write!(f, "{}", c)?;
+                            if i > 0 && i % 3 == 2 {
+                                write!(f, "_")?;
+                            }
+                        }
+                    }
+                    Ok(())
+                }
+            }
+            TT::Ident(ident) => ident.fmt(f),
+            TT::String(s) => write!(f, "{:?}", s),
+            TT::OpenParen => '('.fmt(f),
+            TT::CloseParen => ')'.fmt(f),
+            TT::OpenCurly => '{'.fmt(f),
+            TT::CloseCurly => '}'.fmt(f),
+            TT::OpenSquare => '['.fmt(f),
+            TT::CloseSquare => ']'.fmt(f),
+            TT::Plus => '+'.fmt(f),
+            TT::Minus => '-'.fmt(f),
+            TT::Multiply => '×'.fmt(f),
+            TT::Divide => '÷'.fmt(f),
+            TT::Less => '<'.fmt(f),
+            TT::LessOrEqual => '≤'.fmt(f),
+            TT::Greater => '>'.fmt(f),
+            TT::GreaterOrEqual => '≥'.fmt(f),
+            TT::Equal => '='.fmt(f),
+            TT::NotEqual => '≠'.fmt(f),
+            TT::Newline => '\n'.fmt(f),
+            TT::Comma => ','.fmt(f),
+            TT::Whitespace => ' '.fmt(f),
         }
     }
 }
@@ -129,6 +199,16 @@ pub struct Loc {
     pub col: usize,
 }
 
+impl Loc {
+    pub const fn start() -> Self {
+        Loc {
+            pos: 0,
+            line: 1,
+            col: 1,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct Span {
     pub loc: Loc,
@@ -140,11 +220,7 @@ pub struct Span {
 impl Span {
     pub fn dud() -> Self {
         Span {
-            loc: Loc {
-                pos: 0,
-                line: 1,
-                col: 1,
-            },
+            loc: Loc::start(),
             len: 0,
             input: Rc::new([]),
             file: Rc::from("".as_ref()),
@@ -249,15 +325,10 @@ impl Lexer {
     where
         P: AsRef<Path>,
     {
-        let loc = Loc {
-            pos: 0,
-            line: 1,
-            col: 1,
-        };
         Lexer {
             input: input.chars().collect::<Vec<_>>().into(),
-            start: loc,
-            loc,
+            start: Loc::start(),
+            loc: Loc::start(),
             file: file.as_ref().into(),
             tokens: Vec::new(),
             comment_depth: 0,
@@ -316,7 +387,7 @@ impl Lexer {
             self.token(a)
         }
     }
-    fn lex(mut self) -> CompileResult<Vec<Token>> {
+    fn lex(&mut self) -> CompileResult<Vec<Token>> {
         while let Some(c) = self.next() {
             match c {
                 '(' => self.token(TT::OpenParen),
@@ -334,7 +405,11 @@ impl Lexer {
                 '>' => self.token(TT::Greater),
                 '≥' => self.token(TT::GreaterOrEqual),
                 '=' => self.token(TT::Equal),
+                '≠' => self.token(TT::NotEqual),
+                ',' => self.token(TT::Comma),
+                '\n' => self.token(TT::Newline),
                 '"' => self.string()?,
+                '\\' => self.escape()?,
                 c if c.is_digit(10) => self.number(c)?,
                 c if ident_head_char(c) => {
                     let mut ident = String::from(c);
@@ -345,21 +420,40 @@ impl Lexer {
                         TT::keyword(&ident).unwrap_or_else(|| TT::Ident(ident.as_str().into())),
                     );
                 }
-                c if c.is_whitespace() => {}
+                c if c.is_whitespace() => {
+                    while self.next_if(char::is_whitespace).is_some() {}
+                    self.token(TT::Whitespace);
+                }
                 c => return self.error(CompileErrorKind::InvalidCharacter(c)),
             }
             self.start = self.loc;
         }
-        Ok(self.tokens)
+        Ok(take(&mut self.tokens))
+    }
+    fn escape(&mut self) -> CompileResult<()> {
+        let c = if let Some(c) = self.next() {
+            c
+        } else {
+            return self.error(CompileErrorKind::InvalidEscape(String::new()));
+        };
+        match c {
+            '*' => self.token(TT::Multiply),
+            '/' => self.token(TT::Divide),
+            '<' => self.token(TT::LessOrEqual),
+            '>' => self.token(TT::GreaterOrEqual),
+            '=' => self.token(TT::NotEqual),
+            c => return self.error(CompileErrorKind::InvalidEscape(c.into())),
+        }
+        Ok(())
     }
     fn number(&mut self, first: char) -> CompileResult<()> {
         let mut s = String::from(first);
-        while let Some(c) = self.next_if(|c| c.is_digit(10)) {
+        while let Some(c) = self.next_if(|c| c.is_digit(10) || c == '_') {
             s.push(c);
         }
         if self.next_if(|c| c == '.').is_some() {
             s.push('.');
-            while let Some(c) = self.next_if(|c| c.is_digit(10)) {
+            while let Some(c) = self.next_if(|c| c.is_digit(10) || c == '_') {
                 s.push(c);
             }
         }
@@ -374,12 +468,13 @@ impl Lexer {
             while let Some(c) = self.next_if(ident_body_char) {
                 s.push(c);
             }
-            if !s.ends_with(|c: char| c.is_digit(10)) {
+            if !s.ends_with(|c: char| c.is_digit(10) || c == '_') {
                 return self.error(CompileErrorKind::InvalidNumber(s));
             }
         }
-        match s.parse::<Num>() {
-            Ok(num) => self.token(TT::Num(num)),
+        let no_underscores = s.replace('_', "");
+        match no_underscores.parse::<Num>() {
+            Ok(num) => self.token(TT::Num(num, s.into())),
             Err(_) => return self.error(CompileErrorKind::InvalidNumber(s)),
         }
         Ok(())

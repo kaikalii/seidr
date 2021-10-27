@@ -1,4 +1,4 @@
-use std::{error::Error, fmt};
+use std::{error::Error, fmt, io};
 
 use colored::{Color, Colorize};
 
@@ -6,8 +6,10 @@ use crate::lex::Span;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum CompileErrorKind {
+    IO(IoError),
     InvalidCharacter(char),
     InvalidNumber(String),
+    InvalidEscape(String),
     UnclosedString,
 }
 
@@ -17,11 +19,19 @@ pub enum CompileWarningKind {}
 impl fmt::Display for CompileErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            CompileErrorKind::IO(e) => write!(f, "{}: {}", e.message, e.error),
             CompileErrorKind::InvalidCharacter(c) => write!(f, "Invalid character {:?}", c),
             CompileErrorKind::InvalidNumber(s) => write!(f, "Invalid number `{}`", s),
+            CompileErrorKind::InvalidEscape(s) => write!(f, "Invalid escape `{}`", s),
             CompileErrorKind::UnclosedString => write!(f, "Unclosed string literal"),
         }
     }
+}
+
+#[derive(Debug)]
+pub struct IoError {
+    pub message: String,
+    pub error: io::Error,
 }
 
 impl fmt::Display for CompileWarningKind {
@@ -72,6 +82,13 @@ impl PartialEq for CompileWarning {
     }
 }
 
+impl PartialEq for IoError {
+    fn eq(&self, other: &Self) -> bool {
+        self.message == other.message
+    }
+}
+
+impl Eq for IoError {}
 impl Eq for CompileError {}
 impl Eq for CompileWarning {}
 
