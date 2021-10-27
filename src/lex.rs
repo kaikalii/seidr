@@ -407,7 +407,7 @@ impl Lexer {
         }
         self.token(TT::Sep(s));
     }
-    fn escape(&mut self) -> CompileResult<()> {
+    fn escape(&mut self) -> CompileResult {
         let c = if let Some(c) = self.next() {
             c
         } else {
@@ -423,7 +423,7 @@ impl Lexer {
         }
         Ok(())
     }
-    fn number(&mut self, first: char) -> CompileResult<()> {
+    fn number(&mut self, first: char) -> CompileResult {
         let mut s = String::from(first);
         while let Some(c) = self.next_if(|c| c.is_digit(10) || c == '_') {
             s.push(c);
@@ -456,7 +456,7 @@ impl Lexer {
         }
         Ok(())
     }
-    fn string(&mut self) -> CompileResult<()> {
+    fn string(&mut self) -> CompileResult {
         let mut s = String::new();
         let mut escaped = false;
         let mut closed = false;

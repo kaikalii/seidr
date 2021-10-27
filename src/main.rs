@@ -13,8 +13,13 @@ fn main() {
     let code = std::fs::read_to_string(path).unwrap();
     match parse::parse(&code, path) {
         Ok(items) => {
+            let mut eval = eval::Evaler::default();
             for item in items {
-                println!("{:#?}", item);
+                println!("    {:#?}", item);
+                match eval.item(item) {
+                    Ok(()) => {}
+                    Err(e) => println!("{}", e),
+                }
             }
         }
         Err(e) => println!("{}", e),

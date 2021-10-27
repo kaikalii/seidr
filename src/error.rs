@@ -2,7 +2,7 @@ use std::{error::Error, fmt, io};
 
 use colored::{Color, Colorize};
 
-use crate::lex::Span;
+use crate::{eval::Type, lex::Span, op::Op};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum CompileErrorKind {
@@ -12,6 +12,9 @@ pub enum CompileErrorKind {
     InvalidEscape(String),
     ExpectedFound(String, String),
     UnclosedString,
+    IncompatibleBinTypes(Op, Type, Type),
+    NoBinaryImplementation(Op),
+    NoUnaryImplementation(Op),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -27,6 +30,15 @@ impl fmt::Display for CompileErrorKind {
             CompileErrorKind::UnclosedString => write!(f, "Unclosed string literal"),
             CompileErrorKind::ExpectedFound(expected, found) => {
                 write!(f, "Expected {}, found {}", expected, found)
+            }
+            CompileErrorKind::IncompatibleBinTypes(op, left, right) => {
+                write!(f, "{} {} {} is invalid", left, op, right)
+            }
+            CompileErrorKind::NoBinaryImplementation(op) => {
+                write!(f, "{} has no binary implementation", op)
+            }
+            CompileErrorKind::NoUnaryImplementation(op) => {
+                write!(f, "{} has no unary implementation", op)
             }
         }
     }
@@ -125,7 +137,7 @@ impl fmt::Display for Problem {
 
 impl Error for Problem {}
 
-pub type CompileResult<T> = Result<T, Problem>;
+pub type CompileResult<T = ()> = Result<T, Problem>;
 pub type WarnedCompileResult<T> = Result<(T, Vec<CompileWarning>), Problem>;
 
 impl Problem {
