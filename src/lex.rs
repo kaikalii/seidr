@@ -119,9 +119,9 @@ pub enum TT {
     Equal,
     NotEqual,
     // Misc
-    Newline,
     Comma,
     Whitespace,
+    Sep(String),
 }
 
 impl fmt::Display for TT {
@@ -172,9 +172,9 @@ impl fmt::Display for TT {
             TT::GreaterOrEqual => '≥'.fmt(f),
             TT::Equal => '='.fmt(f),
             TT::NotEqual => '≠'.fmt(f),
-            TT::Newline => '\n'.fmt(f),
             TT::Comma => ','.fmt(f),
             TT::Whitespace => ' '.fmt(f),
+            TT::Sep(s) => s.fmt(f),
         }
     }
 }
@@ -400,9 +400,9 @@ impl Lexer {
                 '=' => self.token(TT::Equal),
                 '≠' => self.token(TT::NotEqual),
                 ',' => self.token(TT::Comma),
-                '\n' => self.token(TT::Newline),
                 '"' => self.string()?,
                 '\\' => self.escape()?,
+                c if is_sep(c) => self.sep(c),
                 c if c.is_digit(10) => self.number(c)?,
                 c if ident_head_char(c) => {
                     let mut ident = String::from(c);
@@ -422,6 +422,13 @@ impl Lexer {
             self.start = self.loc;
         }
         Ok(take(&mut self.tokens))
+    }
+    fn sep(&mut self, first: char) {
+        let mut s = String::from(first);
+        while let Some(c) = self.next_if(is_sep) {
+            s.push(c);
+        }
+        self.token(TT::Sep(s));
     }
     fn escape(&mut self) -> CompileResult<()> {
         let c = if let Some(c) = self.next() {
@@ -522,4 +529,8 @@ fn ident_body_char(c: char) -> bool {
 
 fn is_runic(c: char) -> bool {
     ('ᚠ'..='ᛪ').contains(&c)
+}
+
+fn is_sep(c: char) -> bool {
+    ",\n".contains(c)
 }
