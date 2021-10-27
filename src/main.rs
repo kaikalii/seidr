@@ -7,6 +7,8 @@ mod lex;
 mod num;
 mod op;
 mod parse;
+mod types;
+mod value;
 
 fn main() {
     let path = "main.sdr";

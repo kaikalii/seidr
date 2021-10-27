@@ -6,116 +6,73 @@ use crate::{
     lex::Span,
     num::Num,
     op::{Op, Visit},
+    types::{ArrayType, AtomType, Type},
+    value::{Array, Atom, Value},
 };
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Value {
-    Num(Num),
-    Char(char),
-    Array(Array),
+#[derive(Debug, PartialEq, Eq)]
+pub enum Const {
+    Type(Type),
+    Value(Value),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Array {
-    String(String),
-    List(Vec<Value>),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Type {
-    Const(Value),
-    Num,
-    Char,
-    Array(Box<ArrayType>),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ArrayType {
-    Empty,
-    StaticHomo(Type, usize),
-    DynamicHomo(Type),
-    StaticHetero(Vec<Type>),
-}
-
-impl fmt::Display for Value {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Value::Num(n) => n.fmt(f),
-            Value::Char(c) => write!(f, "{:?}", c),
-            Value::Array(arr) => arr.fmt(f),
-        }
-    }
-}
-
-impl fmt::Display for Array {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Array::String(s) => write!(f, "{:?}", s),
-            Array::List(items) => {
-                write!(f, "[")?;
-                for (i, item) in items.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    item.fmt(f)?;
-                }
-                write!(f, "]")
-            }
-        }
-    }
-}
-
-impl fmt::Display for Type {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Type::Const(val) => val.fmt(f),
-            Type::Num => "num".fmt(f),
-            Type::Char => "char".fmt(f),
-            Type::Array(ty) => ty.fmt(f),
-        }
-    }
-}
-
-impl fmt::Display for ArrayType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ArrayType::Empty => "[]".fmt(f),
-            ArrayType::StaticHomo(ty, n) => write!(f, "[{}; {}]", ty, n),
-            ArrayType::DynamicHomo(ty) => write!(f, "[{}]", ty),
-            ArrayType::StaticHetero(tys) => f.debug_list().entries(tys).finish(),
-        }
-    }
-}
-
-impl From<ArrayType> for Type {
-    fn from(at: ArrayType) -> Self {
-        Type::Array(Box::new(at))
-    }
-}
-
-impl Value {
+impl Const {
     pub fn ty(&self) -> Type {
         match self {
-            Value::Num(_) => Type::Num,
-            Value::Char(_) => Type::Char,
-            Value::Array(arr) => match arr {
-                Array::String(s) => ArrayType::StaticHomo(Type::Char, s.chars().count()),
-                Array::List(items) => {
-                    let mut types: Vec<Type> = items.iter().map(Value::ty).collect();
-                    if types.windows(2).all(|win| win[0] == win[1]) {
-                        let len = types.len();
-                        if let Some(ty) = types.pop() {
-                            ArrayType::StaticHomo(ty, len)
-                        } else {
-                            ArrayType::Empty
-                        }
-                    } else {
-                        ArrayType::StaticHetero(types)
-                    }
-                }
-            }
-            .into(),
+            Const::Type(ty) => ty.clone(),
+            Const::Value(val) => val.ty(),
         }
+    }
+}
+
+impl fmt::Display for Const {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Const::Type(ty) => ty.fmt(f),
+            Const::Value(val) => val.fmt(f),
+        }
+    }
+}
+
+impl From<Type> for Const {
+    fn from(ty: Type) -> Self {
+        Const::Type(ty)
+    }
+}
+
+impl From<ArrayType> for Const {
+    fn from(at: ArrayType) -> Self {
+        Const::Type(at.into())
+    }
+}
+
+impl From<AtomType> for Const {
+    fn from(at: AtomType) -> Self {
+        Const::Type(at.into())
+    }
+}
+
+impl From<Value> for Const {
+    fn from(val: Value) -> Self {
+        Const::Value(val)
+    }
+}
+
+impl From<Atom> for Const {
+    fn from(atom: Atom) -> Self {
+        Const::Value(atom.into())
+    }
+}
+
+impl From<Num> for Const {
+    fn from(num: Num) -> Self {
+        Const::Value(num.into())
+    }
+}
+
+impl From<Array> for Const {
+    fn from(arr: Array) -> Self {
+        Const::Value(arr.into())
     }
 }
 
@@ -145,10 +102,10 @@ impl Evaler {
         }
         Ok(())
     }
-    fn expr(&mut self, expr: Expr) -> CompileResult<Type> {
+    fn expr(&mut self, expr: Expr) -> CompileResult<Const> {
         match expr {
             Expr::Ident(..) => todo!(),
-            Expr::Num(num, _) => Ok(Type::Const(Value::Num(num))),
+            Expr::Num(num, _) => Ok(num.into()),
             Expr::Un(expr) => {
                 let inner = self.expr(expr.inner)?;
                 expr.op.visit_un(inner, self)
@@ -163,8 +120,8 @@ impl Evaler {
 }
 
 impl Visit<Evaler> for Op {
-    type Input = Type;
-    type Output = Type;
+    type Input = Const;
+    type Output = Const;
     type Error = Problem;
     fn visit_bin(
         &self,
@@ -173,10 +130,10 @@ impl Visit<Evaler> for Op {
         state: &mut Evaler,
     ) -> Result<Self::Output, Self::Error> {
         match self {
-            Op::Add => bin_math(*self, left, right, &state.span, Num::add),
-            Op::Sub => bin_math(*self, left, right, &state.span, Num::sub),
-            Op::Mul => bin_math(*self, left, right, &state.span, Num::mul),
-            Op::Div => bin_math(*self, left, right, &state.span, Num::div),
+            Op::Add => bin_math(*self, left, right, &state.span, Atom::add),
+            Op::Sub => bin_math(*self, left, right, &state.span, Atom::sub),
+            Op::Mul => bin_math(*self, left, right, &state.span, Atom::mul),
+            Op::Div => bin_math(*self, left, right, &state.span, Atom::div),
             op => todo!("{}", op),
         }
     }
@@ -191,17 +148,37 @@ impl Visit<Evaler> for Op {
 
 fn bin_math(
     op: Op,
-    left: Type,
-    right: Type,
+    left: Const,
+    right: Const,
     span: &Span,
-    f: fn(Num, Num) -> Num,
-) -> CompileResult<Type> {
+    f: fn(Atom, Atom, &Span) -> CompileResult<Atom>,
+) -> CompileResult<Const> {
     Ok(match (left, right) {
-        (Type::Const(Value::Num(a)), Type::Const(Value::Num(b))) => {
-            Type::Const(Value::Num(f(a, b)))
-        }
+        (Const::Value(a), Const::Value(b)) => bin_math_value(op, a, b, span, f)?.into(),
         (left, right) => {
             return Err(CompileErrorKind::IncompatibleBinTypes(op, left, right).at(span.clone()))
+        }
+    })
+}
+
+fn bin_math_value(
+    op: Op,
+    left: Value,
+    right: Value,
+    span: &Span,
+    f: fn(Atom, Atom, &Span) -> CompileResult<Atom>,
+) -> CompileResult<Value> {
+    Ok(match (left, right) {
+        (Value::Atom(a), Value::Atom(b)) => Value::Atom(f(a, b, span)?),
+        (Value::Atom(a), Value::Array(b)) => Value::Array(Array::from_iter(
+            b.iter()
+                .map(|b| bin_math_value(op, Value::Atom(a), b, span, f)),
+        )?),
+        (left, right) => {
+            return Err(
+                CompileErrorKind::IncompatibleBinTypes(op, left.into(), right.into())
+                    .at(span.clone()),
+            )
         }
     })
 }

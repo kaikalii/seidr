@@ -145,6 +145,15 @@ impl From<Num> for usize {
     }
 }
 
+impl From<Num> for u32 {
+    fn from(num: Num) -> Self {
+        match num {
+            Num::Int(i) => i as u32,
+            Num::Float(f) => f as u32,
+        }
+    }
+}
+
 impl fmt::Debug for Num {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
