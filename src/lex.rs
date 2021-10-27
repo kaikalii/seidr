@@ -1,0 +1,433 @@
+use std::{
+    borrow::Borrow,
+    fmt,
+    ops::Deref,
+    path::{Path, MAIN_SEPARATOR},
+    rc::Rc,
+};
+
+use colored::{Color, Colorize};
+
+use crate::{error::*, num::Num};
+
+pub fn lex<P>(input: &str, file: P) -> CompileResult<Vec<Token>>
+where
+    P: AsRef<Path>,
+{
+    Lexer::new(input, file).lex()
+}
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Ident(Rc<str>);
+
+impl From<String> for Ident {
+    fn from(s: String) -> Self {
+        Ident(s.into())
+    }
+}
+
+impl From<Ident> for String {
+    fn from(s: Ident) -> Self {
+        (&*s.0).to_string()
+    }
+}
+
+impl<'a> From<&'a str> for Ident {
+    fn from(s: &'a str) -> Self {
+        Ident(s.into())
+    }
+}
+
+impl fmt::Debug for Ident {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl fmt::Display for Ident {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl AsRef<str> for Ident {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Borrow<str> for Ident {
+    fn borrow(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Deref for Ident {
+    type Target = str;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl PartialEq<str> for Ident {
+    fn eq(&self, other: &str) -> bool {
+        (&**self) == other
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TT {
+    // Literals
+    Num(Num),
+    Ident(Ident),
+    String(Rc<str>),
+    // Brackets
+    OpenParen,
+    CloseParen,
+    OpenCurly,
+    CloseCurly,
+    OpenSquare,
+    CloseSquare,
+    // Math
+    Plus,
+    Minus,
+    Multiply,
+    Divide,
+    // Comparison
+    Less,
+    LessOrEqual,
+    Greater,
+    GreaterOrEqual,
+    Equal,
+    NotEqual,
+}
+
+impl fmt::Display for TT {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TT::OpenParen => write!(f, "("),
+            TT::CloseParen => write!(f, ")"),
+            TT::OpenCurly => write!(f, "{{"),
+            TT::CloseCurly => write!(f, "}}"),
+            TT::OpenSquare => write!(f, "["),
+            TT::CloseSquare => write!(f, "]"),
+            _ => write!(f, "{:?}", self),
+        }
+    }
+}
+
+impl TT {
+    pub fn keyword(ident: &str) -> Option<TT> {
+        None
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Loc {
+    pub pos: usize,
+    pub line: usize,
+    pub col: usize,
+}
+
+#[derive(Clone)]
+pub struct Span {
+    pub loc: Loc,
+    pub len: usize,
+    pub input: Rc<[char]>,
+    pub file: Rc<Path>,
+}
+
+impl Span {
+    pub fn dud() -> Self {
+        Span {
+            loc: Loc {
+                pos: 0,
+                line: 1,
+                col: 1,
+            },
+            len: 0,
+            input: Rc::new([]),
+            file: Rc::from("".as_ref()),
+        }
+    }
+    pub fn as_string(&self) -> String {
+        self.as_ref().iter().copied().collect()
+    }
+    pub fn line_string(&self) -> String {
+        self.input
+            .split(|&c| c == '\n')
+            .nth(self.loc.line - 1)
+            .unwrap()
+            .iter()
+            .collect()
+    }
+    pub fn join(&self, other: &Span) -> Span {
+        let (start, end) = if self.loc.pos < other.loc.pos {
+            (self, other)
+        } else {
+            (other, self)
+        };
+        Span {
+            loc: start.loc,
+            len: end.loc.pos + end.len - start.loc.pos,
+            input: self.input.clone(),
+            file: self.file.clone(),
+        }
+    }
+    pub fn address(&self) -> String {
+        let mut s = String::new();
+        if !self.file.as_os_str().is_empty() {
+            if self.file.is_relative() {
+                s.push('.');
+                s.push(MAIN_SEPARATOR);
+            }
+            s.push_str(&self.file.to_string_lossy());
+            s.push(':');
+        }
+        s.push_str(&format!("{}:{}", self.loc.line, self.loc.col));
+        s
+    }
+    pub fn format_error(&self, f: &mut fmt::Formatter, underline_color: Color) -> fmt::Result {
+        write!(f, "{}", "\n --> ".bright_cyan())?;
+        writeln!(f, "{}", self.address().bright_cyan())?;
+        let line_num = self.loc.line.to_string();
+        let line_str = self.line_string();
+        writeln!(
+            f,
+            "{} | {}{}{}",
+            line_num,
+            &line_str[..self.loc.col - 1],
+            line_str[self.loc.col - 1..self.loc.col - 1 + self.len]
+                .bright_white()
+                .bold(),
+            &line_str[self.loc.col - 1 + self.len..]
+        )?;
+        write!(
+            f,
+            "{}{}",
+            " ".repeat(self.loc.col + line_num.len() + 2),
+            "^".repeat(self.len).color(underline_color).bold()
+        )
+    }
+}
+
+impl AsRef<[char]> for Span {
+    fn as_ref(&self) -> &[char] {
+        &self.input[self.loc.pos..self.loc.pos + self.len]
+    }
+}
+
+impl fmt::Debug for Span {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}:{}", self.loc.line, self.loc.col)
+    }
+}
+
+#[derive(Clone)]
+pub struct Token {
+    pub tt: TT,
+    pub span: Span,
+}
+
+impl fmt::Debug for Token {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?} {:?}", self.tt, self.span)
+    }
+}
+
+struct Lexer {
+    input: Rc<[char]>,
+    start: Loc,
+    loc: Loc,
+    file: Rc<Path>,
+    tokens: Vec<Token>,
+    comment_depth: usize,
+}
+
+impl Lexer {
+    fn new<P>(input: &str, file: P) -> Self
+    where
+        P: AsRef<Path>,
+    {
+        let loc = Loc {
+            pos: 0,
+            line: 1,
+            col: 1,
+        };
+        Lexer {
+            input: input.chars().collect::<Vec<_>>().into(),
+            start: loc,
+            loc,
+            file: file.as_ref().into(),
+            tokens: Vec::new(),
+            comment_depth: 0,
+        }
+    }
+    fn peek(&mut self) -> Option<char> {
+        self.input.get(self.loc.pos).copied()
+    }
+    fn next(&mut self) -> Option<char> {
+        let ch = self.peek()?;
+        self.loc.pos += 1;
+        match ch {
+            '\n' => {
+                self.loc.line += 1;
+                self.loc.col = 1;
+            }
+            '\r' => {}
+            _ => self.loc.col += 1,
+        }
+        Some(ch)
+    }
+    fn next_if<F>(&mut self, f: F) -> Option<char>
+    where
+        F: FnOnce(char) -> bool,
+    {
+        if self.peek().filter(|&c| f(c)).is_some() {
+            self.next()
+        } else {
+            None
+        }
+    }
+    fn span(&self) -> Span {
+        Span {
+            loc: self.start,
+            len: self.loc.pos - self.start.pos,
+            input: self.input.clone(),
+            file: self.file.clone(),
+        }
+    }
+    fn error<T>(&self, kind: CompileErrorKind) -> CompileResult<T> {
+        Err(kind.at(self.span()))
+    }
+    fn token(&mut self, tt: TT) {
+        if self.comment_depth > 0 {
+            return;
+        }
+        self.tokens.push(Token {
+            tt,
+            span: self.span(),
+        });
+    }
+    fn token2(&mut self, ch: char, a: TT, b: TT) {
+        if self.next_if(|c| c == ch).is_some() {
+            self.token(b)
+        } else {
+            self.token(a)
+        }
+    }
+    fn lex(mut self) -> CompileResult<Vec<Token>> {
+        while let Some(c) = self.next() {
+            match c {
+                '(' => self.token(TT::OpenParen),
+                ')' => self.token(TT::CloseParen),
+                '{' => self.token(TT::OpenCurly),
+                '}' => self.token(TT::CloseCurly),
+                '[' => self.token(TT::OpenSquare),
+                ']' => self.token(TT::CloseSquare),
+                '+' => self.token(TT::Plus),
+                '-' => self.token(TT::Minus),
+                '×' => self.token(TT::Multiply),
+                '÷' => self.token(TT::Divide),
+                '<' => self.token(TT::Less),
+                '≤' => self.token(TT::LessOrEqual),
+                '>' => self.token(TT::Greater),
+                '≥' => self.token(TT::GreaterOrEqual),
+                '=' => self.token(TT::Equal),
+                '"' => self.string()?,
+                c if c.is_digit(10) => self.number(c)?,
+                c if ident_head_char(c) => {
+                    let mut ident = String::from(c);
+                    while let Some(c) = self.next_if(ident_body_char) {
+                        ident.push(c);
+                    }
+                    self.token(
+                        TT::keyword(&ident).unwrap_or_else(|| TT::Ident(ident.as_str().into())),
+                    );
+                }
+                c if c.is_whitespace() => {}
+                c => return self.error(CompileErrorKind::InvalidCharacter(c)),
+            }
+            self.start = self.loc;
+        }
+        Ok(self.tokens)
+    }
+    fn number(&mut self, first: char) -> CompileResult<()> {
+        let mut s = String::from(first);
+        while let Some(c) = self.next_if(|c| c.is_digit(10)) {
+            s.push(c);
+        }
+        if self.next_if(|c| c == '.').is_some() {
+            s.push('.');
+            while let Some(c) = self.next_if(|c| c.is_digit(10)) {
+                s.push(c);
+            }
+        }
+        if s.ends_with('.') {
+            return self.error(CompileErrorKind::InvalidNumber(s));
+        }
+        if let Some(e) = self.next_if(|c| ['e', 'E'].contains(&c)) {
+            s.push(e);
+            if let Some(sign) = self.next_if(|c| ['+', '-'].contains(&c)) {
+                s.push(sign);
+            }
+            while let Some(c) = self.next_if(ident_body_char) {
+                s.push(c);
+            }
+            if !s.ends_with(|c: char| c.is_digit(10)) {
+                return self.error(CompileErrorKind::InvalidNumber(s));
+            }
+        }
+        match s.parse::<Num>() {
+            Ok(num) => self.token(TT::Num(num)),
+            Err(_) => return self.error(CompileErrorKind::InvalidNumber(s)),
+        }
+        Ok(())
+    }
+    fn string(&mut self) -> CompileResult<()> {
+        let mut s = String::new();
+        let mut escaped = false;
+        let mut closed = false;
+        while let Some(c) = self.next() {
+            match c {
+                '\\' if escaped.take() => s.push('\\'),
+                '"' if escaped.take() => s.push('"'),
+                'r' if escaped.take() => s.push('\r'),
+                'n' if escaped.take() => s.push('\n'),
+                't' if escaped.take() => s.push('\t'),
+                '0' if escaped.take() => s.push('\0'),
+                '\\' => escaped = true,
+                '"' => {
+                    closed = true;
+                    break;
+                }
+                c => s.push(c),
+            }
+        }
+        if !closed {
+            return self.error(CompileErrorKind::UnclosedString);
+        }
+        self.token(TT::String(s.into()));
+        Ok(())
+    }
+}
+
+trait BoolTake {
+    fn take(&mut self) -> bool;
+}
+
+impl BoolTake for bool {
+    fn take(&mut self) -> bool {
+        let res = *self;
+        *self = false;
+        res
+    }
+}
+
+fn ident_head_char(c: char) -> bool {
+    !c.is_digit(10) && ident_body_char(c)
+}
+
+fn ident_body_char(c: char) -> bool {
+    !c.is_whitespace() && !"()[]{}|=.,+-*/<>!:\"".contains(c)
+}
