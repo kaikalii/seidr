@@ -17,22 +17,9 @@ pub fn lex<P>(input: &str, file: P) -> CompileResult<Vec<Token>>
 where
     P: AsRef<Path>,
 {
+    // Get tokens
     let mut lexer = Lexer::new(input, &file);
-    let tokens = lexer.lex()?;
-    match OpenOptions::new().write(true).truncate(true).open(&file) {
-        Ok(mut file) => {
-            for token in &tokens {
-                write!(file, "{}", token.tt).unwrap();
-            }
-        }
-        Err(error) => {
-            return lexer.error(CompileErrorKind::IO(IoError {
-                message: format!("Unable to format `{}`", file.as_ref().to_string_lossy()),
-                error,
-            }))
-        }
-    }
-    Ok(tokens)
+    lexer.lex()
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -112,7 +99,7 @@ pub enum TT {
     // Misc
     Comma,
     Whitespace,
-    Sep(String),
+    Newline,
 }
 
 impl fmt::Display for TT {
@@ -157,12 +144,15 @@ impl fmt::Display for TT {
             TT::Op(op) => op.glyph().fmt(f),
             TT::Comma => ','.fmt(f),
             TT::Whitespace => ' '.fmt(f),
-            TT::Sep(s) => s.fmt(f),
+            TT::Newline => '\n'.fmt(f),
         }
     }
 }
 
 impl TT {
+    pub fn is_sep(&self) -> bool {
+        matches!(self, TT::Comma | TT::Newline)
+    }
     pub fn keyword(ident: &str) -> Option<TT> {
         None
     }
@@ -373,6 +363,7 @@ impl Lexer {
                 '[' => self.token(TT::OpenSquare),
                 ']' => self.token(TT::CloseSquare),
                 ',' => self.token(TT::Comma),
+                '\n' => self.token(TT::Newline),
                 '"' => self.string()?,
                 '\'' => {
                     if let Some(c) = self.char_literal('\'', CompileErrorKind::UnclosedChar)? {
@@ -385,7 +376,6 @@ impl Lexer {
                     }
                 }
                 '\\' => self.escape()?,
-                c if is_sep(c) => self.sep(c),
                 c if c.is_digit(10) => self.number(c)?,
                 c if ident_head_char(c) => {
                     let mut ident = String::from(c);
@@ -397,7 +387,7 @@ impl Lexer {
                     );
                 }
                 c if c.is_whitespace() => {
-                    while self.next_if(char::is_whitespace).is_some() {}
+                    while self.next_if(|c| c.is_whitespace() && c == '\n').is_some() {}
                     self.token(TT::Whitespace);
                 }
                 c => {
@@ -411,13 +401,6 @@ impl Lexer {
             self.start = self.loc;
         }
         Ok(take(&mut self.tokens))
-    }
-    fn sep(&mut self, first: char) {
-        let mut s = String::from(first);
-        while let Some(c) = self.next_if(is_sep) {
-            s.push(c);
-        }
-        self.token(TT::Sep(s));
     }
     fn escape(&mut self) -> CompileResult {
         let c = if let Some(c) = self.next() {
@@ -531,8 +514,4 @@ fn ident_body_char(c: char) -> bool {
 
 fn is_runic(c: char) -> bool {
     ('ᚠ'..='ᛪ').contains(&c)
-}
-
-fn is_sep(c: char) -> bool {
-    ",\n".contains(c)
 }

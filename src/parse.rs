@@ -1,8 +1,8 @@
-use std::path::Path;
+use std::{fs::OpenOptions, io::Write, path::Path};
 
 use crate::{
     ast::*,
-    error::{CompileErrorKind, CompileResult},
+    error::{CompileErrorKind, CompileResult, IoError},
     lex::*,
     num::Num,
     op::Op,
@@ -12,13 +12,30 @@ pub fn parse<P>(input: &str, file: P) -> CompileResult<Vec<Item>>
 where
     P: AsRef<Path>,
 {
-    let tokens = lex(input, file)?;
+    let tokens = lex(input, &file)?;
     let mut parser = Parser { tokens, curr: 0 };
     let items = parser.items()?;
     if let Some(token) = parser.next() {
         return Err(
             CompileErrorKind::ExpectedFound("item".into(), token.span.as_string()).at(token.span),
         );
+    }
+    // Write back to file
+    match OpenOptions::new().write(true).truncate(true).open(&file) {
+        Ok(mut file) => {
+            let mut formatter = Formatter::new(file);
+            for item in &items {
+                let _ = item.format(&mut formatter);
+                let _ = writeln!(formatter);
+            }
+        }
+        Err(error) => {
+            return Err(CompileErrorKind::IO(IoError {
+                message: format!("Unable to format `{}`", file.as_ref().to_string_lossy()),
+                error,
+            })
+            .at(Span::dud()))
+        }
     }
     Ok(items)
 }
@@ -33,7 +50,8 @@ type Sp<T> = (T, Span);
 impl Parser {
     fn skip_whitespace(&mut self) {
         while let Some(Token {
-            tt: TT::Whitespace, ..
+            tt: TT::Whitespace | TT::Newline,
+            ..
         }) = self.tokens.get(self.curr)
         {
             self.curr += 1;
@@ -105,17 +123,17 @@ impl Parser {
         Ok(items)
     }
     fn item(&mut self) -> CompileResult<Option<Item>> {
-        Ok(Some(if let Some(expr) = self.expression()? {
+        Ok(Some(if let Some(expr) = self.expression(false)? {
             Item::Expr(expr)
         } else {
             return Ok(None);
         }))
     }
-    fn expect_expression(&mut self) -> CompileResult<Expr> {
-        let expr = self.expression()?;
+    fn expect_expression(&mut self, parened: bool) -> CompileResult<Expr> {
+        let expr = self.expression(parened)?;
         self.expect("expression", expr)
     }
-    fn expression(&mut self) -> CompileResult<Option<Expr>> {
+    fn expression(&mut self, parened: bool) -> CompileResult<Option<Expr>> {
         fn op(tt: &TT) -> Option<Op> {
             if let TT::Op(op) = tt {
                 Some(*op)
@@ -126,7 +144,7 @@ impl Parser {
         Ok(Some(if let Some(expr) = self.terminal()? {
             if let Some((op, op_span)) = self.match_to(op) {
                 let left = expr;
-                let right = self.expect_expression()?;
+                let right = self.expect_expression(false)?;
                 let span = left.span().join(right.span());
                 Expr::Bin(
                     BinExpr {
@@ -135,6 +153,7 @@ impl Parser {
                         right,
                         op_span,
                         span,
+                        parened,
                     }
                     .into(),
                 )
@@ -142,7 +161,7 @@ impl Parser {
                 expr
             }
         } else if let Some((op, op_span)) = self.match_to(op) {
-            let inner = self.expect_expression()?;
+            let inner = self.expect_expression(false)?;
             let span = op_span.join(inner.span());
             Expr::Un(
                 UnExpr {
@@ -150,6 +169,7 @@ impl Parser {
                     inner,
                     span,
                     op_span,
+                    parened,
                 }
                 .into(),
             )
@@ -178,6 +198,10 @@ impl Parser {
             Expr::Char(c, span)
         } else if let Some((ident, span)) = self.ident() {
             Expr::Ident(ident, span)
+        } else if self.match_token(TT::OpenParen).is_some() {
+            let expr = self.expect_expression(true)?;
+            self.expect_token(TT::CloseParen)?;
+            expr
         } else {
             return Ok(None);
         }))
