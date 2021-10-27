@@ -4,6 +4,8 @@ use crate::{
     ast::*,
     error::{CompileErrorKind, CompileResult},
     lex::*,
+    num::Num,
+    op::Op,
 };
 
 pub fn parse<P>(input: &str, file: P) -> CompileResult<Vec<Item>>
@@ -67,7 +69,7 @@ impl Parser {
         self.tokens.get(self.curr)
     }
     fn next(&mut self) -> Option<Token> {
-        let token = self.tokens.get(self.curr - 1).cloned()?;
+        let token = self.tokens.get(self.curr).cloned()?;
         self.increment();
         Some(token)
     }
@@ -114,6 +116,71 @@ impl Parser {
         self.expect("expression", expr)
     }
     fn expression(&mut self) -> CompileResult<Option<Expr>> {
-        todo!()
+        fn op(tt: &TT) -> Option<Op> {
+            if let TT::Op(op) = tt {
+                Some(*op)
+            } else {
+                None
+            }
+        }
+        Ok(Some(if let Some(expr) = self.terminal()? {
+            if let Some((op, op_span)) = self.match_to(op) {
+                let left = expr;
+                let right = self.expect_expression()?;
+                let span = left.span().join(right.span());
+                Expr::Bin(
+                    BinExpr {
+                        op,
+                        left,
+                        right,
+                        op_span,
+                        span,
+                    }
+                    .into(),
+                )
+            } else {
+                expr
+            }
+        } else if let Some((op, op_span)) = self.match_to(op) {
+            let inner = self.expect_expression()?;
+            let span = op_span.join(inner.span());
+            Expr::Un(
+                UnExpr {
+                    op,
+                    inner,
+                    span,
+                    op_span,
+                }
+                .into(),
+            )
+        } else {
+            return Ok(None);
+        }))
+    }
+    fn terminal(&mut self) -> CompileResult<Option<Expr>> {
+        fn num(tt: &TT) -> Option<Num> {
+            if let TT::Num(num, _) = tt {
+                Some(*num)
+            } else {
+                None
+            }
+        }
+        Ok(Some(if let Some((num, span)) = self.match_to(num) {
+            Expr::Num(num, span)
+        } else if let Some((ident, span)) = self.ident() {
+            Expr::Ident(ident, span)
+        } else {
+            return Ok(None);
+        }))
+    }
+    fn ident(&mut self) -> Option<(Ident, Span)> {
+        fn ident(tt: &TT) -> Option<Ident> {
+            if let TT::Ident(ident) = tt {
+                Some(ident.clone())
+            } else {
+                None
+            }
+        }
+        self.match_to(ident)
     }
 }

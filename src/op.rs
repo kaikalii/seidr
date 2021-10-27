@@ -1,3 +1,5 @@
+use std::fmt;
+
 pub trait Visit<S> {
     type Input;
     type Output;
@@ -28,6 +30,14 @@ macro_rules! op {
                 match glyph {
                     $($glyph => Some(Op::$name),)*
                     _ => None,
+                }
+            }
+        }
+
+        impl fmt::Display for Op {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                match self {
+                    $(Op::$name => $glyph.fmt(f),)*
                 }
             }
         }

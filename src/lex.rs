@@ -58,7 +58,7 @@ impl<'a> From<&'a str> for Ident {
 
 impl fmt::Debug for Ident {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
+        write!(f, "{}", self)
     }
 }
 
