@@ -17,13 +17,6 @@ pub fn lex<P>(input: &str, file: P) -> CompileResult<Vec<Token>>
 where
     P: AsRef<Path>,
 {
-    Lexer::new(input, file).lex()
-}
-
-pub fn lex_format<P>(input: &str, file: P) -> CompileResult<Vec<Token>>
-where
-    P: AsRef<Path>,
-{
     let mut lexer = Lexer::new(input, &file);
     let tokens = lexer.lex()?;
     match OpenOptions::new().write(true).truncate(true).open(&file) {
