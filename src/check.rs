@@ -110,7 +110,7 @@ impl Check {
             let all_same = types.windows(2).all(|win| win[0] == win[1]);
             if all_same {
                 let len = types.len();
-                ArrayType::StaticHomo(types.pop().unwrap(), len)
+                ArrayType::StaticHomo(types.pop().unwrap().into(), len)
             } else {
                 ArrayType::StaticHetero(types)
             }

@@ -115,13 +115,15 @@ impl Value {
         match self {
             Value::Atom(atom) => atom.ty().into(),
             Value::Array(arr) => match arr {
-                Array::String(s) => ArrayType::StaticHomo(AtomType::Char.into(), s.chars().count()),
+                Array::String(s) => {
+                    ArrayType::StaticHomo(Box::new(AtomType::Char.into()), s.chars().count())
+                }
                 Array::List(items) => {
                     let mut types: Vec<Type> = items.iter().map(Value::ty).collect();
                     if types.windows(2).all(|win| win[0] == win[1]) {
                         let len = types.len();
                         if let Some(ty) = types.pop() {
-                            ArrayType::StaticHomo(ty, len)
+                            ArrayType::StaticHomo(ty.into(), len)
                         } else {
                             ArrayType::Empty
                         }

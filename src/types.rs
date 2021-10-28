@@ -10,7 +10,7 @@ use crate::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     Atom(AtomType),
-    Array(Box<ArrayType>),
+    Array(ArrayType),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -22,8 +22,8 @@ pub enum AtomType {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ArrayType {
     Empty,
-    StaticHomo(Type, usize),
-    DynamicHomo(Type),
+    StaticHomo(Box<Type>, usize),
+    DynamicHomo(Box<Type>),
     StaticHetero(Vec<Type>),
 }
 
@@ -73,6 +73,23 @@ impl From<AtomType> for Type {
 
 impl From<ArrayType> for Type {
     fn from(at: ArrayType) -> Self {
-        Type::Array(Box::new(at))
+        Type::Array(at)
+    }
+}
+
+impl FromIterator<Type> for Type {
+    fn from_iter<T>(iter: T) -> Self
+    where
+        T: IntoIterator<Item = Type>,
+    {
+        let mut tys: Vec<Type> = iter.into_iter().collect();
+        let all_same = tys.windows(2).all(|win| win[0] == win[1]);
+        if all_same {
+            let len = tys.len();
+            ArrayType::StaticHomo(tys.pop().unwrap().into(), len)
+        } else {
+            ArrayType::StaticHetero(tys)
+        }
+        .into()
     }
 }

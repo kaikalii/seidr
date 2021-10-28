@@ -53,13 +53,13 @@ impl Evaler {
                 Check::from_try_iter(expr.items.into_iter().map(|expr| self.expr(expr)))
             }
             Expr::Un(expr) => {
-                let inner = self.expr(expr.inner)?;
-                expr.op.visit_un(inner, self)
+                let x = self.expr(expr.inner)?;
+                expr.op.visit_un(x, self)
             }
             Expr::Bin(expr) => {
-                let left = self.expr(expr.left)?;
-                let right = self.expr(expr.right)?;
-                expr.op.visit_bin(left, right, self)
+                let w = self.expr(expr.left)?;
+                let x = self.expr(expr.right)?;
+                expr.op.visit_bin(w, x, self)
             }
         };
         self.spans.pop().unwrap();
@@ -73,49 +73,46 @@ impl Visit<Evaler> for Op {
     type Error = Problem;
     fn visit_bin(
         &self,
-        left: Self::Input,
-        right: Self::Input,
+        w: Self::Input,
+        x: Self::Input,
         state: &mut Evaler,
     ) -> Result<Self::Output, Self::Error> {
         match self {
-            Op::Add => pervasize_bin(*self, left, right, Atom::add),
-            Op::Sub => pervasize_bin(*self, left, right, Atom::sub),
-            Op::Mul => pervasize_bin(*self, left, right, Atom::mul),
-            Op::Div => pervasize_bin(*self, left, right, Atom::div),
-            Op::Equal => pervasize_bin(*self, left, right, |a, b| Ok((a == b).into())),
-            Op::NotEqual => pervasize_bin(*self, left, right, |a, b| Ok((a != b).into())),
-            Op::Less => pervasize_bin(*self, left, right, |a, b| Ok((a < b).into())),
-            Op::LessOrEqual => pervasize_bin(*self, left, right, |a, b| Ok((a <= b).into())),
-            Op::Greater => pervasize_bin(*self, left, right, |a, b| Ok((a > b).into())),
-            Op::GreaterOrEqual => pervasize_bin(*self, left, right, |a, b| Ok((a >= b).into())),
-            op => Err(CompileError::IncompatibleBinTypes(*op, left, right)),
+            Op::Add => pervasize_bin(*self, w, x, Atom::add),
+            Op::Sub => pervasize_bin(*self, w, x, Atom::sub),
+            Op::Mul => pervasize_bin(*self, w, x, Atom::mul),
+            Op::Div => pervasize_bin(*self, w, x, Atom::div),
+            Op::Equal => pervasize_bin(*self, w, x, |w, x| Ok((w == x).into())),
+            Op::NotEqual => pervasize_bin(*self, w, x, |w, x| Ok((w != x).into())),
+            Op::Less => pervasize_bin(*self, w, x, |w, x| Ok((w < x).into())),
+            Op::LessOrEqual => pervasize_bin(*self, w, x, |w, x| Ok((w <= x).into())),
+            Op::Greater => pervasize_bin(*self, w, x, |w, x| Ok((w > x).into())),
+            Op::GreaterOrEqual => pervasize_bin(*self, w, x, |w, x| Ok((w >= x).into())),
+            Op::Jera => bin_jera(w, x),
+            op => Err(CompileError::IncompatibleBinTypes(*op, w, x)),
         }
         .map_err(|e| e.at(state.span().clone()))
     }
-    fn visit_un(
-        &self,
-        inner: Self::Input,
-        state: &mut Evaler,
-    ) -> Result<Self::Output, Self::Error> {
+    fn visit_un(&self, x: Self::Input, state: &mut Evaler) -> Result<Self::Output, Self::Error> {
         match self {
-            Op::Add => pervasive_un(*self, inner, Ok),
-            Op::Sub => pervasive_un(*self, inner, |atom| match atom {
+            Op::Add => pervasive_un(*self, x, Ok),
+            Op::Sub => pervasive_un(*self, x, |atom| match atom {
                 Atom::Num(n) => Ok(Atom::Num(-n)),
                 Atom::Char(_) => Err(CompileError::IncompatibleUnType(Op::Sub, atom.into())),
             }),
-            Op::Mul => pervasive_un(*self, inner, |atom| match atom {
+            Op::Mul => pervasive_un(*self, x, |atom| match atom {
                 Atom::Num(n) => Ok(Atom::Num(n.sign())),
                 Atom::Char(_) => Err(CompileError::IncompatibleUnType(Op::Mul, atom.into())),
             }),
-            Op::Div => pervasive_un(*self, inner, |atom| match atom {
+            Op::Div => pervasive_un(*self, x, |atom| match atom {
                 Atom::Num(n) => Ok(Atom::Num(Num::Int(1) / n)),
                 Atom::Char(_) => Err(CompileError::IncompatibleUnType(Op::Div, atom.into())),
             }),
-            Op::Equal => Ok(Num::from(match inner {
+            Op::Equal => Ok(Num::from(match x {
                 Check::Value(Value::Atom(_)) => 0,
                 Check::Value(Value::Array(arr)) => arr.len(),
                 Check::Type(Type::Atom(_)) => 0,
-                Check::Type(Type::Array(arr)) => match *arr {
+                Check::Type(Type::Array(arr)) => match arr {
                     ArrayType::Empty => 0,
                     ArrayType::StaticHomo(_, len) => len,
                     ArrayType::StaticHetero(tys) => tys.len(),
@@ -123,23 +120,8 @@ impl Visit<Evaler> for Op {
                 },
             })
             .into()),
-            Op::Jera => Ok(match inner {
-                Check::Value(Value::Atom(_)) | Check::Type(Type::Atom(_)) => inner,
-                Check::Value(Value::Array(array)) => {
-                    let mut values: Vec<Value> = array.into_iter().collect();
-                    values.reverse();
-                    Array::from_iter(values).into()
-                }
-                Check::Type(Type::Array(arr)) => match *arr {
-                    ArrayType::StaticHetero(mut tys) => {
-                        tys.reverse();
-                        ArrayType::StaticHetero(tys)
-                    }
-                    arr => arr,
-                }
-                .into(),
-            }),
-            op => Err(CompileError::IncompatibleUnType(*op, inner)),
+            Op::Jera => Ok(un_jera(x)),
+            op => op.err_un(x),
         }
         .map_err(|e| e.at(state.span().clone()))
     }
@@ -147,65 +129,102 @@ impl Visit<Evaler> for Op {
 
 fn pervasize_bin(
     op: Op,
-    left: Check,
-    right: Check,
+    w: Check,
+    x: Check,
     f: fn(Atom, Atom) -> EvalResult<Atom>,
 ) -> EvalResult<Check> {
-    match (left, right) {
-        (Check::Value(a), Check::Value(b)) => pervasize_bin_value(op, a, b, f).map(Into::into),
-        (left, right) => Err(CompileError::IncompatibleBinTypes(op, left, right)),
+    match (w, x) {
+        (Check::Value(w), Check::Value(x)) => pervasize_bin_value(op, w, x, f).map(Into::into),
+        (w, x) => op.err_bin(w, x),
     }
 }
 
 fn pervasize_bin_value(
     op: Op,
-    left: Value,
-    right: Value,
+    w: Value,
+    x: Value,
     f: fn(Atom, Atom) -> EvalResult<Atom>,
 ) -> EvalResult<Value> {
-    Ok(match (left, right) {
-        (Value::Atom(a), Value::Atom(b)) => Value::Atom(f(a, b)?),
-        (Value::Atom(a), Value::Array(b)) => Value::Array(Array::from_try_iter(
-            b.iter()
-                .map(|b| pervasize_bin_value(op, Value::Atom(a), b, f)),
+    Ok(match (w, x) {
+        (Value::Atom(w), Value::Atom(x)) => Value::Atom(f(w, x)?),
+        (Value::Atom(w), Value::Array(x)) => Value::Array(Array::from_try_iter(
+            x.iter()
+                .map(|b| pervasize_bin_value(op, Value::Atom(w), b, f)),
         )?),
-        (Value::Array(a), Value::Atom(b)) => Value::Array(Array::from_try_iter(
-            a.iter()
-                .map(|a| pervasize_bin_value(op, a, Value::Atom(b), f)),
+        (Value::Array(w), Value::Atom(x)) => Value::Array(Array::from_try_iter(
+            w.iter()
+                .map(|a| pervasize_bin_value(op, a, Value::Atom(x), f)),
         )?),
-        (Value::Array(a), Value::Array(b)) => {
-            if a.len() == b.len() {
+        (Value::Array(w), Value::Array(x)) => {
+            if w.len() == x.len() {
                 Value::Array(Array::from_try_iter(
-                    a.into_iter()
-                        .zip(b.into_iter())
-                        .map(|(a, b)| pervasize_bin_value(op, a, b, f)),
+                    w.into_iter()
+                        .zip(x.into_iter())
+                        .map(|(w, x)| pervasize_bin_value(op, w, x, f)),
                 )?)
             } else {
-                return Err(CompileError::DifferentArraySizes(op, a.into(), b.into()));
+                return Err(CompileError::DifferentArraySizes(op, w.into(), x.into()));
             }
         }
-        (left, right) => {
-            return Err(CompileError::IncompatibleBinTypes(
-                op,
-                left.into(),
-                right.into(),
-            ))
-        }
+        (w, x) => return op.err_bin(w, x),
     })
 }
 
-fn pervasive_un(op: Op, inner: Check, f: fn(Atom) -> EvalResult<Atom>) -> EvalResult<Check> {
-    match inner {
+fn pervasive_un(op: Op, x: Check, f: fn(Atom) -> EvalResult<Atom>) -> EvalResult<Check> {
+    match x {
         Check::Value(val) => pervasive_un_value(op, val, f).map(Into::into),
-        inner => Err(CompileError::IncompatibleUnType(op, inner)),
+        x => op.err_un(x),
     }
 }
 
-fn pervasive_un_value(op: Op, inner: Value, f: fn(Atom) -> EvalResult<Atom>) -> EvalResult<Value> {
-    Ok(match inner {
+fn pervasive_un_value(op: Op, x: Value, f: fn(Atom) -> EvalResult<Atom>) -> EvalResult<Value> {
+    Ok(match x {
         Value::Atom(atom) => f(atom)?.into(),
         Value::Array(arr) => {
             Array::from_try_iter(arr.into_iter().map(|val| pervasive_un_value(op, val, f)))?.into()
         }
     })
+}
+
+fn un_jera(x: Check) -> Check {
+    match x {
+        Check::Type(Type::Array(ArrayType::StaticHetero(mut tys))) => {
+            tys.reverse();
+            ArrayType::StaticHetero(tys).into()
+        }
+        Check::Value(Value::Atom(_)) | Check::Type(Type::Atom(_)) => x,
+        Check::Value(Value::Array(array)) => {
+            let mut values: Vec<Value> = array.into_iter().collect();
+            values.reverse();
+            Array::from_iter(values).into()
+        }
+        Check::Type(Type::Array(arr)) => arr.into(),
+    }
+}
+
+fn bin_jera(w: Check, x: Check) -> EvalResult<Check> {
+    match (w, x) {
+        (Check::Value(Value::Atom(Atom::Num(n))), Check::Value(Value::Array(arr))) => {
+            let mut values: Vec<Value> = arr.into_iter().collect();
+            if n >= 0 {
+                values.rotate_left(n.into())
+            } else {
+                values.rotate_right(-i64::from(n) as usize)
+            }
+            Ok(Array::from_iter(values).into())
+        }
+        (
+            Check::Value(Value::Atom(Atom::Num(n))),
+            Check::Type(Type::Array(ArrayType::StaticHetero(mut tys))),
+        ) => {
+            if n >= 0 {
+                tys.rotate_left(n.into())
+            } else {
+                tys.rotate_right(-i64::from(n) as usize)
+            }
+            Ok(Type::from_iter(tys).into())
+        }
+        (Check::Value(Value::Atom(Atom::Num(_))), Check::Type(Type::Array(arr))) => Ok(arr.into()),
+        (w, x) => Op::Jera.err_bin(w, x),
+    }
 }
