@@ -19,6 +19,7 @@ where
 {
     let tokens = lex(input, &file)?;
     let mut parser = Parser { tokens, curr: 0 };
+    parser.skip_whitespace();
     let items = parser.items()?;
     if let Some(token) = parser.next() {
         return Err(

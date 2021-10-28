@@ -1,14 +1,14 @@
 use std::fmt;
 
 use crate::{
-    check::Check,
     error::CompileResult,
+    ev::Ev,
     num::Num,
-    value::{Array, Value},
+    value::{Array, Val},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Type {
+pub enum Ty {
     Atom(AtomType),
     Array(ArrayType),
 }
@@ -22,16 +22,16 @@ pub enum AtomType {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ArrayType {
     Empty,
-    StaticHomo(Box<Type>, usize),
-    DynamicHomo(Box<Type>),
-    StaticHetero(Vec<Type>),
+    StaticHomo(Box<Ty>, usize),
+    DynamicHomo(Box<Ty>),
+    StaticHetero(Vec<Ty>),
 }
 
-impl fmt::Display for Type {
+impl fmt::Display for Ty {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Type::Atom(ty) => ty.fmt(f),
-            Type::Array(ty) => ty.fmt(f),
+            Ty::Atom(ty) => ty.fmt(f),
+            Ty::Array(ty) => ty.fmt(f),
         }
     }
 }
@@ -65,24 +65,24 @@ impl fmt::Display for ArrayType {
     }
 }
 
-impl From<AtomType> for Type {
+impl From<AtomType> for Ty {
     fn from(at: AtomType) -> Self {
-        Type::Atom(at)
+        Ty::Atom(at)
     }
 }
 
-impl From<ArrayType> for Type {
+impl From<ArrayType> for Ty {
     fn from(at: ArrayType) -> Self {
-        Type::Array(at)
+        Ty::Array(at)
     }
 }
 
-impl FromIterator<Type> for Type {
+impl FromIterator<Ty> for Ty {
     fn from_iter<T>(iter: T) -> Self
     where
-        T: IntoIterator<Item = Type>,
+        T: IntoIterator<Item = Ty>,
     {
-        let mut tys: Vec<Type> = iter.into_iter().collect();
+        let mut tys: Vec<Ty> = iter.into_iter().collect();
         let all_same = tys.windows(2).all(|win| win[0] == win[1]);
         if all_same {
             let len = tys.len();

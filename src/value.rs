@@ -6,7 +6,7 @@ use crate::{
     lex::Span,
     num::Num,
     op::Op,
-    types::{ArrayType, AtomType, Type},
+    types::{ArrayType, AtomType, Ty},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -16,7 +16,7 @@ pub enum Atom {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Value {
+pub enum Val {
     Atom(Atom),
     Array(Array),
 }
@@ -24,7 +24,7 @@ pub enum Value {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Array {
     String(Rc<str>),
-    List(Vec<Value>),
+    List(Vec<Val>),
 }
 
 impl Array {
@@ -40,17 +40,17 @@ impl Array {
             Array::List(list) => list.len(),
         }
     }
-    pub fn iter(&self) -> Box<dyn Iterator<Item = Value> + '_> {
+    pub fn iter(&self) -> Box<dyn Iterator<Item = Val> + '_> {
         match self {
-            Array::String(s) => Box::new(s.chars().map(Atom::Char).map(Value::Atom)),
+            Array::String(s) => Box::new(s.chars().map(Atom::Char).map(Val::Atom)),
             Array::List(list) => Box::new(list.iter().cloned()),
         }
     }
 }
 
 impl IntoIterator for Array {
-    type Item = Value;
-    type IntoIter = Box<dyn Iterator<Item = Value>>;
+    type Item = Val;
+    type IntoIter = Box<dyn Iterator<Item = Val>>;
     fn into_iter(self) -> Self::IntoIter {
         match self {
             Array::String(s) => Box::new(
@@ -58,18 +58,18 @@ impl IntoIterator for Array {
                     .collect::<Vec<_>>()
                     .into_iter()
                     .map(Atom::Char)
-                    .map(Value::Atom),
+                    .map(Val::Atom),
             ),
             Array::List(list) => Box::new(list.into_iter()),
         }
     }
 }
 
-impl fmt::Display for Value {
+impl fmt::Display for Val {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Value::Atom(atom) => atom.fmt(f),
-            Value::Array(arr) => arr.fmt(f),
+            Val::Atom(atom) => atom.fmt(f),
+            Val::Array(arr) => arr.fmt(f),
         }
     }
 }
@@ -110,16 +110,16 @@ impl Atom {
     }
 }
 
-impl Value {
-    pub fn ty(&self) -> Type {
+impl Val {
+    pub fn ty(&self) -> Ty {
         match self {
-            Value::Atom(atom) => atom.ty().into(),
-            Value::Array(arr) => match arr {
+            Val::Atom(atom) => atom.ty().into(),
+            Val::Array(arr) => match arr {
                 Array::String(s) => {
                     ArrayType::StaticHomo(Box::new(AtomType::Char.into()), s.chars().count())
                 }
                 Array::List(items) => {
-                    let mut types: Vec<Type> = items.iter().map(Value::ty).collect();
+                    let mut types: Vec<Ty> = items.iter().map(Val::ty).collect();
                     if types.windows(2).all(|win| win[0] == win[1]) {
                         let len = types.len();
                         if let Some(ty) = types.pop() {
@@ -143,27 +143,27 @@ impl From<bool> for Atom {
     }
 }
 
-impl From<Atom> for Value {
+impl From<Atom> for Val {
     fn from(atom: Atom) -> Self {
-        Value::Atom(atom)
+        Val::Atom(atom)
     }
 }
 
-impl From<Num> for Value {
+impl From<Num> for Val {
     fn from(num: Num) -> Self {
         Atom::Num(num).into()
     }
 }
 
-impl From<char> for Value {
+impl From<char> for Val {
     fn from(c: char) -> Self {
         Atom::Char(c).into()
     }
 }
 
-impl From<Array> for Value {
+impl From<Array> for Val {
     fn from(arr: Array) -> Self {
-        Value::Array(arr)
+        Val::Array(arr)
     }
 }
 
@@ -222,10 +222,10 @@ impl Atom {
     }
 }
 
-impl FromIterator<Value> for Array {
+impl FromIterator<Val> for Array {
     fn from_iter<T>(iter: T) -> Self
     where
-        T: IntoIterator<Item = Value>,
+        T: IntoIterator<Item = Val>,
     {
         Array::from_try_iter::<_, Infallible>(iter.into_iter().map(Ok)).unwrap()
     }
@@ -234,19 +234,19 @@ impl FromIterator<Value> for Array {
 impl Array {
     pub fn from_try_iter<I, E>(iter: I) -> Result<Array, E>
     where
-        I: IntoIterator<Item = Result<Value, E>>,
+        I: IntoIterator<Item = Result<Val, E>>,
     {
-        let items: Vec<Value> = iter.into_iter().collect::<Result<_, _>>()?;
+        let items: Vec<Val> = iter.into_iter().collect::<Result<_, _>>()?;
         Ok(
             if items
                 .iter()
-                .all(|value| matches!(value, Value::Atom(Atom::Char(_))))
+                .all(|value| matches!(value, Val::Atom(Atom::Char(_))))
             {
                 Array::String(
                     items
                         .into_iter()
                         .map(|val| {
-                            if let Value::Atom(Atom::Char(c)) = val {
+                            if let Val::Atom(Atom::Char(c)) = val {
                                 c
                             } else {
                                 unreachable!()
