@@ -41,6 +41,7 @@ pub enum Expr {
     String(Rc<str>, Span),
     Array(ArrayExpr),
     Ident(Ident, Span),
+    Op(Op, Span),
     Un(Box<UnExpr>),
     Bin(Box<BinExpr>),
 }
@@ -51,7 +52,8 @@ impl Expr {
             Expr::Char(_, span)
             | Expr::Num(_, span)
             | Expr::Ident(_, span)
-            | Expr::String(_, span) => span,
+            | Expr::String(_, span)
+            | Expr::Op(_, span) => span,
             Expr::Array(expr) => &expr.span,
             Expr::Un(expr) => &expr.span,
             Expr::Bin(expr) => &expr.span,
@@ -67,6 +69,7 @@ impl fmt::Debug for Expr {
             Expr::Ident(ident, _) => ident.fmt(f),
             Expr::String(string, _) => string.fmt(f),
             Expr::Array(expr) => expr.fmt(f),
+            Expr::Op(op, _) => write!(f, "{}", op),
             Expr::Un(expr) => expr.fmt(f),
             Expr::Bin(expr) => expr.fmt(f),
         }
@@ -181,6 +184,7 @@ impl Format for Expr {
             Expr::Char(c, _) => write!(f, "{:?}", c),
             Expr::String(string, _) => write!(f, "{:?}", string),
             Expr::Ident(ident, _) => write!(f, "{}", ident),
+            Expr::Op(op, _) => write!(f, "{}", op),
             Expr::Array(expr) => expr.format(f),
             Expr::Un(expr) => expr.format(f),
             Expr::Bin(expr) => expr.format(f),

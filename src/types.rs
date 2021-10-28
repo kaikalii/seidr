@@ -17,6 +17,7 @@ pub enum Ty {
 pub enum AtomType {
     Num,
     Char,
+    Op,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -41,6 +42,7 @@ impl fmt::Display for AtomType {
         match self {
             AtomType::Num => "num".fmt(f),
             AtomType::Char => "char".fmt(f),
+            AtomType::Op => "op".fmt(f),
         }
     }
 }

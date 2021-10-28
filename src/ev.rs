@@ -3,6 +3,7 @@ use std::fmt;
 use crate::{
     error::CompileResult,
     num::Num,
+    op::Op,
     types::{ArrayType, AtomType, Ty},
     value::{Array, Atom, Val},
 };
@@ -79,6 +80,12 @@ impl From<Num> for Ev {
 impl From<char> for Ev {
     fn from(c: char) -> Self {
         Ev::Value(c.into())
+    }
+}
+
+impl From<Op> for Ev {
+    fn from(op: Op) -> Self {
+        Ev::Value(op.into())
     }
 }
 

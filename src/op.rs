@@ -17,7 +17,7 @@ pub trait Visit<S> {
 
 macro_rules! op {
     ($(($name:ident, $glyph:literal)),* $(,)?) => {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
         pub enum Op {
             $($name),*
         }

@@ -13,6 +13,7 @@ use crate::{
 pub enum Atom {
     Num(Num),
     Char(char),
+    Op(Op),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -78,6 +79,7 @@ impl fmt::Display for Atom {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Atom::Num(n) => n.fmt(f),
+            Atom::Op(op) => op.fmt(f),
             Atom::Char(c) => write!(f, "{:?}", c),
         }
     }
@@ -106,6 +108,7 @@ impl Atom {
         match self {
             Atom::Num(_) => AtomType::Num,
             Atom::Char(_) => AtomType::Char,
+            Atom::Op(_) => AtomType::Op,
         }
     }
 }
@@ -155,6 +158,12 @@ impl From<Num> for Val {
     }
 }
 
+impl From<Op> for Val {
+    fn from(op: Op) -> Self {
+        Atom::Op(op).into()
+    }
+}
+
 impl From<char> for Val {
     fn from(c: char) -> Self {
         Atom::Char(c).into()
@@ -177,11 +186,7 @@ impl Atom {
             (Atom::Char(a), Atom::Num(b)) => Ok(Atom::Char(
                 char::from_u32((a as u32).saturating_add(u32::from(b))).unwrap_or_default(),
             )),
-            (Atom::Char(_), Atom::Char(_)) => Err(CompileError::IncompatibleBinTypes(
-                Op::Add,
-                AtomType::Char.into(),
-                AtomType::Char.into(),
-            )),
+            (w, x) => Op::Add.err_bin(AtomType::Char, AtomType::Char),
         }
     }
     pub fn sub(self, other: Self) -> EvalResult<Self> {
@@ -193,31 +198,19 @@ impl Atom {
             (Atom::Char(a), Atom::Num(b)) => Ok(Atom::Char(
                 char::from_u32((a as u32).saturating_sub(u32::from(b))).unwrap_or_default(),
             )),
-            (Atom::Char(_), Atom::Char(_)) => Err(CompileError::IncompatibleBinTypes(
-                Op::Sub,
-                AtomType::Char.into(),
-                AtomType::Char.into(),
-            )),
+            (w, x) => Op::Sub.err_bin(AtomType::Char, AtomType::Char),
         }
     }
     pub fn mul(self, other: Self) -> EvalResult<Self> {
         match (self, other) {
             (Atom::Num(a), Atom::Num(b)) => Ok(Atom::Num(a * b)),
-            (a, b) => Err(CompileError::IncompatibleBinTypes(
-                Op::Sub,
-                a.ty().into(),
-                a.ty().into(),
-            )),
+            (w, x) => Op::Mul.err_bin(w.ty(), x.ty()),
         }
     }
     pub fn div(self, other: Self) -> EvalResult<Self> {
         match (self, other) {
             (Atom::Num(a), Atom::Num(b)) => Ok(Atom::Num(a / b)),
-            (a, b) => Err(CompileError::IncompatibleBinTypes(
-                Op::Sub,
-                a.ty().into(),
-                a.ty().into(),
-            )),
+            (w, x) => Op::Div.err_bin(w.ty(), x.ty()),
         }
     }
 }

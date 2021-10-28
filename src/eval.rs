@@ -49,6 +49,7 @@ impl Evaler {
             Expr::Num(num, _) => Ok(num.into()),
             Expr::Char(c, _) => Ok(c.into()),
             Expr::String(s, _) => Ok(Array::String(s).into()),
+            Expr::Op(op, _) => Ok(op.into()),
             Expr::Array(expr) => {
                 Ev::from_try_iter(expr.items.into_iter().map(|expr| self.expr(expr)))
             }
@@ -335,15 +336,15 @@ impl Visit<Evaler> for Op {
             Op::Add => pervasive_un(*self, x, Ok),
             Op::Sub => pervasive_un(*self, x, |atom| match atom {
                 Atom::Num(n) => Ok(Atom::Num(-n)),
-                Atom::Char(_) => Err(CompileError::IncompatibleUnType(Op::Sub, atom.into())),
+                x => Op::Sub.err_un(x),
             }),
             Op::Mul => pervasive_un(*self, x, |atom| match atom {
                 Atom::Num(n) => Ok(Atom::Num(n.sign())),
-                Atom::Char(_) => Err(CompileError::IncompatibleUnType(Op::Mul, atom.into())),
+                x => Op::Mul.err_un(x),
             }),
             Op::Div => pervasive_un(*self, x, |atom| match atom {
                 Atom::Num(n) => Ok(Atom::Num(Num::Int(1) / n)),
-                Atom::Char(_) => Err(CompileError::IncompatibleUnType(Op::Div, atom.into())),
+                x => Op::Div.err_un(x),
             }),
             Op::Equal => Ok(Num::from(match x {
                 Ev::Value(Val::Atom(_)) => 0,
