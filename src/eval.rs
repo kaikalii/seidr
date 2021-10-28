@@ -171,6 +171,10 @@ impl Un {
 }
 
 type BinFn<W, X> = fn(W, X) -> EvalResult;
+type NumNumFn = BinFn<Num, Num>;
+type AtomAtomFn = BinFn<Atom, Atom>;
+type AtomArrayFn = BinFn<Atom, Array>;
+type ArrayAtomFn = BinFn<Array, Atom>;
 type NumArrayFn = BinFn<Num, Array>;
 type NumSheFn = BinFn<Num, Vec<Ty>>;
 type NumArrayTyFn = BinFn<Num, ArrayType>;
@@ -180,6 +184,10 @@ struct Bin {
     num_array: Option<NumArrayFn>,
     num_she: Option<NumSheFn>,
     num_array_ty: Option<NumArrayTyFn>,
+    num_num: Option<NumNumFn>,
+    atom_atom: Option<AtomAtomFn>,
+    atom_array: Option<AtomArrayFn>,
+    array_atom: Option<ArrayAtomFn>,
 }
 
 impl Bin {
@@ -189,6 +197,10 @@ impl Bin {
             num_array: None,
             num_she: None,
             num_array_ty: None,
+            num_num: None,
+            atom_atom: None,
+            atom_array: None,
+            array_atom: None,
         }
     }
     pub fn num_array(self, f: NumArrayFn) -> Self {
@@ -209,8 +221,46 @@ impl Bin {
             ..self
         }
     }
+    pub fn num_num(self, f: NumNumFn) -> Self {
+        Bin {
+            num_num: Some(f),
+            ..self
+        }
+    }
+    pub fn atom_atom(self, f: AtomAtomFn) -> Self {
+        Bin {
+            atom_atom: Some(f),
+            ..self
+        }
+    }
+    pub fn atom_array(self, f: AtomArrayFn) -> Self {
+        Bin {
+            atom_array: Some(f),
+            ..self
+        }
+    }
+    pub fn array_atom(self, f: ArrayAtomFn) -> Self {
+        Bin {
+            array_atom: Some(f),
+            ..self
+        }
+    }
     pub fn eval(&self, w: Ev, x: Ev) -> EvalResult {
         match (self, w, x) {
+            (
+                Bin {
+                    num_num: Some(f), ..
+                },
+                Ev::Value(Val::Atom(Atom::Num(w))),
+                Ev::Value(Val::Atom(Atom::Num(x))),
+            ) => f(w, x),
+            (
+                Bin {
+                    atom_atom: Some(f), ..
+                },
+                Ev::Value(Val::Atom(w)),
+                Ev::Value(Val::Atom(x)),
+            ) => f(w, x),
             (
                 Bin {
                     num_array: Some(f), ..
@@ -218,6 +268,22 @@ impl Bin {
                 Ev::Value(Val::Atom(Atom::Num(n))),
                 Ev::Value(Val::Array(arr)),
             ) => f(n, arr),
+            (
+                Bin {
+                    atom_array: Some(f),
+                    ..
+                },
+                Ev::Value(Val::Atom(atom)),
+                Ev::Value(Val::Array(arr)),
+            ) => f(atom, arr),
+            (
+                Bin {
+                    atom_array: Some(f),
+                    ..
+                },
+                Ev::Value(Val::Atom(arr)),
+                Ev::Value(Val::Array(atom)),
+            ) => f(arr, atom),
             (
                 Bin {
                     num_she: Some(f), ..
