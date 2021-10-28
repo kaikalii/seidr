@@ -7,7 +7,7 @@ use std::{
 
 use crate::{
     ast::*,
-    error::{CompileErrorKind, CompileResult, IoError},
+    error::{CompileError, CompileResult, IoError},
     lex::*,
     num::Num,
     op::Op,
@@ -22,13 +22,13 @@ where
     let items = parser.items()?;
     if let Some(token) = parser.next() {
         return Err(
-            CompileErrorKind::ExpectedFound("item".into(), token.span.as_string()).at(token.span),
+            CompileError::ExpectedFound("item".into(), token.span.as_string()).at(token.span),
         );
     }
     // Write back to file
     let formatted: String = items.iter().map(|item| format!("{}\n", item)).collect();
     if let Err(error) = fs::write(&file, &formatted) {
-        return Err(CompileErrorKind::IO(IoError {
+        return Err(CompileError::IO(IoError {
             message: format!("Unable to format `{}`", file.as_ref().to_string_lossy()),
             error,
         })
@@ -104,7 +104,7 @@ impl Parser {
                 .unwrap()
                 .span
                 .clone();
-            CompileErrorKind::ExpectedFound(expectation.into(), span.as_string()).at(span)
+            CompileError::ExpectedFound(expectation.into(), span.as_string()).at(span)
         })
     }
     fn expect_token(&mut self, tt: TT) -> CompileResult<Token> {

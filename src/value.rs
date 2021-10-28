@@ -1,7 +1,8 @@
 use std::{fmt, ops::*, rc::Rc};
 
 use crate::{
-    error::{CompileErrorKind, CompileResult},
+    error::{CompileError, CompileResult},
+    eval::EvalResult,
     lex::Span,
     num::Num,
     op::Op,
@@ -165,7 +166,7 @@ impl From<Array> for Value {
 }
 
 impl Atom {
-    pub fn add(self, other: Self, span: &Span) -> CompileResult<Self> {
+    pub fn add(self, other: Self) -> EvalResult<Self> {
         match (self, other) {
             (Atom::Num(a), Atom::Num(b)) => Ok(Atom::Num(a + b)),
             (Atom::Num(a), Atom::Char(b)) => Ok(Atom::Char(
@@ -174,15 +175,14 @@ impl Atom {
             (Atom::Char(a), Atom::Num(b)) => Ok(Atom::Char(
                 char::from_u32((a as u32).saturating_add(u32::from(b))).unwrap_or_default(),
             )),
-            (Atom::Char(_), Atom::Char(_)) => Err(CompileErrorKind::IncompatibleBinTypes(
+            (Atom::Char(_), Atom::Char(_)) => Err(CompileError::IncompatibleBinTypes(
                 Op::Add,
                 AtomType::Char.into(),
                 AtomType::Char.into(),
-            )
-            .at(span.clone())),
+            )),
         }
     }
-    pub fn sub(self, other: Self, span: &Span) -> CompileResult<Self> {
+    pub fn sub(self, other: Self) -> EvalResult<Self> {
         match (self, other) {
             (Atom::Num(a), Atom::Num(b)) => Ok(Atom::Num(a - b)),
             (Atom::Num(a), Atom::Char(b)) => Ok(Atom::Char(
@@ -191,44 +191,41 @@ impl Atom {
             (Atom::Char(a), Atom::Num(b)) => Ok(Atom::Char(
                 char::from_u32((a as u32).saturating_sub(u32::from(b))).unwrap_or_default(),
             )),
-            (Atom::Char(_), Atom::Char(_)) => Err(CompileErrorKind::IncompatibleBinTypes(
+            (Atom::Char(_), Atom::Char(_)) => Err(CompileError::IncompatibleBinTypes(
                 Op::Sub,
                 AtomType::Char.into(),
                 AtomType::Char.into(),
-            )
-            .at(span.clone())),
+            )),
         }
     }
-    pub fn mul(self, other: Self, span: &Span) -> CompileResult<Self> {
+    pub fn mul(self, other: Self) -> EvalResult<Self> {
         match (self, other) {
             (Atom::Num(a), Atom::Num(b)) => Ok(Atom::Num(a * b)),
-            (a, b) => {
-                Err(
-                    CompileErrorKind::IncompatibleBinTypes(Op::Sub, a.ty().into(), a.ty().into())
-                        .at(span.clone()),
-                )
-            }
+            (a, b) => Err(CompileError::IncompatibleBinTypes(
+                Op::Sub,
+                a.ty().into(),
+                a.ty().into(),
+            )),
         }
     }
-    pub fn div(self, other: Self, span: &Span) -> CompileResult<Self> {
+    pub fn div(self, other: Self) -> EvalResult<Self> {
         match (self, other) {
             (Atom::Num(a), Atom::Num(b)) => Ok(Atom::Num(a / b)),
-            (a, b) => {
-                Err(
-                    CompileErrorKind::IncompatibleBinTypes(Op::Sub, a.ty().into(), a.ty().into())
-                        .at(span.clone()),
-                )
-            }
+            (a, b) => Err(CompileError::IncompatibleBinTypes(
+                Op::Sub,
+                a.ty().into(),
+                a.ty().into(),
+            )),
         }
     }
 }
 
 impl Array {
-    pub fn from_iter<I>(iter: I) -> CompileResult<Array>
+    pub fn from_iter<I, E>(iter: I) -> Result<Array, E>
     where
-        I: IntoIterator<Item = CompileResult<Value>>,
+        I: IntoIterator<Item = Result<Value, E>>,
     {
-        let items: Vec<Value> = iter.into_iter().collect::<CompileResult<_>>()?;
+        let items: Vec<Value> = iter.into_iter().collect::<Result<_, _>>()?;
         Ok(
             if items
                 .iter()

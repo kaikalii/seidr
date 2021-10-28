@@ -30,7 +30,7 @@ where
                     let _ = write!(file, "{}", input);
                 }
                 Err(error) => {
-                    return Err(CompileErrorKind::IO(IoError {
+                    return Err(CompileError::IO(IoError {
                         message: format!("Unable to format `{}`", file.as_ref().to_string_lossy()),
                         error,
                     })
@@ -367,7 +367,7 @@ impl Lexer {
             file: self.file.clone(),
         }
     }
-    fn error<T>(&self, kind: CompileErrorKind) -> CompileResult<T> {
+    fn error<T>(&self, kind: CompileError) -> CompileResult<T> {
         Err(kind.at(self.span()))
     }
     fn token(&mut self, tt: TT) {
@@ -400,13 +400,13 @@ impl Lexer {
                 '\n' => self.token(TT::Newline),
                 '"' => self.string()?,
                 '\'' => {
-                    if let Some(c) = self.char_literal('\'', CompileErrorKind::UnclosedChar)? {
+                    if let Some(c) = self.char_literal('\'', CompileError::UnclosedChar)? {
                         if self.next() != Some('\'') {
-                            return self.error(CompileErrorKind::UnclosedChar);
+                            return self.error(CompileError::UnclosedChar);
                         }
                         self.token(TT::Char(c));
                     } else {
-                        return self.error(CompileErrorKind::UnclosedChar);
+                        return self.error(CompileError::UnclosedChar);
                     }
                 }
                 '\\' => self.escape()?,
@@ -428,7 +428,7 @@ impl Lexer {
                     if let Some(op) = Op::from_glyph(c) {
                         self.token(TT::Op(op))
                     } else {
-                        return self.error(CompileErrorKind::InvalidCharacter(c));
+                        return self.error(CompileError::InvalidCharacter(c));
                     }
                 }
             }
@@ -440,7 +440,7 @@ impl Lexer {
         let c = if let Some(c) = self.next() {
             c
         } else {
-            return self.error(CompileErrorKind::InvalidEscape(String::new()));
+            return self.error(CompileError::InvalidEscape(String::new()));
         };
         self.token(match c {
             '*' => TT::Op(Op::Mul),
@@ -451,7 +451,7 @@ impl Lexer {
             '[' => TT::OpenAngle,
             ']' => TT::CloseAngle,
             ' ' => TT::Undertie,
-            c => return self.error(CompileErrorKind::InvalidEscape(c.into())),
+            c => return self.error(CompileError::InvalidEscape(c.into())),
         });
         self.escaped = true;
         Ok(())
@@ -468,7 +468,7 @@ impl Lexer {
             }
         }
         if s.ends_with('.') {
-            return self.error(CompileErrorKind::InvalidNumber(s));
+            return self.error(CompileError::InvalidNumber(s));
         }
         if let Some(e) = self.next_if(|c| ['e', 'E'].contains(&c)) {
             s.push(e);
@@ -479,20 +479,20 @@ impl Lexer {
                 s.push(c);
             }
             if !s.ends_with(|c: char| c.is_digit(10) || c == '_') {
-                return self.error(CompileErrorKind::InvalidNumber(s));
+                return self.error(CompileError::InvalidNumber(s));
             }
         }
         let no_underscores = s.replace('_', "");
         match no_underscores.parse::<Num>() {
             Ok(num) => self.token(TT::Num(num, s.into())),
-            Err(_) => return self.error(CompileErrorKind::InvalidNumber(s)),
+            Err(_) => return self.error(CompileError::InvalidNumber(s)),
         }
         Ok(())
     }
     fn char_literal(
         &mut self,
         delimeter: char,
-        error: CompileErrorKind,
+        error: CompileError,
     ) -> CompileResult<Option<char>> {
         let c = if let Some(c) = self.next() {
             c
@@ -522,7 +522,7 @@ impl Lexer {
     }
     fn string(&mut self) -> CompileResult {
         let mut s = String::new();
-        while let Some(c) = self.char_literal('"', CompileErrorKind::UnclosedString)? {
+        while let Some(c) = self.char_literal('"', CompileError::UnclosedString)? {
             s.push(c);
         }
         self.token(TT::String(s.into()));

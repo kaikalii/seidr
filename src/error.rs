@@ -5,7 +5,7 @@ use colored::{Color, Colorize};
 use crate::{eval::Const, lex::Span, op::Op, types::Type};
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum CompileErrorKind {
+pub enum CompileError {
     IO(IoError),
     InvalidCharacter(char),
     InvalidNumber(String),
@@ -21,33 +21,33 @@ pub enum CompileErrorKind {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum CompileWarningKind {}
+pub enum CompileWarning {}
 
-impl fmt::Display for CompileErrorKind {
+impl fmt::Display for CompileError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CompileErrorKind::IO(e) => write!(f, "{}: {}", e.message, e.error),
-            CompileErrorKind::InvalidCharacter(c) => write!(f, "Invalid character {:?}", c),
-            CompileErrorKind::InvalidNumber(s) => write!(f, "Invalid number `{}`", s),
-            CompileErrorKind::InvalidEscape(s) => write!(f, "Invalid escape `{}`", s),
-            CompileErrorKind::UnclosedString => write!(f, "Unclosed string literal"),
-            CompileErrorKind::UnclosedChar => write!(f, "Unclosed character literal"),
-            CompileErrorKind::ExpectedFound(expected, found) => {
+            CompileError::IO(e) => write!(f, "{}: {}", e.message, e.error),
+            CompileError::InvalidCharacter(c) => write!(f, "Invalid character {:?}", c),
+            CompileError::InvalidNumber(s) => write!(f, "Invalid number `{}`", s),
+            CompileError::InvalidEscape(s) => write!(f, "Invalid escape `{}`", s),
+            CompileError::UnclosedString => write!(f, "Unclosed string literal"),
+            CompileError::UnclosedChar => write!(f, "Unclosed character literal"),
+            CompileError::ExpectedFound(expected, found) => {
                 write!(f, "Expected {}, found {}", expected, found)
             }
-            CompileErrorKind::IncompatibleBinTypes(op, left, right) => {
+            CompileError::IncompatibleBinTypes(op, left, right) => {
                 write!(f, "{} {} {} is invalid", left, op, right)
             }
-            CompileErrorKind::IncompatibleUnType(op, inner) => {
+            CompileError::IncompatibleUnType(op, inner) => {
                 write!(f, "{} {} is invalid", op, inner)
             }
-            CompileErrorKind::NoBinaryImplementation(op) => {
+            CompileError::NoBinaryImplementation(op) => {
                 write!(f, "{} has no binary implementation", op)
             }
-            CompileErrorKind::NoUnaryImplementation(op) => {
+            CompileError::NoUnaryImplementation(op) => {
                 write!(f, "{} has no unary implementation", op)
             }
-            CompileErrorKind::DifferentArraySizes(op, left, right) => {
+            CompileError::DifferentArraySizes(op, left, right) => {
                 write!(
                     f,
                     "Different-sized arrays {} and {} are not compatible with {}",
@@ -64,49 +64,49 @@ pub struct IoError {
     pub error: io::Error,
 }
 
-impl fmt::Display for CompileWarningKind {
+impl fmt::Display for CompileWarning {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {}
     }
 }
 
-impl CompileWarningKind {
+impl CompileWarning {
     pub fn at(self, span: Span) -> Problem {
-        Problem::Warning(CompileWarning { kind: self, span })
+        Problem::Warning(SpannedCompileWarning { kind: self, span })
     }
 }
 
-impl CompileErrorKind {
+impl CompileError {
     pub fn at(self, span: Span) -> Problem {
-        Problem::Error(CompileError { kind: self, span })
+        Problem::Error(SpannedCompileError { kind: self, span })
     }
 }
 
 #[derive(Debug)]
-pub struct CompileError {
-    pub kind: CompileErrorKind,
+pub struct SpannedCompileError {
+    pub kind: CompileError,
     pub span: Span,
 }
 
 #[derive(Debug)]
-pub struct CompileWarning {
-    pub kind: CompileWarningKind,
+pub struct SpannedCompileWarning {
+    pub kind: CompileWarning,
     pub span: Span,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Problem {
-    Error(CompileError),
-    Warning(CompileWarning),
+    Error(SpannedCompileError),
+    Warning(SpannedCompileWarning),
 }
 
-impl PartialEq for CompileError {
+impl PartialEq for SpannedCompileError {
     fn eq(&self, other: &Self) -> bool {
         self.kind == other.kind
     }
 }
 
-impl PartialEq for CompileWarning {
+impl PartialEq for SpannedCompileWarning {
     fn eq(&self, other: &Self) -> bool {
         self.kind == other.kind
     }
@@ -119,10 +119,10 @@ impl PartialEq for IoError {
 }
 
 impl Eq for IoError {}
-impl Eq for CompileError {}
-impl Eq for CompileWarning {}
+impl Eq for SpannedCompileError {}
+impl Eq for SpannedCompileWarning {}
 
-impl fmt::Display for CompileError {
+impl fmt::Display for SpannedCompileError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", "Error: ".bright_red().bold())?;
         let message = self.kind.to_string();
@@ -131,7 +131,7 @@ impl fmt::Display for CompileError {
     }
 }
 
-impl fmt::Display for CompileWarning {
+impl fmt::Display for SpannedCompileWarning {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", "Warning: ".bright_yellow().bold())?;
         let message = self.kind.to_string();
@@ -152,7 +152,7 @@ impl fmt::Display for Problem {
 impl Error for Problem {}
 
 pub type CompileResult<T = ()> = Result<T, Problem>;
-pub type WarnedCompileResult<T> = Result<(T, Vec<CompileWarning>), Problem>;
+pub type WarnedCompileResult<T> = Result<(T, Vec<SpannedCompileWarning>), Problem>;
 
 impl Problem {
     pub fn prevents_compilation(&self) -> bool {

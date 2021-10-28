@@ -2,13 +2,15 @@ use std::{fmt, ops::*};
 
 use crate::{
     ast::*,
-    error::{CompileErrorKind, CompileResult, Problem},
+    error::{CompileError, CompileResult, Problem},
     lex::Span,
     num::Num,
     op::{Op, Visit},
     types::{ArrayType, AtomType, Type},
     value::{Array, Atom, Value},
 };
+
+pub type EvalResult<T> = Result<T, CompileError>;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Const {
@@ -187,30 +189,19 @@ impl Visit<Evaler> for Op {
         state: &mut Evaler,
     ) -> Result<Self::Output, Self::Error> {
         match self {
-            Op::Add => pervasize_bin(*self, left, right, state.span(), Atom::add),
-            Op::Sub => pervasize_bin(*self, left, right, state.span(), Atom::sub),
-            Op::Mul => pervasize_bin(*self, left, right, state.span(), Atom::mul),
-            Op::Div => pervasize_bin(*self, left, right, state.span(), Atom::div),
-            Op::Equal => pervasize_bin(*self, left, right, state.span(), |a, b, _| {
-                Ok((a == b).into())
-            }),
-            Op::NotEqual => pervasize_bin(*self, left, right, state.span(), |a, b, _| {
-                Ok((a != b).into())
-            }),
-            Op::Less => pervasize_bin(*self, left, right, state.span(), |a, b, _| {
-                Ok((a < b).into())
-            }),
-            Op::LessOrEqual => pervasize_bin(*self, left, right, state.span(), |a, b, _| {
-                Ok((a <= b).into())
-            }),
-            Op::Greater => pervasize_bin(*self, left, right, state.span(), |a, b, _| {
-                Ok((a > b).into())
-            }),
-            Op::GreaterOrEqual => pervasize_bin(*self, left, right, state.span(), |a, b, _| {
-                Ok((a >= b).into())
-            }),
+            Op::Add => pervasize_bin(*self, left, right, Atom::add),
+            Op::Sub => pervasize_bin(*self, left, right, Atom::sub),
+            Op::Mul => pervasize_bin(*self, left, right, Atom::mul),
+            Op::Div => pervasize_bin(*self, left, right, Atom::div),
+            Op::Equal => pervasize_bin(*self, left, right, |a, b| Ok((a == b).into())),
+            Op::NotEqual => pervasize_bin(*self, left, right, |a, b| Ok((a != b).into())),
+            Op::Less => pervasize_bin(*self, left, right, |a, b| Ok((a < b).into())),
+            Op::LessOrEqual => pervasize_bin(*self, left, right, |a, b| Ok((a <= b).into())),
+            Op::Greater => pervasize_bin(*self, left, right, |a, b| Ok((a > b).into())),
+            Op::GreaterOrEqual => pervasize_bin(*self, left, right, |a, b| Ok((a >= b).into())),
             op => todo!("{}", op),
         }
+        .map_err(|e| e.at(state.span().clone()))
     }
     fn visit_un(
         &self,
@@ -218,24 +209,18 @@ impl Visit<Evaler> for Op {
         state: &mut Evaler,
     ) -> Result<Self::Output, Self::Error> {
         match self {
-            Op::Add => pervasive_un(*self, inner, state.span(), |atom, _| Ok(atom)),
-            Op::Sub => pervasive_un(*self, inner, state.span(), |atom, span| match atom {
+            Op::Add => pervasive_un(*self, inner, Ok),
+            Op::Sub => pervasive_un(*self, inner, |atom| match atom {
                 Atom::Num(n) => Ok(Atom::Num(-n)),
-                Atom::Char(_) => {
-                    Err(CompileErrorKind::IncompatibleUnType(Op::Sub, atom.into()).at(span.clone()))
-                }
+                Atom::Char(_) => Err(CompileError::IncompatibleUnType(Op::Sub, atom.into())),
             }),
-            Op::Mul => pervasive_un(*self, inner, state.span(), |atom, span| match atom {
+            Op::Mul => pervasive_un(*self, inner, |atom| match atom {
                 Atom::Num(n) => Ok(Atom::Num(n.sign())),
-                Atom::Char(_) => {
-                    Err(CompileErrorKind::IncompatibleUnType(Op::Mul, atom.into()).at(span.clone()))
-                }
+                Atom::Char(_) => Err(CompileError::IncompatibleUnType(Op::Mul, atom.into())),
             }),
-            Op::Div => pervasive_un(*self, inner, state.span(), |atom, span| match atom {
+            Op::Div => pervasive_un(*self, inner, |atom| match atom {
                 Atom::Num(n) => Ok(Atom::Num(Num::Int(1) / n)),
-                Atom::Char(_) => {
-                    Err(CompileErrorKind::IncompatibleUnType(Op::Div, atom.into()).at(span.clone()))
-                }
+                Atom::Char(_) => Err(CompileError::IncompatibleUnType(Op::Div, atom.into())),
             }),
             Op::Equal => Ok(Num::from(match inner {
                 Const::Value(Value::Atom(_)) => 0,
@@ -251,6 +236,7 @@ impl Visit<Evaler> for Op {
             .into()),
             op => todo!("{}", op),
         }
+        .map_err(|e| e.at(state.span().clone()))
     }
 }
 
@@ -258,16 +244,11 @@ fn pervasize_bin(
     op: Op,
     left: Const,
     right: Const,
-    span: &Span,
-    f: fn(Atom, Atom, &Span) -> CompileResult<Atom>,
-) -> CompileResult<Const> {
+    f: fn(Atom, Atom) -> EvalResult<Atom>,
+) -> EvalResult<Const> {
     match (left, right) {
-        (Const::Value(a), Const::Value(b)) => {
-            pervasize_bin_value(op, a, b, span, f).map(Into::into)
-        }
-        (left, right) => {
-            Err(CompileErrorKind::IncompatibleBinTypes(op, left, right).at(span.clone()))
-        }
+        (Const::Value(a), Const::Value(b)) => pervasize_bin_value(op, a, b, f).map(Into::into),
+        (left, right) => Err(CompileError::IncompatibleBinTypes(op, left, right)),
     }
 }
 
@@ -275,65 +256,51 @@ fn pervasize_bin_value(
     op: Op,
     left: Value,
     right: Value,
-    span: &Span,
-    f: fn(Atom, Atom, &Span) -> CompileResult<Atom>,
-) -> CompileResult<Value> {
+    f: fn(Atom, Atom) -> EvalResult<Atom>,
+) -> EvalResult<Value> {
     Ok(match (left, right) {
-        (Value::Atom(a), Value::Atom(b)) => Value::Atom(f(a, b, span)?),
+        (Value::Atom(a), Value::Atom(b)) => Value::Atom(f(a, b)?),
         (Value::Atom(a), Value::Array(b)) => Value::Array(Array::from_iter(
             b.iter()
-                .map(|b| pervasize_bin_value(op, Value::Atom(a), b, span, f)),
+                .map(|b| pervasize_bin_value(op, Value::Atom(a), b, f)),
         )?),
         (Value::Array(a), Value::Atom(b)) => Value::Array(Array::from_iter(
             a.iter()
-                .map(|a| pervasize_bin_value(op, a, Value::Atom(b), span, f)),
+                .map(|a| pervasize_bin_value(op, a, Value::Atom(b), f)),
         )?),
         (Value::Array(a), Value::Array(b)) => {
             if a.len() == b.len() {
                 Value::Array(Array::from_iter(
                     a.into_iter()
                         .zip(b.into_iter())
-                        .map(|(a, b)| pervasize_bin_value(op, a, b, span, f)),
+                        .map(|(a, b)| pervasize_bin_value(op, a, b, f)),
                 )?)
             } else {
-                return Err(
-                    CompileErrorKind::DifferentArraySizes(op, a.into(), b.into()).at(span.clone()),
-                );
+                return Err(CompileError::DifferentArraySizes(op, a.into(), b.into()));
             }
         }
         (left, right) => {
-            return Err(
-                CompileErrorKind::IncompatibleBinTypes(op, left.into(), right.into())
-                    .at(span.clone()),
-            )
+            return Err(CompileError::IncompatibleBinTypes(
+                op,
+                left.into(),
+                right.into(),
+            ))
         }
     })
 }
 
-fn pervasive_un(
-    op: Op,
-    inner: Const,
-    span: &Span,
-    f: fn(Atom, &Span) -> CompileResult<Atom>,
-) -> CompileResult<Const> {
+fn pervasive_un(op: Op, inner: Const, f: fn(Atom) -> EvalResult<Atom>) -> EvalResult<Const> {
     match inner {
-        Const::Value(val) => pervasive_un_value(op, val, span, f).map(Into::into),
-        inner => Err(CompileErrorKind::IncompatibleUnType(op, inner).at(span.clone())),
+        Const::Value(val) => pervasive_un_value(op, val, f).map(Into::into),
+        inner => Err(CompileError::IncompatibleUnType(op, inner)),
     }
 }
 
-fn pervasive_un_value(
-    op: Op,
-    inner: Value,
-    span: &Span,
-    f: fn(Atom, &Span) -> CompileResult<Atom>,
-) -> CompileResult<Value> {
+fn pervasive_un_value(op: Op, inner: Value, f: fn(Atom) -> EvalResult<Atom>) -> EvalResult<Value> {
     Ok(match inner {
-        Value::Atom(atom) => f(atom, span)?.into(),
-        Value::Array(arr) => Array::from_iter(
-            arr.into_iter()
-                .map(|val| pervasive_un_value(op, val, span, f)),
-        )?
-        .into(),
+        Value::Atom(atom) => f(atom)?.into(),
+        Value::Array(arr) => {
+            Array::from_iter(arr.into_iter().map(|val| pervasive_un_value(op, val, f)))?.into()
+        }
     })
 }
