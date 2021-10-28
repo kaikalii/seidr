@@ -8,7 +8,7 @@ use crate::{
     types::{ArrayType, AtomType, Type},
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Atom {
     Num(Num),
     Char(char),
@@ -131,6 +131,12 @@ impl Value {
             }
             .into(),
         }
+    }
+}
+
+impl From<bool> for Atom {
+    fn from(b: bool) -> Self {
+        Atom::Num(Num::Int(b as i64))
     }
 }
 

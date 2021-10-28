@@ -187,10 +187,28 @@ impl Visit<Evaler> for Op {
         state: &mut Evaler,
     ) -> Result<Self::Output, Self::Error> {
         match self {
-            Op::Add => bin_math(*self, left, right, state.span(), Atom::add),
-            Op::Sub => bin_math(*self, left, right, state.span(), Atom::sub),
-            Op::Mul => bin_math(*self, left, right, state.span(), Atom::mul),
-            Op::Div => bin_math(*self, left, right, state.span(), Atom::div),
+            Op::Add => pervasize_bin(*self, left, right, state.span(), Atom::add),
+            Op::Sub => pervasize_bin(*self, left, right, state.span(), Atom::sub),
+            Op::Mul => pervasize_bin(*self, left, right, state.span(), Atom::mul),
+            Op::Div => pervasize_bin(*self, left, right, state.span(), Atom::div),
+            Op::Equal => pervasize_bin(*self, left, right, state.span(), |a, b, _| {
+                Ok((a == b).into())
+            }),
+            Op::NotEqual => pervasize_bin(*self, left, right, state.span(), |a, b, _| {
+                Ok((a != b).into())
+            }),
+            Op::Less => pervasize_bin(*self, left, right, state.span(), |a, b, _| {
+                Ok((a < b).into())
+            }),
+            Op::LessOrEqual => pervasize_bin(*self, left, right, state.span(), |a, b, _| {
+                Ok((a <= b).into())
+            }),
+            Op::Greater => pervasize_bin(*self, left, right, state.span(), |a, b, _| {
+                Ok((a > b).into())
+            }),
+            Op::GreaterOrEqual => pervasize_bin(*self, left, right, state.span(), |a, b, _| {
+                Ok((a >= b).into())
+            }),
             op => todo!("{}", op),
         }
     }
@@ -200,7 +218,7 @@ impl Visit<Evaler> for Op {
         state: &mut Evaler,
     ) -> Result<Self::Output, Self::Error> {
         match self {
-            Op::Sub => un_math(*self, inner, state.span(), |atom, span| match atom {
+            Op::Sub => pervasive_un(*self, inner, state.span(), |atom, span| match atom {
                 Atom::Num(n) => Ok(Atom::Num(-n)),
                 Atom::Char(_) => {
                     Err(CompileErrorKind::IncompatibleUnType(Op::Sub, atom.into()).at(span.clone()))
@@ -211,7 +229,7 @@ impl Visit<Evaler> for Op {
     }
 }
 
-fn bin_math(
+fn pervasize_bin(
     op: Op,
     left: Const,
     right: Const,
@@ -219,14 +237,16 @@ fn bin_math(
     f: fn(Atom, Atom, &Span) -> CompileResult<Atom>,
 ) -> CompileResult<Const> {
     match (left, right) {
-        (Const::Value(a), Const::Value(b)) => bin_math_value(op, a, b, span, f).map(Into::into),
+        (Const::Value(a), Const::Value(b)) => {
+            pervasize_bin_value(op, a, b, span, f).map(Into::into)
+        }
         (left, right) => {
             Err(CompileErrorKind::IncompatibleBinTypes(op, left, right).at(span.clone()))
         }
     }
 }
 
-fn bin_math_value(
+fn pervasize_bin_value(
     op: Op,
     left: Value,
     right: Value,
@@ -237,18 +257,18 @@ fn bin_math_value(
         (Value::Atom(a), Value::Atom(b)) => Value::Atom(f(a, b, span)?),
         (Value::Atom(a), Value::Array(b)) => Value::Array(Array::from_iter(
             b.iter()
-                .map(|b| bin_math_value(op, Value::Atom(a), b, span, f)),
+                .map(|b| pervasize_bin_value(op, Value::Atom(a), b, span, f)),
         )?),
         (Value::Array(a), Value::Atom(b)) => Value::Array(Array::from_iter(
             a.iter()
-                .map(|a| bin_math_value(op, a, Value::Atom(b), span, f)),
+                .map(|a| pervasize_bin_value(op, a, Value::Atom(b), span, f)),
         )?),
         (Value::Array(a), Value::Array(b)) => {
             if a.len() == b.len() {
                 Value::Array(Array::from_iter(
                     a.into_iter()
                         .zip(b.into_iter())
-                        .map(|(a, b)| bin_math_value(op, a, b, span, f)),
+                        .map(|(a, b)| pervasize_bin_value(op, a, b, span, f)),
                 )?)
             } else {
                 return Err(
@@ -265,19 +285,19 @@ fn bin_math_value(
     })
 }
 
-fn un_math(
+fn pervasive_un(
     op: Op,
     inner: Const,
     span: &Span,
     f: fn(Atom, &Span) -> CompileResult<Atom>,
 ) -> CompileResult<Const> {
     match inner {
-        Const::Value(val) => un_math_value(op, val, span, f).map(Into::into),
+        Const::Value(val) => pervasive_un_value(op, val, span, f).map(Into::into),
         inner => Err(CompileErrorKind::IncompatibleUnType(op, inner).at(span.clone())),
     }
 }
 
-fn un_math_value(
+fn pervasive_un_value(
     op: Op,
     inner: Value,
     span: &Span,
@@ -285,8 +305,10 @@ fn un_math_value(
 ) -> CompileResult<Value> {
     Ok(match inner {
         Value::Atom(atom) => f(atom, span)?.into(),
-        Value::Array(arr) => {
-            Array::from_iter(arr.into_iter().map(|val| un_math_value(op, val, span, f)))?.into()
-        }
+        Value::Array(arr) => Array::from_iter(
+            arr.into_iter()
+                .map(|val| pervasive_un_value(op, val, span, f)),
+        )?
+        .into(),
     })
 }
