@@ -1,4 +1,4 @@
-use std::{fmt, ops::*, rc::Rc};
+use std::{convert::Infallible, fmt, ops::*, rc::Rc};
 
 use crate::{
     error::{CompileError, CompileResult},
@@ -220,8 +220,17 @@ impl Atom {
     }
 }
 
+impl FromIterator<Value> for Array {
+    fn from_iter<T>(iter: T) -> Self
+    where
+        T: IntoIterator<Item = Value>,
+    {
+        Array::from_try_iter::<_, Infallible>(iter.into_iter().map(Ok)).unwrap()
+    }
+}
+
 impl Array {
-    pub fn from_iter<I, E>(iter: I) -> Result<Array, E>
+    pub fn from_try_iter<I, E>(iter: I) -> Result<Array, E>
     where
         I: IntoIterator<Item = Result<Value, E>>,
     {

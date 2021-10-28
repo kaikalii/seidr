@@ -23,7 +23,7 @@
 | ᚻ ᚺ   |            |                           | h                | haglaz   | hail                |
 | ᚾ     |            |                           | n                | naudiz   | need                |
 | ᛁ     |            |                           | i                | isaz     | ice                 |
-| ᛃ     |            |                           | j                | jera     | year/harvest        |
+| ᛃ     | reverse    | rotate                    | j                | jera     | year/harvest        |
 | ᛇ     |            |                           | A                | iwaz     | yew-tree            |
 | ᛈ     |            |                           | p                | perth    | unknown             |
 | ᛉ     |            |                           | z                | algiz    | elk                 |

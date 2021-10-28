@@ -446,7 +446,7 @@ impl Lexer {
             return self.error(CompileError::InvalidEscape(String::new()));
         };
         self.token(match c {
-            '*' => TT::Op(Op::Mul),
+            'x' => TT::Op(Op::Mul),
             '/' => TT::Op(Op::Div),
             '<' => TT::Op(Op::LessOrEqual),
             '>' => TT::Op(Op::GreaterOrEqual),

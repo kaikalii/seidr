@@ -36,10 +36,10 @@ impl fmt::Display for CompileError {
                 write!(f, "Expected {}, found {}", expected, found)
             }
             CompileError::IncompatibleBinTypes(op, left, right) => {
-                write!(f, "{} {} {} is invalid", left, op, right)
+                write!(f, "{} {} {} is invalid", left.ty(), op, right.ty())
             }
             CompileError::IncompatibleUnType(op, inner) => {
-                write!(f, "{} {} is invalid", op, inner)
+                write!(f, "{} {} is invalid", op, inner.ty())
             }
             CompileError::NoBinaryImplementation(op) => {
                 write!(f, "{} has no binary implementation", op)
@@ -51,7 +51,9 @@ impl fmt::Display for CompileError {
                 write!(
                     f,
                     "Different-sized arrays {} and {} are not compatible with {}",
-                    left, right, op
+                    left.ty(),
+                    right.ty(),
+                    op
                 )
             }
         }
