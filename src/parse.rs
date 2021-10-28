@@ -33,11 +33,11 @@ where
         })
         .at(Span::dud()));
     }
-    println!("items:");
-    for item in &items {
-        println!("    {:?}", item);
-    }
-    println!();
+    // println!("items:");
+    // for item in &items {
+    //     println!("    {:?}", item);
+    // }
+    // println!();
     Ok(items)
 }
 
@@ -143,16 +143,14 @@ impl Parser {
             }
         }
         Ok(Some(if let Some(expr) = self.tied_array()? {
-            if let Some((op, op_span)) = self.match_to(op) {
+            if let Some((op, span)) = self.match_to(op) {
                 let left = expr;
                 let right = self.expect_expression(false)?;
-                let span = left.span().join(right.span());
                 Expr::Bin(
                     BinExpr {
                         op,
                         left,
                         right,
-                        op_span,
                         span,
                         parened,
                     }
@@ -161,15 +159,13 @@ impl Parser {
             } else {
                 expr
             }
-        } else if let Some((op, op_span)) = self.match_to(op) {
+        } else if let Some((op, span)) = self.match_to(op) {
             let inner = self.expect_expression(false)?;
-            let span = op_span.join(inner.span());
             Expr::Un(
                 UnExpr {
                     op,
                     inner,
                     span,
-                    op_span,
                     parened,
                 }
                 .into(),

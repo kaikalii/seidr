@@ -82,7 +82,6 @@ impl fmt::Debug for ArrayExpr {
 pub struct UnExpr {
     pub op: Op,
     pub inner: Expr,
-    pub op_span: Span,
     pub span: Span,
     pub parened: bool,
 }
@@ -97,7 +96,6 @@ pub struct BinExpr {
     pub op: Op,
     pub left: Expr,
     pub right: Expr,
-    pub op_span: Span,
     pub span: Span,
     pub parened: bool,
 }

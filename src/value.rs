@@ -27,10 +27,39 @@ pub enum Array {
 }
 
 impl Array {
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Array::String(s) => s.is_empty(),
+            Array::List(list) => list.is_empty(),
+        }
+    }
+    pub fn len(&self) -> usize {
+        match self {
+            Array::String(s) => s.chars().count(),
+            Array::List(list) => list.len(),
+        }
+    }
     pub fn iter(&self) -> Box<dyn Iterator<Item = Value> + '_> {
         match self {
             Array::String(s) => Box::new(s.chars().map(Atom::Char).map(Value::Atom)),
             Array::List(list) => Box::new(list.iter().cloned()),
+        }
+    }
+}
+
+impl IntoIterator for Array {
+    type Item = Value;
+    type IntoIter = Box<dyn Iterator<Item = Value>>;
+    fn into_iter(self) -> Self::IntoIter {
+        match self {
+            Array::String(s) => Box::new(
+                s.chars()
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .map(Atom::Char)
+                    .map(Value::Atom),
+            ),
+            Array::List(list) => Box::new(list.into_iter()),
         }
     }
 }

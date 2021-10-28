@@ -17,10 +17,10 @@ fn main() {
         Ok(items) => {
             let mut eval = eval::Evaler::default();
             for item in items {
-                println!("    {}", item);
+                println!("\n    {}", item);
                 match eval.item(item) {
                     Ok(()) => {}
-                    Err(e) => println!("{}", e),
+                    Err(e) => println!("\n{}", e),
                 }
             }
         }

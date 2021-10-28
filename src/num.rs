@@ -196,7 +196,14 @@ impl Mul for Num {
 impl Div for Num {
     type Output = Self;
     fn div(self, other: Self) -> Self::Output {
-        self.binary_op(other, i64::div, f64::div)
+        let (a, b) = match (self, other) {
+            (Num::Int(a), Num::Int(b)) if a % b == 0 => return Num::Int(a / b),
+            (Num::Int(a), Num::Int(b)) => (a as f64, b as f64),
+            (Num::Int(a), Num::Float(b)) => (a as f64, b),
+            (Num::Float(a), Num::Int(b)) => (a, b as f64),
+            (Num::Float(a), Num::Float(b)) => (a, b),
+        };
+        Num::Float(a / b)
     }
 }
 

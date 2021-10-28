@@ -16,6 +16,7 @@ pub enum CompileErrorKind {
     IncompatibleBinTypes(Op, Const, Const),
     NoBinaryImplementation(Op),
     NoUnaryImplementation(Op),
+    DifferentArraySizes(Op, Const, Const),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -41,6 +42,13 @@ impl fmt::Display for CompileErrorKind {
             }
             CompileErrorKind::NoUnaryImplementation(op) => {
                 write!(f, "{} has no unary implementation", op)
+            }
+            CompileErrorKind::DifferentArraySizes(op, left, right) => {
+                write!(
+                    f,
+                    "Different-sized arrays {} and {} are not compatible with {}",
+                    left, right, op
+                )
             }
         }
     }

@@ -123,16 +123,19 @@ impl Const {
 }
 
 pub struct Evaler {
-    span: Span,
+    spans: Vec<Span>,
 }
 
 impl Default for Evaler {
     fn default() -> Self {
-        Evaler { span: Span::dud() }
+        Evaler { spans: Vec::new() }
     }
 }
 
 impl Evaler {
+    fn span(&self) -> &Span {
+        self.spans.last().unwrap()
+    }
     pub fn items(&mut self, items: Vec<Item>) -> CompileResult {
         for item in items {
             self.item(item)?;
@@ -149,7 +152,8 @@ impl Evaler {
         Ok(())
     }
     fn expr(&mut self, expr: Expr) -> CompileResult<Const> {
-        match expr {
+        self.spans.push(expr.span().clone());
+        let res = match expr {
             Expr::Ident(..) => todo!(),
             Expr::Num(num, _) => Ok(num.into()),
             Expr::Char(c, _) => Ok(c.into()),
@@ -165,7 +169,9 @@ impl Evaler {
                 let right = self.expr(expr.right)?;
                 expr.op.visit_bin(left, right, self)
             }
-        }
+        };
+        self.spans.pop().unwrap();
+        res
     }
 }
 
@@ -180,10 +186,10 @@ impl Visit<Evaler> for Op {
         state: &mut Evaler,
     ) -> Result<Self::Output, Self::Error> {
         match self {
-            Op::Add => bin_math(*self, left, right, &state.span, Atom::add),
-            Op::Sub => bin_math(*self, left, right, &state.span, Atom::sub),
-            Op::Mul => bin_math(*self, left, right, &state.span, Atom::mul),
-            Op::Div => bin_math(*self, left, right, &state.span, Atom::div),
+            Op::Add => bin_math(*self, left, right, state.span(), Atom::add),
+            Op::Sub => bin_math(*self, left, right, state.span(), Atom::sub),
+            Op::Mul => bin_math(*self, left, right, state.span(), Atom::mul),
+            Op::Div => bin_math(*self, left, right, state.span(), Atom::div),
             op => todo!("{}", op),
         }
     }
@@ -225,10 +231,22 @@ fn bin_math_value(
                 .map(|b| bin_math_value(op, Value::Atom(a), b, span, f)),
         )?),
         (Value::Array(a), Value::Atom(b)) => Value::Array(Array::from_iter(
-            a
-                .iter()
+            a.iter()
                 .map(|a| bin_math_value(op, a, Value::Atom(b), span, f)),
         )?),
+        (Value::Array(a), Value::Array(b)) => {
+            if a.len() == b.len() {
+                Value::Array(Array::from_iter(
+                    a.into_iter()
+                        .zip(b.into_iter())
+                        .map(|(a, b)| bin_math_value(op, a, b, span, f)),
+                )?)
+            } else {
+                return Err(
+                    CompileErrorKind::DifferentArraySizes(op, a.into(), b.into()).at(span.clone()),
+                );
+            }
+        }
         (left, right) => {
             return Err(
                 CompileErrorKind::IncompatibleBinTypes(op, left.into(), right.into())
