@@ -48,6 +48,18 @@ impl Num {
             Num::Float(f) => Num::Float(f.abs()),
         }
     }
+    /// Get the sign
+    #[allow(clippy::comparison_chain)]
+    pub fn sign(self) -> Self {
+        if self == 0 {
+            0i64
+        } else if self > 0 {
+            1
+        } else {
+            -1
+        }
+        .into()
+    }
     /// Raise the number to a power
     ///
     /// Raising an integer to the power of a non-negative integer will produce another integer.

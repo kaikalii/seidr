@@ -218,10 +218,23 @@ impl Visit<Evaler> for Op {
         state: &mut Evaler,
     ) -> Result<Self::Output, Self::Error> {
         match self {
+            Op::Add => pervasive_un(*self, inner, state.span(), |atom, _| Ok(atom)),
             Op::Sub => pervasive_un(*self, inner, state.span(), |atom, span| match atom {
                 Atom::Num(n) => Ok(Atom::Num(-n)),
                 Atom::Char(_) => {
                     Err(CompileErrorKind::IncompatibleUnType(Op::Sub, atom.into()).at(span.clone()))
+                }
+            }),
+            Op::Mul => pervasive_un(*self, inner, state.span(), |atom, span| match atom {
+                Atom::Num(n) => Ok(Atom::Num(n.sign())),
+                Atom::Char(_) => {
+                    Err(CompileErrorKind::IncompatibleUnType(Op::Mul, atom.into()).at(span.clone()))
+                }
+            }),
+            Op::Div => pervasive_un(*self, inner, state.span(), |atom, span| match atom {
+                Atom::Num(n) => Ok(Atom::Num(Num::Int(1) / n)),
+                Atom::Char(_) => {
+                    Err(CompileErrorKind::IncompatibleUnType(Op::Div, atom.into()).at(span.clone()))
                 }
             }),
             Op::Equal => Ok(Num::from(match inner {
