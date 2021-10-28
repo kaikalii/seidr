@@ -13,21 +13,21 @@ use crate::{
     op::Op,
 };
 
-pub fn parse<P>(input: &str, file: P) -> CompileResult<Vec<Item>>
+pub fn parse<P>(input: &str, file: P) -> CompileResult<Vec<OpTreeExpr>>
 where
     P: AsRef<Path>,
 {
     let tokens = lex(input, &file)?;
     let mut parser = Parser { tokens, curr: 0 };
     parser.skip_whitespace();
-    let items = parser.items()?;
+    let exprs = parser.exprs()?;
     if let Some(token) = parser.next() {
         return Err(
             CompileError::ExpectedFound("item".into(), token.span.as_string()).at(token.span),
         );
     }
     // Write back to file
-    let formatted: String = items.iter().map(|item| format!("{}\n", item)).collect();
+    let formatted: String = exprs.iter().map(|item| format!("{}\n", item)).collect();
     if let Err(error) = fs::write(&file, &formatted) {
         return Err(CompileError::IO(IoError {
             message: format!("Unable to format `{}`", file.as_ref().to_string_lossy()),
@@ -40,7 +40,7 @@ where
     //     println!("    {:?}", item);
     // }
     // println!();
-    Ok(items)
+    Ok(exprs)
 }
 
 struct Parser {
@@ -99,14 +99,17 @@ impl Parser {
     }
     fn expect<T>(&self, expectation: &str, op: Option<T>) -> CompileResult<T> {
         op.ok_or_else(|| {
-            let span = self
-                .peek()
-                .or_else(|| self.tokens.last())
-                .unwrap()
-                .span
-                .clone();
-            CompileError::ExpectedFound(expectation.into(), span.as_string()).at(span)
+            let token = self.peek().or_else(|| self.tokens.last()).unwrap();
+            let span = token.span.clone();
+            CompileError::ExpectedFound(expectation.into(), format!("`{}`", token.tt)).at(span)
         })
+    }
+    fn expect_with<F, T>(&mut self, expectation: &str, f: F) -> CompileResult<T>
+    where
+        F: Fn(&mut Self) -> CompileResult<Option<T>>,
+    {
+        let val = f(self)?;
+        self.expect(expectation, val)
     }
     fn expect_token(&mut self, tt: TT) -> CompileResult<Token> {
         let expectation = format!("`{}`", tt);
@@ -118,166 +121,124 @@ impl Parser {
         let token = self.match_token(tt);
         self.expect(&expectation, token)
     }
-    fn items(&mut self) -> CompileResult<Vec<Item>> {
-        let mut items = Vec::new();
-        while let Some(item) = self.item()? {
-            items.push(item);
+    fn exprs(&mut self) -> CompileResult<Vec<OpTreeExpr>> {
+        let mut exprs = Vec::new();
+        while let Some(expr) = self.op_tree_expr()? {
+            exprs.push(expr.unparen());
         }
-        Ok(items)
+        Ok(exprs)
     }
-    fn item(&mut self) -> CompileResult<Option<Item>> {
-        Ok(Some(if let Some(expr) = self.expression(false)? {
-            Item::Expr(expr)
+    fn op_tree_expr(&mut self) -> CompileResult<Option<OpTreeExpr>> {
+        Ok(Some(if let Some(op) = self.op_expr()? {
+            let x = self
+                .expect_with("expression", Self::op_tree_expr)?
+                .unparen();
+            OpTreeExpr::Un(UnExpr { op, x }.into())
+        } else if let Some(w) = self.val_expr()? {
+            if let Some(op) = self.op_expr()? {
+                let x = self
+                    .expect_with("expression", Self::op_tree_expr)?
+                    .unparen();
+                OpTreeExpr::Bin(BinExpr { op, w, x }.into())
+            } else {
+                OpTreeExpr::Val(w)
+            }
         } else {
             return Ok(None);
         }))
     }
-    fn expect_expression(&mut self, parened: bool) -> CompileResult<Expr> {
-        let expr = self.expression(parened)?;
-        self.expect("expression", expr)
-    }
-    fn expression(&mut self, parened: bool) -> CompileResult<Option<Expr>> {
-        fn op(tt: &TT) -> Option<Op> {
-            if let TT::Op(op) = tt {
-                Some(*op)
-            } else {
-                None
-            }
-        }
-        Ok(Some(if let Some(expr) = self.tied_array()? {
-            if let Some((op, span)) = self.match_to(op) {
-                let left = expr;
-                let right = self.expect_expression(false)?;
-                Expr::Bin(
-                    BinExpr {
-                        op,
-                        left,
-                        right,
-                        span,
-                        parened,
-                    }
-                    .into(),
-                )
-            } else {
-                expr
-            }
-        } else if let Some((op, span)) = self.match_to(op) {
-            let inner = self.expect_expression(false)?;
-            Expr::Un(
-                UnExpr {
-                    op,
-                    inner,
-                    span,
-                    parened,
-                }
-                .into(),
-            )
-        } else {
-            return Ok(None);
-        }))
-    }
-    fn terminal(&mut self) -> CompileResult<Option<Expr>> {
-        fn num(tt: &TT) -> Option<Num> {
-            if let TT::Num(num, _) = tt {
-                Some(*num)
-            } else {
-                None
-            }
-        }
-        fn char(tt: &TT) -> Option<char> {
-            if let TT::Char(c) = tt {
-                Some(*c)
-            } else {
-                None
-            }
-        }
-        fn string(tt: &TT) -> Option<Rc<str>> {
-            if let TT::String(s) = tt {
-                Some(s.clone())
-            } else {
-                None
-            }
-        }
-        Ok(Some(if let Some(array) = self.bracketed_array()? {
-            array
-        } else if let Some((num, span)) = self.match_to(num) {
-            Expr::Num(num, span)
-        } else if let Some((c, span)) = self.match_to(char) {
-            Expr::Char(c, span)
-        } else if let Some((s, span)) = self.match_to(string) {
-            Expr::String(s, span)
-        } else if let Some((ident, span)) = self.ident() {
-            Expr::Ident(ident, span)
-        } else if self.match_token(TT::OpenParen).is_some() {
-            let expr = self.expect_expression(true)?;
-            self.expect_token(TT::CloseParen)?;
-            expr
-        } else {
-            return Ok(None);
-        }))
-    }
-    fn ident(&mut self) -> Option<(Ident, Span)> {
-        fn ident(tt: &TT) -> Option<Ident> {
-            if let TT::Ident(ident) = tt {
-                Some(ident.clone())
-            } else {
-                None
-            }
-        }
-        self.match_to(ident)
-    }
-    fn array(&mut self) -> CompileResult<Option<Expr>> {
-        Ok(Some(if let Some(expr) = self.tied_array()? {
-            expr
-        } else if let Some(expr) = self.bracketed_array()? {
-            expr
-        } else {
-            return Ok(None);
-        }))
-    }
-    fn tied_array(&mut self) -> CompileResult<Option<Expr>> {
-        let start = self.curr;
-        let first = if let Some(expr) = self.terminal()? {
+    fn val_expr(&mut self) -> CompileResult<Option<ValExpr>> {
+        let first = if let Some(expr) = self.single_val_expr()? {
             expr
         } else {
             return Ok(None);
         };
         let mut items = vec![first];
         while self.match_token(TT::Undertie).is_some() {
-            let item = self.terminal()?;
-            let item = self.expect("item", item)?;
+            let item = self.expect_with("expression", Self::single_val_expr)?;
             items.push(item);
         }
-        if items.len() == 1 {
-            return Ok(Some(items.swap_remove(0)));
-        }
-        let span = items[0].span().join(items.last().unwrap().span());
-        Ok(Some(Expr::Array(ArrayExpr {
-            items,
-            tied: true,
-            span,
-        })))
+        Ok(Some(if items.len() == 1 {
+            items.swap_remove(0)
+        } else {
+            let span = items[0].span().join(items.last().unwrap().span());
+            ValExpr::Array(ArrayExpr {
+                items: items.into_iter().map(OpTreeExpr::Val).collect(),
+                tied: true,
+                span,
+            })
+        }))
     }
-    fn bracketed_array(&mut self) -> CompileResult<Option<Expr>> {
-        let open = if let Some(token) = self.match_token(TT::OpenAngle) {
-            token
+    fn single_val_expr(&mut self) -> CompileResult<Option<ValExpr>> {
+        Ok(Some(if let Some((num, span)) = self.match_to(num) {
+            ValExpr::Num(num, span)
+        } else if let Some((c, span)) = self.match_to(char) {
+            ValExpr::Char(c, span)
+        } else if let Some((s, span)) = self.match_to(string) {
+            ValExpr::String(s, span)
+        } else if self.match_token(TT::OpenParen).is_some() {
+            let expr = self.expect_with("expression", Self::op_tree_expr)?;
+            self.expect_token(TT::CloseParen);
+            match expr {
+                OpTreeExpr::Val(expr) => expr,
+                expr => ValExpr::Parened(expr.into()),
+            }
+        } else if let Some(open) = self.match_token(TT::OpenAngle) {
+            let mut items = Vec::new();
+            while let Some(item) = self.op_tree_expr()? {
+                items.push(item);
+                if self.match_token(TT::Comma).is_none() {
+                    break;
+                }
+            }
+            let close = self.expect_token(TT::CloseAngle)?;
+            let span = open.span.join(&close.span);
+            ValExpr::Array(ArrayExpr {
+                items,
+                tied: false,
+                span,
+            })
         } else {
             return Ok(None);
-        };
-        let first = self.expression(false)?;
-        let mut items = Vec::from_iter(first);
-        while self.match_token(TT::Comma).is_some() {
-            let item = self.terminal()?;
-            let item = self.expect("item", item)?;
-            items.push(item);
-        }
-        self.match_token(TT::Comma);
-        let close = self.expect_token(TT::CloseAngle)?;
-        let span = open.span.join(&close.span);
-        Ok(Some(Expr::Array(ArrayExpr {
-            items,
-            tied: false,
-            span,
-        })))
+        }))
+    }
+    fn op_expr(&mut self) -> CompileResult<Option<OpExpr>> {
+        Ok(if let Some((op, span)) = self.match_to(op) {
+            Some(OpExpr::Op(op, span))
+        } else {
+            None
+        })
+    }
+}
+
+fn num(tt: &TT) -> Option<Num> {
+    if let TT::Num(num, _) = tt {
+        Some(*num)
+    } else {
+        None
+    }
+}
+
+fn char(tt: &TT) -> Option<char> {
+    if let TT::Char(c) = tt {
+        Some(*c)
+    } else {
+        None
+    }
+}
+
+fn string(tt: &TT) -> Option<Rc<str>> {
+    if let TT::String(s) = tt {
+        Some(s.clone())
+    } else {
+        None
+    }
+}
+
+fn op(tt: &TT) -> Option<Op> {
+    if let TT::Op(op) = tt {
+        Some(*op)
+    } else {
+        None
     }
 }

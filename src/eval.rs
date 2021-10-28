@@ -27,44 +27,67 @@ impl Evaler {
     fn span(&self) -> &Span {
         self.spans.last().unwrap()
     }
-    pub fn items(&mut self, items: Vec<Item>) -> CompileResult {
-        for item in items {
-            self.item(item)?;
+    pub fn exprs(&mut self, exprs: Vec<OpTreeExpr>) -> CompileResult {
+        for expr in exprs {
+            self.op_tree_expr(expr)?;
         }
         Ok(())
     }
-    pub fn item(&mut self, item: Item) -> CompileResult {
-        match item {
-            Item::Expr(expr) => {
-                let ty = self.expr(expr)?;
-                println!("{}", ty);
-            }
-        }
-        Ok(())
-    }
-    fn expr(&mut self, expr: Expr) -> CompileResult<Ev> {
+    pub fn op_tree_expr(&mut self, expr: OpTreeExpr) -> CompileResult<Ev> {
         self.spans.push(expr.span().clone());
         let res = match expr {
-            Expr::Ident(..) => todo!(),
-            Expr::Num(num, _) => Ok(num.into()),
-            Expr::Char(c, _) => Ok(c.into()),
-            Expr::String(s, _) => Ok(Array::String(s).into()),
-            Expr::Op(op, _) => Ok(op.into()),
-            Expr::Array(expr) => {
-                Ev::from_try_iter(expr.items.into_iter().map(|expr| self.expr(expr)))
-            }
-            Expr::Un(expr) => {
-                let x = self.expr(expr.inner)?;
+            OpTreeExpr::Val(expr) => self.val_expr(expr),
+            OpTreeExpr::Un(expr) => {
+                let x = self.op_tree_expr(expr.x)?;
                 expr.op.visit_un(x, self)
             }
-            Expr::Bin(expr) => {
-                let w = self.expr(expr.left)?;
-                let x = self.expr(expr.right)?;
+            OpTreeExpr::Bin(expr) => {
+                let w = self.val_expr(expr.w)?;
+                let x = self.op_tree_expr(expr.x)?;
                 expr.op.visit_bin(w, x, self)
             }
         };
         self.spans.pop().unwrap();
         res
+    }
+    fn val_expr(&mut self, expr: ValExpr) -> CompileResult<Ev> {
+        self.spans.push(expr.span().clone());
+        let res = match expr {
+            ValExpr::Num(num, _) => Ok(num.into()),
+            ValExpr::Char(c, _) => Ok(c.into()),
+            ValExpr::String(s, _) => Ok(Array::String(s).into()),
+            ValExpr::Array(expr) => {
+                Ev::from_try_iter(expr.items.into_iter().map(|expr| self.op_tree_expr(expr)))
+            }
+            ValExpr::Parened(expr) => self.op_tree_expr(*expr),
+        };
+        self.spans.pop().unwrap();
+        res
+    }
+}
+
+impl Visit<Evaler> for OpExpr {
+    type Input = Ev;
+    type Output = Ev;
+    type Error = Problem;
+    fn visit_un(
+        &self,
+        inner: Self::Input,
+        state: &mut Evaler,
+    ) -> Result<Self::Output, Self::Error> {
+        match self {
+            OpExpr::Op(op, _) => op.visit_un(inner, state),
+        }
+    }
+    fn visit_bin(
+        &self,
+        w: Self::Input,
+        x: Self::Output,
+        state: &mut Evaler,
+    ) -> Result<Self::Output, Self::Error> {
+        match self {
+            OpExpr::Op(op, _) => op.visit_bin(w, x, state),
+        }
     }
 }
 
@@ -75,7 +98,7 @@ where
     Ok(x.into())
 }
 
-fn pass_right<W, X>(w: W, x: X) -> EvalResult
+fn pass_x<W, X>(w: W, x: X) -> EvalResult
 where
     X: Into<Ev>,
 {
@@ -456,7 +479,7 @@ mod jera {
                 }
                 Ok(Ty::from_iter(tys).into())
             })
-            .num_array_ty(pass_right)
+            .num_array_ty(pass_x)
             .eval(w, x)
     }
 }
