@@ -2,6 +2,7 @@ use std::{fmt, ops::*};
 
 use crate::{
     ast::*,
+    checked::Checked,
     error::{CompileError, CompileResult, Problem},
     lex::Span,
     num::Num,
@@ -11,118 +12,6 @@ use crate::{
 };
 
 pub type EvalResult<T> = Result<T, CompileError>;
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum Const {
-    Type(Type),
-    Value(Value),
-}
-
-impl Const {
-    pub fn ty(&self) -> Type {
-        match self {
-            Const::Type(ty) => ty.clone(),
-            Const::Value(val) => val.ty(),
-        }
-    }
-}
-
-impl fmt::Display for Const {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Const::Type(ty) => ty.fmt(f),
-            Const::Value(val) => val.fmt(f),
-        }
-    }
-}
-
-impl From<Const> for Type {
-    fn from(c: Const) -> Self {
-        match c {
-            Const::Value(val) => val.ty(),
-            Const::Type(ty) => ty,
-        }
-    }
-}
-
-impl From<Type> for Const {
-    fn from(ty: Type) -> Self {
-        Const::Type(ty)
-    }
-}
-
-impl From<ArrayType> for Const {
-    fn from(at: ArrayType) -> Self {
-        Const::Type(at.into())
-    }
-}
-
-impl From<AtomType> for Const {
-    fn from(at: AtomType) -> Self {
-        Const::Type(at.into())
-    }
-}
-
-impl From<Value> for Const {
-    fn from(val: Value) -> Self {
-        Const::Value(val)
-    }
-}
-
-impl From<Atom> for Const {
-    fn from(atom: Atom) -> Self {
-        Const::Value(atom.into())
-    }
-}
-
-impl From<Num> for Const {
-    fn from(num: Num) -> Self {
-        Const::Value(num.into())
-    }
-}
-
-impl From<char> for Const {
-    fn from(c: char) -> Self {
-        Const::Value(c.into())
-    }
-}
-
-impl From<Array> for Const {
-    fn from(arr: Array) -> Self {
-        Const::Value(arr.into())
-    }
-}
-
-impl Const {
-    fn from_iter<I>(iter: I) -> CompileResult<Self>
-    where
-        I: IntoIterator<Item = CompileResult<Const>>,
-    {
-        let mut consts: Vec<Const> = iter.into_iter().collect::<CompileResult<_>>()?;
-        Ok(if consts.is_empty() {
-            Array::List(Vec::new()).into()
-        } else if consts.iter().all(|ty| matches!(ty, Const::Value(_))) {
-            Value::Array(Array::from_try_iter(consts.into_iter().map(|ty| {
-                Ok(if let Const::Value(val) = ty {
-                    val
-                } else {
-                    unreachable!()
-                })
-            }))?)
-            .into()
-        } else {
-            let mut types: Vec<Type> = consts.into_iter().map(Type::from).collect();
-            let all_same = types.windows(2).all(|win| win[0] == win[1]);
-            if all_same {
-                let len = types.len();
-                ArrayType::StaticHomo(types.pop().unwrap(), len)
-            } else {
-                ArrayType::StaticHetero(types)
-            }
-            .into()
-        })
-    }
-}
 
 pub struct Evaler {
     spans: Vec<Span>,
@@ -153,7 +42,7 @@ impl Evaler {
         }
         Ok(())
     }
-    fn expr(&mut self, expr: Expr) -> CompileResult<Const> {
+    fn expr(&mut self, expr: Expr) -> CompileResult<Checked> {
         self.spans.push(expr.span().clone());
         let res = match expr {
             Expr::Ident(..) => todo!(),
@@ -161,7 +50,7 @@ impl Evaler {
             Expr::Char(c, _) => Ok(c.into()),
             Expr::String(s, _) => Ok(Array::String(s).into()),
             Expr::Array(expr) => {
-                Const::from_iter(expr.items.into_iter().map(|expr| self.expr(expr)))
+                Checked::from_try_iter(expr.items.into_iter().map(|expr| self.expr(expr)))
             }
             Expr::Un(expr) => {
                 let inner = self.expr(expr.inner)?;
@@ -179,8 +68,8 @@ impl Evaler {
 }
 
 impl Visit<Evaler> for Op {
-    type Input = Const;
-    type Output = Const;
+    type Input = Checked;
+    type Output = Checked;
     type Error = Problem;
     fn visit_bin(
         &self,
@@ -223,10 +112,10 @@ impl Visit<Evaler> for Op {
                 Atom::Char(_) => Err(CompileError::IncompatibleUnType(Op::Div, atom.into())),
             }),
             Op::Equal => Ok(Num::from(match inner {
-                Const::Value(Value::Atom(_)) => 0,
-                Const::Value(Value::Array(arr)) => arr.len(),
-                Const::Type(Type::Atom(_)) => 0,
-                Const::Type(Type::Array(arr)) => match *arr {
+                Checked::Value(Value::Atom(_)) => 0,
+                Checked::Value(Value::Array(arr)) => arr.len(),
+                Checked::Type(Type::Atom(_)) => 0,
+                Checked::Type(Type::Array(arr)) => match *arr {
                     ArrayType::Empty => 0,
                     ArrayType::StaticHomo(_, len) => len,
                     ArrayType::StaticHetero(tys) => tys.len(),
@@ -235,13 +124,13 @@ impl Visit<Evaler> for Op {
             })
             .into()),
             Op::Jera => Ok(match inner {
-                Const::Value(Value::Atom(_)) | Const::Type(Type::Atom(_)) => inner,
-                Const::Value(Value::Array(array)) => {
+                Checked::Value(Value::Atom(_)) | Checked::Type(Type::Atom(_)) => inner,
+                Checked::Value(Value::Array(array)) => {
                     let mut values: Vec<Value> = array.into_iter().collect();
                     values.reverse();
                     Array::from_iter(values).into()
                 }
-                Const::Type(Type::Array(arr)) => match *arr {
+                Checked::Type(Type::Array(arr)) => match *arr {
                     ArrayType::StaticHetero(mut tys) => {
                         tys.reverse();
                         ArrayType::StaticHetero(tys)
@@ -258,12 +147,12 @@ impl Visit<Evaler> for Op {
 
 fn pervasize_bin(
     op: Op,
-    left: Const,
-    right: Const,
+    left: Checked,
+    right: Checked,
     f: fn(Atom, Atom) -> EvalResult<Atom>,
-) -> EvalResult<Const> {
+) -> EvalResult<Checked> {
     match (left, right) {
-        (Const::Value(a), Const::Value(b)) => pervasize_bin_value(op, a, b, f).map(Into::into),
+        (Checked::Value(a), Checked::Value(b)) => pervasize_bin_value(op, a, b, f).map(Into::into),
         (left, right) => Err(CompileError::IncompatibleBinTypes(op, left, right)),
     }
 }
@@ -305,9 +194,9 @@ fn pervasize_bin_value(
     })
 }
 
-fn pervasive_un(op: Op, inner: Const, f: fn(Atom) -> EvalResult<Atom>) -> EvalResult<Const> {
+fn pervasive_un(op: Op, inner: Checked, f: fn(Atom) -> EvalResult<Atom>) -> EvalResult<Checked> {
     match inner {
-        Const::Value(val) => pervasive_un_value(op, val, f).map(Into::into),
+        Checked::Value(val) => pervasive_un_value(op, val, f).map(Into::into),
         inner => Err(CompileError::IncompatibleUnType(op, inner)),
     }
 }

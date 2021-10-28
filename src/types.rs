@@ -1,8 +1,8 @@
 use std::fmt;
 
 use crate::{
+    checked::Checked,
     error::CompileResult,
-    eval::Const,
     num::Num,
     value::{Array, Value},
 };
