@@ -224,6 +224,18 @@ impl Visit<Evaler> for Op {
                     Err(CompileErrorKind::IncompatibleUnType(Op::Sub, atom.into()).at(span.clone()))
                 }
             }),
+            Op::Equal => Ok(Num::from(match inner {
+                Const::Value(Value::Atom(_)) => 0,
+                Const::Value(Value::Array(arr)) => arr.len(),
+                Const::Type(Type::Atom(_)) => 0,
+                Const::Type(Type::Array(arr)) => match &*arr {
+                    ArrayType::Empty => 0,
+                    ArrayType::StaticHomo(_, len) => *len,
+                    ArrayType::StaticHetero(tys) => tys.len(),
+                    ArrayType::DynamicHomo(_) => return Ok(AtomType::Num.into()),
+                },
+            })
+            .into()),
             op => todo!("{}", op),
         }
     }
