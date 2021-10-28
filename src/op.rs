@@ -45,14 +45,41 @@ macro_rules! op {
 }
 
 op!(
+    // Math
     (Add, '+'),
     (Sub, '-'),
     (Mul, '×'),
     (Div, '÷'),
+    // Comparison
+    (Equal, '='),
+    (NotEqual, '≠'),
     (Less, '<'),
     (LessOrEqual, '≤'),
     (Greater, '>'),
     (GreaterOrEqual, '≥'),
-    (Equal, '='),
-    (NotEqual, '≠'),
+    // Runes
+    (Fehu, 'ᚠ'),
+    (Uruz, 'ᚢ'),
+    (Thurisaz, 'ᚦ'),
+    (Ansuz, 'ᚨ'),
+    (Raido, 'ᚱ'),
+    (Kaunan, 'ᚲ'),
+    (Gebo, 'ᚷ'),
+    (Wunjo, 'ᚹ'),
+    (Haglaz, 'ᚻ'),
+    (Naudiz, 'ᚾ'),
+    (Isaz, 'ᛁ'),
+    (Jera, 'ᛃ'),
+    (Iwaz, 'ᛇ'),
+    (Perth, 'ᛈ'),
+    (Algiz, 'ᛉ'),
+    (Sowilo, 'ᛊ'),
+    (Tiwaz, 'ᛏ'),
+    (Berkanan, 'ᛒ'),
+    (Ehwaz, 'ᛖ'),
+    (Mannaz, 'ᛗ'),
+    (Laguz, 'ᛚ'),
+    (Ingwaz, 'ᛜ'),
+    (Othala, 'ᛟ'),
+    (Dagaz, 'ᛞ'),
 );
