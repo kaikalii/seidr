@@ -1,7 +1,7 @@
 #![allow(unused)]
 
 mod ast;
-mod checked;
+mod check;
 mod error;
 mod eval;
 mod lex;

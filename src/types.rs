@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::{
-    checked::Checked,
+    check::Check,
     error::CompileResult,
     num::Num,
     value::{Array, Value},

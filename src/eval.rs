@@ -2,7 +2,7 @@ use std::{fmt, ops::*};
 
 use crate::{
     ast::*,
-    checked::Checked,
+    check::Check,
     error::{CompileError, CompileResult, Problem},
     lex::Span,
     num::Num,
@@ -42,7 +42,7 @@ impl Evaler {
         }
         Ok(())
     }
-    fn expr(&mut self, expr: Expr) -> CompileResult<Checked> {
+    fn expr(&mut self, expr: Expr) -> CompileResult<Check> {
         self.spans.push(expr.span().clone());
         let res = match expr {
             Expr::Ident(..) => todo!(),
@@ -50,7 +50,7 @@ impl Evaler {
             Expr::Char(c, _) => Ok(c.into()),
             Expr::String(s, _) => Ok(Array::String(s).into()),
             Expr::Array(expr) => {
-                Checked::from_try_iter(expr.items.into_iter().map(|expr| self.expr(expr)))
+                Check::from_try_iter(expr.items.into_iter().map(|expr| self.expr(expr)))
             }
             Expr::Un(expr) => {
                 let inner = self.expr(expr.inner)?;
@@ -68,8 +68,8 @@ impl Evaler {
 }
 
 impl Visit<Evaler> for Op {
-    type Input = Checked;
-    type Output = Checked;
+    type Input = Check;
+    type Output = Check;
     type Error = Problem;
     fn visit_bin(
         &self,
@@ -112,10 +112,10 @@ impl Visit<Evaler> for Op {
                 Atom::Char(_) => Err(CompileError::IncompatibleUnType(Op::Div, atom.into())),
             }),
             Op::Equal => Ok(Num::from(match inner {
-                Checked::Value(Value::Atom(_)) => 0,
-                Checked::Value(Value::Array(arr)) => arr.len(),
-                Checked::Type(Type::Atom(_)) => 0,
-                Checked::Type(Type::Array(arr)) => match *arr {
+                Check::Value(Value::Atom(_)) => 0,
+                Check::Value(Value::Array(arr)) => arr.len(),
+                Check::Type(Type::Atom(_)) => 0,
+                Check::Type(Type::Array(arr)) => match *arr {
                     ArrayType::Empty => 0,
                     ArrayType::StaticHomo(_, len) => len,
                     ArrayType::StaticHetero(tys) => tys.len(),
@@ -124,13 +124,13 @@ impl Visit<Evaler> for Op {
             })
             .into()),
             Op::Jera => Ok(match inner {
-                Checked::Value(Value::Atom(_)) | Checked::Type(Type::Atom(_)) => inner,
-                Checked::Value(Value::Array(array)) => {
+                Check::Value(Value::Atom(_)) | Check::Type(Type::Atom(_)) => inner,
+                Check::Value(Value::Array(array)) => {
                     let mut values: Vec<Value> = array.into_iter().collect();
                     values.reverse();
                     Array::from_iter(values).into()
                 }
-                Checked::Type(Type::Array(arr)) => match *arr {
+                Check::Type(Type::Array(arr)) => match *arr {
                     ArrayType::StaticHetero(mut tys) => {
                         tys.reverse();
                         ArrayType::StaticHetero(tys)
@@ -147,12 +147,12 @@ impl Visit<Evaler> for Op {
 
 fn pervasize_bin(
     op: Op,
-    left: Checked,
-    right: Checked,
+    left: Check,
+    right: Check,
     f: fn(Atom, Atom) -> EvalResult<Atom>,
-) -> EvalResult<Checked> {
+) -> EvalResult<Check> {
     match (left, right) {
-        (Checked::Value(a), Checked::Value(b)) => pervasize_bin_value(op, a, b, f).map(Into::into),
+        (Check::Value(a), Check::Value(b)) => pervasize_bin_value(op, a, b, f).map(Into::into),
         (left, right) => Err(CompileError::IncompatibleBinTypes(op, left, right)),
     }
 }
@@ -194,9 +194,9 @@ fn pervasize_bin_value(
     })
 }
 
-fn pervasive_un(op: Op, inner: Checked, f: fn(Atom) -> EvalResult<Atom>) -> EvalResult<Checked> {
+fn pervasive_un(op: Op, inner: Check, f: fn(Atom) -> EvalResult<Atom>) -> EvalResult<Check> {
     match inner {
-        Checked::Value(val) => pervasive_un_value(op, val, f).map(Into::into),
+        Check::Value(val) => pervasive_un_value(op, val, f).map(Into::into),
         inner => Err(CompileError::IncompatibleUnType(op, inner)),
     }
 }

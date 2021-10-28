@@ -2,7 +2,7 @@ use std::{error::Error, fmt, io};
 
 use colored::{Color, Colorize};
 
-use crate::{checked::Checked, lex::Span, op::Op, types::Type};
+use crate::{check::Check, lex::Span, op::Op, types::Type};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum CompileError {
@@ -13,11 +13,11 @@ pub enum CompileError {
     ExpectedFound(String, String),
     UnclosedString,
     UnclosedChar,
-    IncompatibleBinTypes(Op, Checked, Checked),
-    IncompatibleUnType(Op, Checked),
+    IncompatibleBinTypes(Op, Check, Check),
+    IncompatibleUnType(Op, Check),
     NoBinaryImplementation(Op),
     NoUnaryImplementation(Op),
-    DifferentArraySizes(Op, Checked, Checked),
+    DifferentArraySizes(Op, Check, Check),
 }
 
 #[derive(Debug, PartialEq, Eq)]

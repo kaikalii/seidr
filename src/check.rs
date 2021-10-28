@@ -8,97 +8,97 @@ use crate::{
 };
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum Checked {
+pub enum Check {
     Type(Type),
     Value(Value),
 }
 
-impl Checked {
+impl Check {
     pub fn ty(&self) -> Type {
         match self {
-            Checked::Type(ty) => ty.clone(),
-            Checked::Value(val) => val.ty(),
+            Check::Type(ty) => ty.clone(),
+            Check::Value(val) => val.ty(),
         }
     }
 }
 
-impl fmt::Display for Checked {
+impl fmt::Display for Check {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Checked::Type(ty) => ty.fmt(f),
-            Checked::Value(val) => val.fmt(f),
+            Check::Type(ty) => ty.fmt(f),
+            Check::Value(val) => val.fmt(f),
         }
     }
 }
 
-impl From<Checked> for Type {
-    fn from(c: Checked) -> Self {
+impl From<Check> for Type {
+    fn from(c: Check) -> Self {
         match c {
-            Checked::Value(val) => val.ty(),
-            Checked::Type(ty) => ty,
+            Check::Value(val) => val.ty(),
+            Check::Type(ty) => ty,
         }
     }
 }
 
-impl From<Type> for Checked {
+impl From<Type> for Check {
     fn from(ty: Type) -> Self {
-        Checked::Type(ty)
+        Check::Type(ty)
     }
 }
 
-impl From<ArrayType> for Checked {
+impl From<ArrayType> for Check {
     fn from(at: ArrayType) -> Self {
-        Checked::Type(at.into())
+        Check::Type(at.into())
     }
 }
 
-impl From<AtomType> for Checked {
+impl From<AtomType> for Check {
     fn from(at: AtomType) -> Self {
-        Checked::Type(at.into())
+        Check::Type(at.into())
     }
 }
 
-impl From<Value> for Checked {
+impl From<Value> for Check {
     fn from(val: Value) -> Self {
-        Checked::Value(val)
+        Check::Value(val)
     }
 }
 
-impl From<Atom> for Checked {
+impl From<Atom> for Check {
     fn from(atom: Atom) -> Self {
-        Checked::Value(atom.into())
+        Check::Value(atom.into())
     }
 }
 
-impl From<Num> for Checked {
+impl From<Num> for Check {
     fn from(num: Num) -> Self {
-        Checked::Value(num.into())
+        Check::Value(num.into())
     }
 }
 
-impl From<char> for Checked {
+impl From<char> for Check {
     fn from(c: char) -> Self {
-        Checked::Value(c.into())
+        Check::Value(c.into())
     }
 }
 
-impl From<Array> for Checked {
+impl From<Array> for Check {
     fn from(arr: Array) -> Self {
-        Checked::Value(arr.into())
+        Check::Value(arr.into())
     }
 }
 
-impl Checked {
+impl Check {
     pub fn from_try_iter<I>(iter: I) -> CompileResult<Self>
     where
-        I: IntoIterator<Item = CompileResult<Checked>>,
+        I: IntoIterator<Item = CompileResult<Check>>,
     {
-        let mut consts: Vec<Checked> = iter.into_iter().collect::<CompileResult<_>>()?;
+        let mut consts: Vec<Check> = iter.into_iter().collect::<CompileResult<_>>()?;
         Ok(if consts.is_empty() {
             Array::List(Vec::new()).into()
-        } else if consts.iter().all(|ty| matches!(ty, Checked::Value(_))) {
+        } else if consts.iter().all(|ty| matches!(ty, Check::Value(_))) {
             Value::Array(Array::from_try_iter(consts.into_iter().map(|ty| {
-                Ok(if let Checked::Value(val) = ty {
+                Ok(if let Check::Value(val) = ty {
                     val
                 } else {
                     unreachable!()
