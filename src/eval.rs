@@ -199,7 +199,15 @@ impl Visit<Evaler> for Op {
         inner: Self::Input,
         state: &mut Evaler,
     ) -> Result<Self::Output, Self::Error> {
-        todo!()
+        match self {
+            Op::Sub => un_math(*self, inner, state.span(), |atom, span| match atom {
+                Atom::Num(n) => Ok(Atom::Num(-n)),
+                Atom::Char(_) => {
+                    Err(CompileErrorKind::IncompatibleUnType(Op::Sub, atom.into()).at(span.clone()))
+                }
+            }),
+            op => todo!("{}", op),
+        }
     }
 }
 
@@ -210,12 +218,12 @@ fn bin_math(
     span: &Span,
     f: fn(Atom, Atom, &Span) -> CompileResult<Atom>,
 ) -> CompileResult<Const> {
-    Ok(match (left, right) {
-        (Const::Value(a), Const::Value(b)) => bin_math_value(op, a, b, span, f)?.into(),
+    match (left, right) {
+        (Const::Value(a), Const::Value(b)) => bin_math_value(op, a, b, span, f).map(Into::into),
         (left, right) => {
-            return Err(CompileErrorKind::IncompatibleBinTypes(op, left, right).at(span.clone()))
+            Err(CompileErrorKind::IncompatibleBinTypes(op, left, right).at(span.clone()))
         }
-    })
+    }
 }
 
 fn bin_math_value(
@@ -253,6 +261,32 @@ fn bin_math_value(
                 CompileErrorKind::IncompatibleBinTypes(op, left.into(), right.into())
                     .at(span.clone()),
             )
+        }
+    })
+}
+
+fn un_math(
+    op: Op,
+    inner: Const,
+    span: &Span,
+    f: fn(Atom, &Span) -> CompileResult<Atom>,
+) -> CompileResult<Const> {
+    match inner {
+        Const::Value(val) => un_math_value(op, val, span, f).map(Into::into),
+        inner => Err(CompileErrorKind::IncompatibleUnType(op, inner).at(span.clone())),
+    }
+}
+
+fn un_math_value(
+    op: Op,
+    inner: Value,
+    span: &Span,
+    f: fn(Atom, &Span) -> CompileResult<Atom>,
+) -> CompileResult<Value> {
+    Ok(match inner {
+        Value::Atom(atom) => f(atom, span)?.into(),
+        Value::Array(arr) => {
+            Array::from_iter(arr.into_iter().map(|val| un_math_value(op, val, span, f)))?.into()
         }
     })
 }

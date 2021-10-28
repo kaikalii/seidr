@@ -14,6 +14,7 @@ pub enum CompileErrorKind {
     UnclosedString,
     UnclosedChar,
     IncompatibleBinTypes(Op, Const, Const),
+    IncompatibleUnType(Op, Const),
     NoBinaryImplementation(Op),
     NoUnaryImplementation(Op),
     DifferentArraySizes(Op, Const, Const),
@@ -36,6 +37,9 @@ impl fmt::Display for CompileErrorKind {
             }
             CompileErrorKind::IncompatibleBinTypes(op, left, right) => {
                 write!(f, "{} {} {} is invalid", left, op, right)
+            }
+            CompileErrorKind::IncompatibleUnType(op, inner) => {
+                write!(f, "{} {} is invalid", op, inner)
             }
             CompileErrorKind::NoBinaryImplementation(op) => {
                 write!(f, "{} has no binary implementation", op)
