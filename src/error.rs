@@ -2,7 +2,7 @@ use std::{error::Error, fmt, io};
 
 use colored::{Color, Colorize};
 
-use crate::{ev::Ev, lex::Span, op::Op, types::Ty};
+use crate::{lex::Span, op::Op};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum CompileError {
@@ -13,11 +13,8 @@ pub enum CompileError {
     ExpectedFound(String, String),
     UnclosedString,
     UnclosedChar,
-    IncompatibleBinTypes(Op, Ev, Ev),
-    IncompatibleUnType(Op, Ev),
     NoBinaryImplementation(Op),
     NoUnaryImplementation(Op),
-    DifferentArraySizes(Op, Ev, Ev),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -35,26 +32,11 @@ impl fmt::Display for CompileError {
             CompileError::ExpectedFound(expected, found) => {
                 write!(f, "Expected {}, found {}", expected, found)
             }
-            CompileError::IncompatibleBinTypes(op, left, right) => {
-                write!(f, "{} {} {} is invalid", left.ty(), op, right.ty())
-            }
-            CompileError::IncompatibleUnType(op, inner) => {
-                write!(f, "{} {} is invalid", op, inner.ty())
-            }
             CompileError::NoBinaryImplementation(op) => {
                 write!(f, "{} has no binary implementation", op)
             }
             CompileError::NoUnaryImplementation(op) => {
                 write!(f, "{} has no unary implementation", op)
-            }
-            CompileError::DifferentArraySizes(op, left, right) => {
-                write!(
-                    f,
-                    "Different-sized arrays {} and {} are not compatible with {}",
-                    left.ty(),
-                    right.ty(),
-                    op
-                )
             }
         }
     }

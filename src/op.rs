@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::{error::CompileError, ev::Ev, eval::EvalResult};
+use crate::error::CompileError;
 
 pub trait Visit<S> {
     type Input;
@@ -85,23 +85,3 @@ op!(
     (Othala, 'ᛟ'),
     (Dagaz, 'ᛞ'),
 );
-
-impl Op {
-    pub fn err_un<T, I>(&self, x: I) -> EvalResult<T>
-    where
-        I: Into<Ev>,
-    {
-        Err(CompileError::IncompatibleUnType(*self, x.into()))
-    }
-    pub fn err_bin<T, L, R>(&self, w: L, x: R) -> EvalResult<T>
-    where
-        L: Into<Ev>,
-        R: Into<Ev>,
-    {
-        Err(CompileError::IncompatibleBinTypes(
-            *self,
-            w.into(),
-            x.into(),
-        ))
-    }
-}
