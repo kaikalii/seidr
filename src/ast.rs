@@ -1,6 +1,7 @@
 use std::{
     fmt::{self, Write},
     io,
+    rc::Rc,
 };
 
 use crate::{
@@ -37,6 +38,7 @@ impl fmt::Debug for Item {
 pub enum Expr {
     Num(Num, Span),
     Char(char, Span),
+    String(Rc<str>, Span),
     Array(ArrayExpr),
     Ident(Ident, Span),
     Un(Box<UnExpr>),
@@ -46,7 +48,10 @@ pub enum Expr {
 impl Expr {
     pub fn span(&self) -> &Span {
         match self {
-            Expr::Char(_, span) | Expr::Num(_, span) | Expr::Ident(_, span) => span,
+            Expr::Char(_, span)
+            | Expr::Num(_, span)
+            | Expr::Ident(_, span)
+            | Expr::String(_, span) => span,
             Expr::Array(expr) => &expr.span,
             Expr::Un(expr) => &expr.span,
             Expr::Bin(expr) => &expr.span,
@@ -60,6 +65,7 @@ impl fmt::Debug for Expr {
             Expr::Num(n, _) => n.fmt(f),
             Expr::Char(c, _) => c.fmt(f),
             Expr::Ident(ident, _) => ident.fmt(f),
+            Expr::String(string, _) => string.fmt(f),
             Expr::Array(expr) => expr.fmt(f),
             Expr::Un(expr) => expr.fmt(f),
             Expr::Bin(expr) => expr.fmt(f),
@@ -173,6 +179,7 @@ impl Format for Expr {
                 }
             }
             Expr::Char(c, _) => write!(f, "{:?}", c),
+            Expr::String(string, _) => write!(f, "{:?}", string),
             Expr::Ident(ident, _) => write!(f, "{}", ident),
             Expr::Array(expr) => expr.format(f),
             Expr::Un(expr) => expr.format(f),

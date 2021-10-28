@@ -2,6 +2,7 @@ use std::{
     fs::{self, OpenOptions},
     io::Write,
     path::Path,
+    rc::Rc,
 };
 
 use crate::{
@@ -189,12 +190,21 @@ impl Parser {
                 None
             }
         }
+        fn string(tt: &TT) -> Option<Rc<str>> {
+            if let TT::String(s) = tt {
+                Some(s.clone())
+            } else {
+                None
+            }
+        }
         Ok(Some(if let Some(array) = self.bracketed_array()? {
             array
         } else if let Some((num, span)) = self.match_to(num) {
             Expr::Num(num, span)
         } else if let Some((c, span)) = self.match_to(char) {
             Expr::Char(c, span)
+        } else if let Some((s, span)) = self.match_to(string) {
+            Expr::String(s, span)
         } else if let Some((ident, span)) = self.ident() {
             Expr::Ident(ident, span)
         } else if self.match_token(TT::OpenParen).is_some() {

@@ -157,6 +157,7 @@ impl Evaler {
             Expr::Ident(..) => todo!(),
             Expr::Num(num, _) => Ok(num.into()),
             Expr::Char(c, _) => Ok(c.into()),
+            Expr::String(s, _) => Ok(Array::String(s).into()),
             Expr::Array(expr) => {
                 Const::from_iter(expr.items.into_iter().map(|expr| self.expr(expr)))
             }

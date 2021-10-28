@@ -1,4 +1,4 @@
-use std::{fmt, ops::*};
+use std::{fmt, ops::*, rc::Rc};
 
 use crate::{
     error::{CompileErrorKind, CompileResult},
@@ -22,7 +22,7 @@ pub enum Value {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Array {
-    String(String),
+    String(Rc<str>),
     List(Vec<Value>),
 }
 
@@ -238,7 +238,8 @@ impl Array {
                                 unreachable!()
                             }
                         })
-                        .collect(),
+                        .collect::<String>()
+                        .into(),
                 )
             } else {
                 Array::List(items)
