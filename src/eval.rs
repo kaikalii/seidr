@@ -88,7 +88,7 @@ impl Visit<Evaler> for Op {
             Op::LessOrEqual => pervasize_bin(*self, w, x, |w, x| Ok((w <= x).into())),
             Op::Greater => pervasize_bin(*self, w, x, |w, x| Ok((w > x).into())),
             Op::GreaterOrEqual => pervasize_bin(*self, w, x, |w, x| Ok((w >= x).into())),
-            Op::Jera => bin_jera(w, x),
+            Op::Jera => jera::bin(w, x),
             op => Err(CompileError::IncompatibleBinTypes(*op, w, x)),
         }
         .map_err(|e| e.at(state.span().clone()))
@@ -120,7 +120,7 @@ impl Visit<Evaler> for Op {
                 },
             })
             .into()),
-            Op::Jera => Ok(un_jera(x)),
+            Op::Jera => Ok(jera::un(x)),
             op => op.err_un(x),
         }
         .map_err(|e| e.at(state.span().clone()))
@@ -186,45 +186,49 @@ fn pervasive_un_value(op: Op, x: Value, f: fn(Atom) -> EvalResult<Atom>) -> Eval
     })
 }
 
-fn un_jera(x: Check) -> Check {
-    match x {
-        Check::Type(Type::Array(ArrayType::StaticHetero(mut tys))) => {
-            tys.reverse();
-            ArrayType::StaticHetero(tys).into()
+mod jera {
+    use super::*;
+    pub fn un(x: Check) -> Check {
+        match x {
+            Check::Type(Type::Array(ArrayType::StaticHetero(mut tys))) => {
+                tys.reverse();
+                ArrayType::StaticHetero(tys).into()
+            }
+            Check::Value(Value::Atom(_)) | Check::Type(Type::Atom(_)) => x,
+            Check::Value(Value::Array(array)) => {
+                let mut values: Vec<Value> = array.into_iter().collect();
+                values.reverse();
+                Array::from_iter(values).into()
+            }
+            Check::Type(Type::Array(arr)) => arr.into(),
         }
-        Check::Value(Value::Atom(_)) | Check::Type(Type::Atom(_)) => x,
-        Check::Value(Value::Array(array)) => {
-            let mut values: Vec<Value> = array.into_iter().collect();
-            values.reverse();
-            Array::from_iter(values).into()
-        }
-        Check::Type(Type::Array(arr)) => arr.into(),
     }
-}
-
-fn bin_jera(w: Check, x: Check) -> EvalResult<Check> {
-    match (w, x) {
-        (Check::Value(Value::Atom(Atom::Num(n))), Check::Value(Value::Array(arr))) => {
-            let mut values: Vec<Value> = arr.into_iter().collect();
-            if n >= 0 {
-                values.rotate_left(n.into())
-            } else {
-                values.rotate_right(-i64::from(n) as usize)
+    pub fn bin(w: Check, x: Check) -> EvalResult<Check> {
+        match (w, x) {
+            (Check::Value(Value::Atom(Atom::Num(n))), Check::Value(Value::Array(arr))) => {
+                let mut values: Vec<Value> = arr.into_iter().collect();
+                if n >= 0 {
+                    values.rotate_left(n.into())
+                } else {
+                    values.rotate_right(-i64::from(n) as usize)
+                }
+                Ok(Array::from_iter(values).into())
             }
-            Ok(Array::from_iter(values).into())
-        }
-        (
-            Check::Value(Value::Atom(Atom::Num(n))),
-            Check::Type(Type::Array(ArrayType::StaticHetero(mut tys))),
-        ) => {
-            if n >= 0 {
-                tys.rotate_left(n.into())
-            } else {
-                tys.rotate_right(-i64::from(n) as usize)
+            (
+                Check::Value(Value::Atom(Atom::Num(n))),
+                Check::Type(Type::Array(ArrayType::StaticHetero(mut tys))),
+            ) => {
+                if n >= 0 {
+                    tys.rotate_left(n.into())
+                } else {
+                    tys.rotate_right(-i64::from(n) as usize)
+                }
+                Ok(Type::from_iter(tys).into())
             }
-            Ok(Type::from_iter(tys).into())
+            (Check::Value(Value::Atom(Atom::Num(_))), Check::Type(Type::Array(arr))) => {
+                Ok(arr.into())
+            }
+            (w, x) => Op::Jera.err_bin(w, x),
         }
-        (Check::Value(Value::Atom(Atom::Num(_))), Check::Type(Type::Array(arr))) => Ok(arr.into()),
-        (w, x) => Op::Jera.err_bin(w, x),
     }
 }
