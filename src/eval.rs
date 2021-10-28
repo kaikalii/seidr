@@ -34,6 +34,15 @@ impl fmt::Display for Const {
     }
 }
 
+impl From<Const> for Type {
+    fn from(c: Const) -> Self {
+        match c {
+            Const::Value(val) => val.ty(),
+            Const::Type(ty) => ty,
+        }
+    }
+}
+
 impl From<Type> for Const {
     fn from(ty: Type) -> Self {
         Const::Type(ty)
@@ -82,6 +91,37 @@ impl From<Array> for Const {
     }
 }
 
+impl Const {
+    fn from_iter<I>(iter: I) -> CompileResult<Self>
+    where
+        I: IntoIterator<Item = CompileResult<Const>>,
+    {
+        let mut consts: Vec<Const> = iter.into_iter().collect::<CompileResult<_>>()?;
+        Ok(if consts.is_empty() {
+            Array::List(Vec::new()).into()
+        } else if consts.iter().all(|ty| matches!(ty, Const::Value(_))) {
+            Value::Array(Array::from_iter(consts.into_iter().map(|ty| {
+                Ok(if let Const::Value(val) = ty {
+                    val
+                } else {
+                    unreachable!()
+                })
+            }))?)
+            .into()
+        } else {
+            let mut types: Vec<Type> = consts.into_iter().map(Type::from).collect();
+            let all_same = types.windows(2).all(|win| win[0] == win[1]);
+            if all_same {
+                let len = types.len();
+                ArrayType::StaticHomo(types.pop().unwrap(), len)
+            } else {
+                ArrayType::StaticHetero(types)
+            }
+            .into()
+        })
+    }
+}
+
 pub struct Evaler {
     span: Span,
 }
@@ -113,6 +153,9 @@ impl Evaler {
             Expr::Ident(..) => todo!(),
             Expr::Num(num, _) => Ok(num.into()),
             Expr::Char(c, _) => Ok(c.into()),
+            Expr::Array(expr) => {
+                Const::from_iter(expr.items.into_iter().map(|expr| self.expr(expr)))
+            }
             Expr::Un(expr) => {
                 let inner = self.expr(expr.inner)?;
                 expr.op.visit_un(inner, self)
@@ -180,6 +223,11 @@ fn bin_math_value(
         (Value::Atom(a), Value::Array(b)) => Value::Array(Array::from_iter(
             b.iter()
                 .map(|b| bin_math_value(op, Value::Atom(a), b, span, f)),
+        )?),
+        (Value::Array(a), Value::Atom(b)) => Value::Array(Array::from_iter(
+            a
+                .iter()
+                .map(|a| bin_math_value(op, a, Value::Atom(b), span, f)),
         )?),
         (left, right) => {
             return Err(

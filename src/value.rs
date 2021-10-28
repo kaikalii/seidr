@@ -58,14 +58,14 @@ impl fmt::Display for Array {
         match self {
             Array::String(s) => write!(f, "{:?}", s),
             Array::List(items) => {
-                write!(f, "[")?;
+                write!(f, "〈")?;
                 for (i, item) in items.iter().enumerate() {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
                     item.fmt(f)?;
                 }
-                write!(f, "]")
+                write!(f, "〉")
             }
         }
     }

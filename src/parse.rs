@@ -1,4 +1,8 @@
-use std::{fs::OpenOptions, io::Write, path::Path};
+use std::{
+    fs::{self, OpenOptions},
+    io::Write,
+    path::Path,
+};
 
 use crate::{
     ast::*,
@@ -21,22 +25,19 @@ where
         );
     }
     // Write back to file
-    match OpenOptions::new().write(true).truncate(true).open(&file) {
-        Ok(mut file) => {
-            let mut formatter = Formatter::new(file);
-            for item in &items {
-                let _ = item.format(&mut formatter);
-                let _ = writeln!(formatter);
-            }
-        }
-        Err(error) => {
-            return Err(CompileErrorKind::IO(IoError {
-                message: format!("Unable to format `{}`", file.as_ref().to_string_lossy()),
-                error,
-            })
-            .at(Span::dud()))
-        }
+    let formatted: String = items.iter().map(|item| format!("{}\n", item)).collect();
+    if let Err(error) = fs::write(&file, &formatted) {
+        return Err(CompileErrorKind::IO(IoError {
+            message: format!("Unable to format `{}`", file.as_ref().to_string_lossy()),
+            error,
+        })
+        .at(Span::dud()));
     }
+    println!("items:");
+    for item in &items {
+        println!("    {:?}", item);
+    }
+    println!();
     Ok(items)
 }
 
@@ -141,7 +142,7 @@ impl Parser {
                 None
             }
         }
-        Ok(Some(if let Some(expr) = self.terminal()? {
+        Ok(Some(if let Some(expr) = self.tied_array()? {
             if let Some((op, op_span)) = self.match_to(op) {
                 let left = expr;
                 let right = self.expect_expression(false)?;
@@ -192,7 +193,9 @@ impl Parser {
                 None
             }
         }
-        Ok(Some(if let Some((num, span)) = self.match_to(num) {
+        Ok(Some(if let Some(array) = self.bracketed_array()? {
+            array
+        } else if let Some((num, span)) = self.match_to(num) {
             Expr::Num(num, span)
         } else if let Some((c, span)) = self.match_to(char) {
             Expr::Char(c, span)
@@ -215,5 +218,59 @@ impl Parser {
             }
         }
         self.match_to(ident)
+    }
+    fn array(&mut self) -> CompileResult<Option<Expr>> {
+        Ok(Some(if let Some(expr) = self.tied_array()? {
+            expr
+        } else if let Some(expr) = self.bracketed_array()? {
+            expr
+        } else {
+            return Ok(None);
+        }))
+    }
+    fn tied_array(&mut self) -> CompileResult<Option<Expr>> {
+        let start = self.curr;
+        let first = if let Some(expr) = self.terminal()? {
+            expr
+        } else {
+            return Ok(None);
+        };
+        let mut items = vec![first];
+        while self.match_token(TT::Undertie).is_some() {
+            let item = self.terminal()?;
+            let item = self.expect("item", item)?;
+            items.push(item);
+        }
+        if items.len() == 1 {
+            return Ok(Some(items.swap_remove(0)));
+        }
+        let span = items[0].span().join(items.last().unwrap().span());
+        Ok(Some(Expr::Array(ArrayExpr {
+            items,
+            tied: true,
+            span,
+        })))
+    }
+    fn bracketed_array(&mut self) -> CompileResult<Option<Expr>> {
+        let open = if let Some(token) = self.match_token(TT::OpenAngle) {
+            token
+        } else {
+            return Ok(None);
+        };
+        let first = self.expression(false)?;
+        let mut items = Vec::from_iter(first);
+        while self.match_token(TT::Comma).is_some() {
+            let item = self.terminal()?;
+            let item = self.expect("item", item)?;
+            items.push(item);
+        }
+        self.match_token(TT::Comma);
+        let close = self.expect_token(TT::CloseAngle)?;
+        let span = open.span.join(&close.span);
+        Ok(Some(Expr::Array(ArrayExpr {
+            items,
+            tied: false,
+            span,
+        })))
     }
 }

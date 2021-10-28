@@ -18,8 +18,30 @@ where
     P: AsRef<Path>,
 {
     // Get tokens
-    let mut lexer = Lexer::new(input, &file);
-    lexer.lex()
+    let mut input = input.to_string();
+    let tokens = loop {
+        let mut lexer = Lexer::new(&input, &file);
+        let tokens = lexer.lex()?;
+        if lexer.escaped {
+            // Write back to file
+            match OpenOptions::new().write(true).truncate(true).open(&file) {
+                Ok(mut file) => {
+                    input = tokens.iter().map(|token| token.tt.to_string()).collect();
+                    let _ = write!(file, "{}", input);
+                }
+                Err(error) => {
+                    return Err(CompileErrorKind::IO(IoError {
+                        message: format!("Unable to format `{}`", file.as_ref().to_string_lossy()),
+                        error,
+                    })
+                    .at(Span::dud()))
+                }
+            }
+        } else {
+            break tokens;
+        }
+    };
+    Ok(tokens)
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -94,12 +116,13 @@ pub enum TT {
     CloseParen,
     OpenCurly,
     CloseCurly,
-    OpenSquare,
-    CloseSquare,
+    OpenAngle,
+    CloseAngle,
     // Misc
     Comma,
     Whitespace,
     Newline,
+    Undertie,
 }
 
 impl fmt::Display for TT {
@@ -139,12 +162,13 @@ impl fmt::Display for TT {
             TT::CloseParen => ')'.fmt(f),
             TT::OpenCurly => '{'.fmt(f),
             TT::CloseCurly => '}'.fmt(f),
-            TT::OpenSquare => '['.fmt(f),
-            TT::CloseSquare => ']'.fmt(f),
+            TT::OpenAngle => '〈'.fmt(f),
+            TT::CloseAngle => '〉'.fmt(f),
             TT::Op(op) => op.glyph().fmt(f),
             TT::Comma => ','.fmt(f),
             TT::Whitespace => ' '.fmt(f),
             TT::Newline => '\n'.fmt(f),
+            TT::Undertie => '‿'.fmt(f),
         }
     }
 }
@@ -238,16 +262,23 @@ impl Span {
             f,
             "{} | {}{}{}",
             line_num,
-            &line_str[..self.loc.col - 1],
-            line_str[self.loc.col - 1..self.loc.col - 1 + self.len]
+            line_str.chars().take(self.loc.col - 1).collect::<String>(),
+            line_str
+                .chars()
+                .skip(self.loc.col - 1)
+                .take(self.len)
+                .collect::<String>()
                 .bright_white()
                 .bold(),
-            &line_str[self.loc.col - 1 + self.len..]
+            line_str
+                .chars()
+                .skip(self.loc.col - 1 + self.len)
+                .collect::<String>()
         )?;
         write!(
             f,
             "{}{}",
-            " ".repeat(self.loc.col + line_num.len() + 2),
+            " ".repeat(self.loc.col + line_num.chars().count() + 2),
             "^".repeat(self.len).color(underline_color).bold()
         )
     }
@@ -284,6 +315,7 @@ struct Lexer {
     file: Rc<Path>,
     tokens: Vec<Token>,
     comment_depth: usize,
+    escaped: bool,
 }
 
 impl Lexer {
@@ -298,6 +330,7 @@ impl Lexer {
             file: file.as_ref().into(),
             tokens: Vec::new(),
             comment_depth: 0,
+            escaped: false,
         }
     }
     fn peek(&mut self) -> Option<char> {
@@ -360,9 +393,10 @@ impl Lexer {
                 ')' => self.token(TT::CloseParen),
                 '{' => self.token(TT::OpenCurly),
                 '}' => self.token(TT::CloseCurly),
-                '[' => self.token(TT::OpenSquare),
-                ']' => self.token(TT::CloseSquare),
+                '〈' => self.token(TT::OpenAngle),
+                '〉' => self.token(TT::CloseAngle),
                 ',' => self.token(TT::Comma),
+                '‿' => self.token(TT::Undertie),
                 '\n' => self.token(TT::Newline),
                 '"' => self.string()?,
                 '\'' => {
@@ -408,14 +442,18 @@ impl Lexer {
         } else {
             return self.error(CompileErrorKind::InvalidEscape(String::new()));
         };
-        match c {
-            '*' => self.token(TT::Op(Op::Mul)),
-            '/' => self.token(TT::Op(Op::Div)),
-            '<' => self.token(TT::Op(Op::LessOrEqual)),
-            '>' => self.token(TT::Op(Op::GreaterOrEqual)),
-            '=' => self.token(TT::Op(Op::NotEqual)),
+        self.token(match c {
+            '*' => TT::Op(Op::Mul),
+            '/' => TT::Op(Op::Div),
+            '<' => TT::Op(Op::LessOrEqual),
+            '>' => TT::Op(Op::GreaterOrEqual),
+            '=' => TT::Op(Op::NotEqual),
+            '[' => TT::OpenAngle,
+            ']' => TT::CloseAngle,
+            ' ' => TT::Undertie,
             c => return self.error(CompileErrorKind::InvalidEscape(c.into())),
-        }
+        });
+        self.escaped = true;
         Ok(())
     }
     fn number(&mut self, first: char) -> CompileResult {

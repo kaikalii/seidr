@@ -48,10 +48,19 @@ impl fmt::Display for AtomType {
 impl fmt::Display for ArrayType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ArrayType::Empty => write!(f, "[]"),
-            ArrayType::StaticHomo(ty, n) => write!(f, "[{}; {}]", ty, n),
-            ArrayType::DynamicHomo(ty) => write!(f, "[{}]", ty),
-            ArrayType::StaticHetero(tys) => f.debug_list().entries(tys).finish(),
+            ArrayType::Empty => write!(f, "〈]"),
+            ArrayType::StaticHomo(ty, n) => write!(f, "〈{}; {}〉", ty, n),
+            ArrayType::DynamicHomo(ty) => write!(f, "〈{}〉", ty),
+            ArrayType::StaticHetero(tys) => {
+                write!(f, "〈")?;
+                for (i, ty) in tys.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ");
+                    }
+                    ty.fmt(f)?;
+                }
+                write!(f, "〉")
+            }
         }
     }
 }
@@ -67,33 +76,3 @@ impl From<ArrayType> for Type {
         Type::Array(Box::new(at))
     }
 }
-
-// impl Const {
-//     fn from_iter<I>(iter: I) -> CompileResult<Self>
-//     where
-//         I: IntoIterator<Item = CompileResult<Const>>,
-//     {
-//         let mut consts: Vec<Const> = iter.into_iter().collect::<CompileResult<_>>()?;
-//         Ok(if consts.is_empty() {
-//             Array::List(Vec::new()).into()
-//         } else if consts.iter().all(|ty| matches!(ty, Const::Value(_))) {
-//             Value::Array(Array::from_iter(consts.into_iter().map(|ty| {
-//                 Ok(if let Const::Value(val) = ty {
-//                     val
-//                 } else {
-//                     unreachable!()
-//                 })
-//             }))?)
-//             .into()
-//         } else {
-//             let all_same = consts.windows(2).all(|win| win[0] == win[1]);
-//             if all_same {
-//                 let len = consts.len();
-//                 ArrayType::StaticHomo(consts.pop().unwrap(), len)
-//             } else {
-//                 ArrayType::StaticHetero(consts)
-//             }
-//             .into()
-//         })
-//     }
-// }
