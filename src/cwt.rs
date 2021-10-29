@@ -6,6 +6,7 @@ use crate::{
     array::Array,
     ast::*,
     error::{CompileResult, Problem, SpannedCompileWarning, WarnedCompileResult},
+    op::Op,
     value::Val,
 };
 
@@ -59,11 +60,11 @@ pub trait ToVal {
 impl ToVal for ValExpr {
     fn to_val(&self, builder: &mut TreeBuilder) -> Val {
         match self {
-            ValExpr::Num(num, _) => Val::Num(*num),
-            ValExpr::Char(c, _) => Val::Char(*c),
+            ValExpr::Num(num) => Val::Num(**num),
+            ValExpr::Char(c) => Val::Char(**c),
+            ValExpr::String(string) => string.chars().collect(),
             ValExpr::Array(expr) => expr.items.iter().map(|expr| expr.to_val(builder)).collect(),
             ValExpr::Parened(expr) => expr.to_val(builder),
-            ValExpr::String(string, _) => string.chars().collect(),
         }
     }
 }
@@ -78,13 +79,14 @@ impl ToVal for OpTreeExpr {
     }
 }
 
-impl<O, X> ToVal for Un<O, X>
+impl<X> ToVal for Un<OpExpr, X>
 where
-    O: ToVal,
     X: ToVal,
 {
     fn to_val(&self, builder: &mut TreeBuilder) -> Val {
-        todo!()
+        let op = self.op.span().clone().sp(self.op.to_val(builder));
+        let x = self.x.to_val(builder);
+        Un { op, x }.into()
     }
 }
 
@@ -94,8 +96,8 @@ where
     X: ToVal,
 {
     fn to_val(&self, builder: &mut TreeBuilder) -> Val {
-        let op = (self.op.to_val(builder), self.op.span().clone());
-        let x = self.w.to_val(builder);
+        let op = self.op.span().clone().sp(self.op.to_val(builder));
+        let x = self.x.to_val(builder);
         let w = self.w.to_val(builder);
         Bin { op, w, x }.into()
     }
@@ -104,7 +106,10 @@ where
 impl ToVal for OpExpr {
     fn to_val(&self, builder: &mut TreeBuilder) -> Val {
         match self {
-            OpExpr::Op(op, _) => todo!(),
+            OpExpr::Op(op) => match **op {
+                Op::Pervasive(per) => todo!(),
+                Op::Rune(rune) => todo!(),
+            },
         }
     }
 }

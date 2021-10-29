@@ -67,8 +67,8 @@ impl fmt::Display for Val {
             Val::Num(num) => num.fmt(f),
             Val::Char(c) => c.fmt(f),
             Val::Array(arr) => arr.fmt(f),
-            Val::Un(expr) => write!(f, "{} {}", expr.op.0, expr.x),
-            Val::Bin(expr) => write!(f, "{} {} {}", expr.w, expr.op.0, expr.x),
+            Val::Un(expr) => write!(f, "{} {}", expr.op, expr.x),
+            Val::Bin(expr) => write!(f, "{} {} {}", expr.w, expr.op, expr.x),
         }
     }
 }

@@ -70,7 +70,7 @@ impl Parser {
         let val = f(&token.tt)?;
         let span = token.span.clone();
         self.increment();
-        Some((val, span))
+        Some(span.sp(val))
     }
     fn match_if<F>(&mut self, f: F) -> Option<Token>
     where
@@ -168,12 +168,12 @@ impl Parser {
         }))
     }
     fn single_val_expr(&mut self) -> CompileResult<Option<ValExpr>> {
-        Ok(Some(if let Some((num, span)) = self.match_to(num) {
-            ValExpr::Num(num, span)
-        } else if let Some((c, span)) = self.match_to(char) {
-            ValExpr::Char(c, span)
-        } else if let Some((s, span)) = self.match_to(string) {
-            ValExpr::String(s, span)
+        Ok(Some(if let Some(num) = self.match_to(num) {
+            ValExpr::Num(num)
+        } else if let Some(c) = self.match_to(char) {
+            ValExpr::Char(c)
+        } else if let Some(s) = self.match_to(string) {
+            ValExpr::String(s)
         } else if self.match_token(TT::OpenParen).is_some() {
             let expr = self.expect_with("expression", Self::op_tree_expr)?;
             self.expect_token(TT::CloseParen);
@@ -200,9 +200,10 @@ impl Parser {
             return Ok(None);
         }))
     }
+    #[allow(clippy::manual_map)]
     fn op_expr(&mut self) -> CompileResult<Option<OpExpr>> {
-        Ok(if let Some((op, span)) = self.match_to(op) {
-            Some(OpExpr::Op(op, span))
+        Ok(if let Some(op) = self.match_to(op) {
+            Some(OpExpr::Op(op))
         } else {
             None
         })

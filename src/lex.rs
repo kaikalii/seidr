@@ -1,10 +1,11 @@
 use std::{
     borrow::Borrow,
+    cmp::Ordering,
     fmt,
     fs::{File, OpenOptions},
     io::Write,
     mem::take,
-    ops::Deref,
+    ops::{Deref, DerefMut},
     path::{Path, MAIN_SEPARATOR},
     rc::Rc,
 };
@@ -216,8 +217,6 @@ pub struct Span {
     pub file: Rc<Path>,
 }
 
-pub type Sp<T> = (T, Span);
-
 impl Span {
     pub fn dud() -> Self {
         Span {
@@ -226,6 +225,9 @@ impl Span {
             input: Rc::new([]),
             file: Rc::from("".as_ref()),
         }
+    }
+    pub fn sp<T>(self, data: T) -> Sp<T> {
+        Sp { data, span: self }
     }
     pub fn as_string(&self) -> String {
         self.as_ref().iter().copied().collect()
@@ -590,4 +592,112 @@ fn ident_body_char(c: char) -> bool {
 
 fn is_runic(c: char) -> bool {
     ('ᚠ'..='ᛪ').contains(&c)
+}
+
+#[derive(Clone)]
+pub struct Sp<T> {
+    pub data: T,
+    pub span: Span,
+}
+
+impl<T> Sp<T> {
+    pub fn map<F, U>(self, f: F) -> Sp<U>
+    where
+        F: FnOnce(T) -> U,
+    {
+        Sp {
+            data: f(self.data),
+            span: self.span,
+        }
+    }
+}
+
+impl<T> Sp<T>
+where
+    T: Clone,
+{
+    pub fn cloned(&self) -> T {
+        self.data.clone()
+    }
+}
+
+impl<T> Sp<T>
+where
+    T: Copy,
+{
+    pub fn copied(&self) -> T {
+        self.data
+    }
+}
+
+impl<T> fmt::Debug for Sp<T>
+where
+    T: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.data.fmt(f)
+    }
+}
+
+impl<T> fmt::Display for Sp<T>
+where
+    T: fmt::Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.data.fmt(f)
+    }
+}
+
+impl<T> PartialEq for Sp<T>
+where
+    T: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.data == other.data
+    }
+}
+
+impl<T> Eq for Sp<T> where T: Eq {}
+
+impl<T> PartialOrd for Sp<T>
+where
+    T: PartialOrd,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.data.partial_cmp(&other.data)
+    }
+}
+
+impl<T> Ord for Sp<T>
+where
+    T: Ord,
+{
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.data.cmp(&other.data)
+    }
+}
+
+impl<T> AsRef<T> for Sp<T> {
+    fn as_ref(&self) -> &T {
+        &self.data
+    }
+}
+
+impl<T> AsMut<T> for Sp<T> {
+    fn as_mut(&mut self) -> &mut T {
+        &mut self.data
+    }
+}
+
+impl<T> Deref for Sp<T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.data
+    }
+}
+
+impl<T> DerefMut for Sp<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.data
+    }
 }

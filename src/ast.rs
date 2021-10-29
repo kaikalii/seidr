@@ -5,7 +5,11 @@ use std::{
     rc::Rc,
 };
 
-use crate::{lex::Span, num::Num, op::Op};
+use crate::{
+    lex::{Sp, Span},
+    num::Num,
+    op::Op,
+};
 
 macro_rules! format_display {
     ($ty:ty) => {
@@ -22,9 +26,9 @@ format_display!(OpExpr);
 format_display!(ValExpr);
 
 pub enum ValExpr {
-    Num(Num, Span),
-    Char(char, Span),
-    String(Rc<str>, Span),
+    Num(Sp<Num>),
+    Char(Sp<char>),
+    String(Sp<Rc<str>>),
     Array(ArrayExpr),
     Parened(Box<OpTreeExpr>),
 }
@@ -32,7 +36,9 @@ pub enum ValExpr {
 impl ValExpr {
     pub fn span(&self) -> &Span {
         match self {
-            ValExpr::Char(_, span) | ValExpr::Num(_, span) | ValExpr::String(_, span) => span,
+            ValExpr::Char(c) => &c.span,
+            ValExpr::Num(num) => &num.span,
+            ValExpr::String(string) => &string.span,
             ValExpr::Array(expr) => &expr.span,
             ValExpr::Parened(expr) => expr.span(),
         }
@@ -42,9 +48,9 @@ impl ValExpr {
 impl fmt::Debug for ValExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ValExpr::Num(n, _) => n.fmt(f),
-            ValExpr::Char(c, _) => c.fmt(f),
-            ValExpr::String(string, _) => string.fmt(f),
+            ValExpr::Num(n) => n.fmt(f),
+            ValExpr::Char(c) => c.fmt(f),
+            ValExpr::String(string) => string.fmt(f),
             ValExpr::Array(expr) => expr.fmt(f),
             ValExpr::Parened(expr) => expr.fmt(f),
         }
@@ -52,13 +58,13 @@ impl fmt::Debug for ValExpr {
 }
 
 pub enum OpExpr {
-    Op(Op, Span),
+    Op(Sp<Op>),
 }
 
 impl OpExpr {
     pub fn span(&self) -> &Span {
         match self {
-            OpExpr::Op(_, span) => span,
+            OpExpr::Op(op) => &op.span,
         }
     }
 }
@@ -66,7 +72,7 @@ impl OpExpr {
 impl fmt::Debug for OpExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            OpExpr::Op(op, _) => write!(f, "{}", op),
+            OpExpr::Op(op) => write!(f, "{}", op),
         }
     }
 }
@@ -182,8 +188,8 @@ pub trait Format {
 impl Format for ValExpr {
     fn format(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            ValExpr::Num(n, s) => {
-                let s = s.as_string();
+            ValExpr::Num(n) => {
+                let s = n.span.as_string();
                 if s.contains('e') || s.contains('E') {
                     write!(f, "{}", s)
                 } else {
@@ -210,8 +216,8 @@ impl Format for ValExpr {
                     Ok(())
                 }
             }
-            ValExpr::Char(c, _) => write!(f, "{:?}", c),
-            ValExpr::String(string, _) => write!(f, "{:?}", string),
+            ValExpr::Char(c) => write!(f, "{:?}", c),
+            ValExpr::String(string) => write!(f, "{:?}", string),
             ValExpr::Array(expr) => expr.format(f),
             ValExpr::Parened(expr) => {
                 write!(f, "(")?;
@@ -225,7 +231,7 @@ impl Format for ValExpr {
 impl Format for OpExpr {
     fn format(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            OpExpr::Op(op, _) => write!(f, "{}", op),
+            OpExpr::Op(op) => write!(f, "{}", op),
         }
     }
 }
