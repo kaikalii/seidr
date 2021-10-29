@@ -3,6 +3,7 @@
 mod array;
 mod ast;
 mod error;
+mod eval;
 mod lex;
 mod num;
 mod op;

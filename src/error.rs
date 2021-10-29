@@ -147,16 +147,36 @@ impl Problem {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct RuntimeError(String);
+
+impl fmt::Display for RuntimeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl Error for RuntimeError {}
+
+impl<S> From<S> for RuntimeError
+where
+    S: Into<String>,
+{
+    fn from(s: S) -> Self {
+        RuntimeError(s.into())
+    }
+}
+
 #[derive(Debug)]
-pub struct RuntimeError {
+pub struct SpannedRuntimeError {
     pub message: String,
     pub span: Option<Span>,
     pub trace: Vec<String>,
 }
 
-impl RuntimeError {
+impl SpannedRuntimeError {
     pub fn new(message: impl Into<String>, span: Option<Span>) -> Self {
-        RuntimeError {
+        SpannedRuntimeError {
             message: message.into(),
             span,
             trace: Vec::new(),
@@ -164,7 +184,7 @@ impl RuntimeError {
     }
 }
 
-impl fmt::Display for RuntimeError {
+impl fmt::Display for SpannedRuntimeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
