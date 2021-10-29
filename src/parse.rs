@@ -48,8 +48,6 @@ struct Parser {
     curr: usize,
 }
 
-type Sp<T> = (T, Span);
-
 impl Parser {
     fn skip_whitespace(&mut self) {
         while let Some(Token {
@@ -133,13 +131,13 @@ impl Parser {
             let x = self
                 .expect_with("expression", Self::op_tree_expr)?
                 .unparen();
-            OpTreeExpr::Un(UnExpr { op, x }.into())
+            OpTreeExpr::Un(Un { op, x }.into())
         } else if let Some(w) = self.val_expr()? {
             if let Some(op) = self.op_expr()? {
                 let x = self
                     .expect_with("expression", Self::op_tree_expr)?
                     .unparen();
-                OpTreeExpr::Bin(BinExpr { op, w, x }.into())
+                OpTreeExpr::Bin(Bin { op, w, x }.into())
             } else {
                 OpTreeExpr::Val(w)
             }

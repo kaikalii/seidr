@@ -1,9 +1,14 @@
-use std::{cmp::Ordering, fmt};
+use std::{cmp::Ordering, fmt, rc::Rc};
 
-use crate::value::Val;
+use crate::{
+    ast::{Bin, Un},
+    value::Val,
+};
 
 #[derive(Clone)]
-pub enum Array {}
+pub enum Array {
+    Concrete(Rc<[Val]>),
+}
 
 impl PartialEq for Array {
     fn eq(&self, other: &Self) -> bool {
@@ -34,5 +39,17 @@ impl fmt::Debug for Array {
 impl fmt::Display for Array {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         todo!()
+    }
+}
+
+impl<V> FromIterator<V> for Array
+where
+    V: Into<Val>,
+{
+    fn from_iter<T>(iter: T) -> Self
+    where
+        T: IntoIterator<Item = V>,
+    {
+        Array::Concrete(iter.into_iter().map(Into::into).collect())
     }
 }

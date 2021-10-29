@@ -1,3 +1,5 @@
+//! Types for the Abstract Syntax Tree
+
 use std::{
     fmt::{self, Write},
     rc::Rc,
@@ -71,9 +73,12 @@ impl fmt::Debug for OpExpr {
 
 pub enum OpTreeExpr {
     Val(ValExpr),
-    Un(Box<UnExpr<OpExpr, OpTreeExpr>>),
-    Bin(Box<BinExpr<OpExpr, ValExpr, OpTreeExpr>>),
+    Un(Box<UnOpExpr>),
+    Bin(Box<BinOpExpr>),
 }
+
+pub type UnOpExpr = Un<OpExpr, OpTreeExpr>;
+pub type BinOpExpr = Bin<OpExpr, ValExpr, OpTreeExpr>;
 
 impl OpTreeExpr {
     pub fn span(&self) -> &Span {
@@ -101,12 +106,13 @@ impl fmt::Debug for OpTreeExpr {
     }
 }
 
-pub struct UnExpr<O, X> {
+#[derive(Clone)]
+pub struct Un<O, X> {
     pub op: O,
     pub x: X,
 }
 
-impl<O, X> fmt::Debug for UnExpr<O, X>
+impl<O, X> fmt::Debug for Un<O, X>
 where
     O: fmt::Debug,
     X: fmt::Debug,
@@ -116,13 +122,14 @@ where
     }
 }
 
-pub struct BinExpr<O, W, X> {
+#[derive(Clone)]
+pub struct Bin<O, W, X> {
     pub op: O,
     pub w: W,
     pub x: X,
 }
 
-impl<O, W, X> fmt::Debug for BinExpr<O, W, X>
+impl<O, W, X> fmt::Debug for Bin<O, W, X>
 where
     O: fmt::Debug,
     W: fmt::Debug,
@@ -255,7 +262,7 @@ impl Format for ArrayExpr {
     }
 }
 
-impl<O, W, X> Format for BinExpr<O, W, X>
+impl<O, W, X> Format for Bin<O, W, X>
 where
     O: Format,
     W: Format,
@@ -271,7 +278,7 @@ where
     }
 }
 
-impl<O, X> Format for UnExpr<O, X>
+impl<O, X> Format for Un<O, X>
 where
     O: Format,
     X: Format,

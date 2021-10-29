@@ -207,6 +207,8 @@ pub struct Span {
     pub file: Rc<Path>,
 }
 
+pub type Sp<T> = (T, Span);
+
 impl Span {
     pub fn dud() -> Self {
         Span {
