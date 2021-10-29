@@ -2,12 +2,12 @@
 
 mod array;
 mod ast;
-mod atom;
 mod error;
 mod lex;
 mod num;
 mod op;
 mod parse;
+mod value;
 
 fn main() {
     let path = "main.sdr";
