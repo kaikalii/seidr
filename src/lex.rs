@@ -11,7 +11,7 @@ use std::{
 
 use colored::{Color, Colorize};
 
-use crate::{error::*, num::Num, op::Op};
+use crate::{error::*, num::Num, op::*};
 
 pub fn lex<P>(input: &str, file: P) -> CompileResult<Vec<Token>>
 where
@@ -123,6 +123,15 @@ pub enum TT {
     Whitespace,
     Newline,
     Undertie,
+}
+
+impl<O> From<O> for TT
+where
+    O: Into<Op>,
+{
+    fn from(op: O) -> Self {
+        TT::Op(op.into())
+    }
 }
 
 impl fmt::Display for TT {
@@ -372,12 +381,12 @@ impl Lexer {
     fn error<T>(&self, kind: CompileError) -> CompileResult<T> {
         Err(kind.at(self.span()))
     }
-    fn token(&mut self, tt: TT) {
+    fn token(&mut self, tt: impl Into<TT>) {
         if self.comment_depth > 0 {
             return;
         }
         self.tokens.push(Token {
-            tt,
+            tt: tt.into(),
             span: self.span(),
         });
     }
@@ -399,9 +408,9 @@ impl Lexer {
                 '〉' => self.token(TT::CloseAngle),
                 ',' => self.token(TT::Comma),
                 '‿' => self.token(TT::Undertie),
-                'ᚺ' => self.token(TT::Op(Op::Haglaz)),
-                'ᛊ' => self.token(TT::Op(Op::Sowilo)),
-                'ᛝ' => self.token(TT::Op(Op::Ingwaz)),
+                'ᚺ' => self.token(Rune::Haglaz),
+                'ᛊ' => self.token(Rune::Sowilo),
+                'ᛝ' => self.token(Rune::Ingwaz),
                 '\n' => self.token(TT::Newline),
                 '"' => self.string()?,
                 '\'' => {
@@ -448,38 +457,38 @@ impl Lexer {
             return self.error(CompileError::InvalidEscape(String::new()));
         };
         self.token(match c {
-            'x' => TT::Op(Op::Mul),
-            '/' => TT::Op(Op::Div),
-            '<' => TT::Op(Op::LessOrEqual),
-            '>' => TT::Op(Op::GreaterOrEqual),
-            '=' => TT::Op(Op::NotEqual),
+            'x' => Pervasive::Mul.into(),
+            '/' => Pervasive::Div.into(),
+            '<' => Pervasive::LessOrEqual.into(),
+            '>' => Pervasive::GreaterOrEqual.into(),
+            '=' => Pervasive::NotEqual.into(),
             '[' => TT::OpenAngle,
             ']' => TT::CloseAngle,
             ' ' => TT::Undertie,
-            'f' => TT::Op(Op::Fehu),
-            'u' => TT::Op(Op::Uruz),
-            'T' => TT::Op(Op::Thurisaz),
-            'a' => TT::Op(Op::Ansuz),
-            'r' => TT::Op(Op::Raido),
-            'k' => TT::Op(Op::Kaunan),
-            'g' => TT::Op(Op::Gebo),
-            'w' => TT::Op(Op::Wunjo),
-            'h' => TT::Op(Op::Haglaz),
-            'n' => TT::Op(Op::Naudiz),
-            'i' => TT::Op(Op::Isaz),
-            'j' => TT::Op(Op::Jera),
-            'A' => TT::Op(Op::Iwaz),
-            'p' => TT::Op(Op::Perth),
-            'z' => TT::Op(Op::Algiz),
-            's' => TT::Op(Op::Sowilo),
-            't' => TT::Op(Op::Tiwaz),
-            'b' => TT::Op(Op::Berkanan),
-            'e' => TT::Op(Op::Ehwaz),
-            'm' => TT::Op(Op::Mannaz),
-            'l' => TT::Op(Op::Laguz),
-            'N' => TT::Op(Op::Ingwaz),
-            'o' => TT::Op(Op::Othala),
-            'd' => TT::Op(Op::Dagaz),
+            'f' => Rune::Fehu.into(),
+            'u' => Rune::Uruz.into(),
+            'T' => Rune::Thurisaz.into(),
+            'a' => Rune::Ansuz.into(),
+            'r' => Rune::Raido.into(),
+            'k' => Rune::Kaunan.into(),
+            'g' => Rune::Gebo.into(),
+            'w' => Rune::Wunjo.into(),
+            'h' => Rune::Haglaz.into(),
+            'n' => Rune::Naudiz.into(),
+            'i' => Rune::Isaz.into(),
+            'j' => Rune::Jera.into(),
+            'A' => Rune::Iwaz.into(),
+            'p' => Rune::Perth.into(),
+            'z' => Rune::Algiz.into(),
+            's' => Rune::Sowilo.into(),
+            't' => Rune::Tiwaz.into(),
+            'b' => Rune::Berkanan.into(),
+            'e' => Rune::Ehwaz.into(),
+            'm' => Rune::Mannaz.into(),
+            'l' => Rune::Laguz.into(),
+            'N' => Rune::Ingwaz.into(),
+            'o' => Rune::Othala.into(),
+            'd' => Rune::Dagaz.into(),
             c => return self.error(CompileError::InvalidEscape(c.into())),
         });
         self.escaped = true;

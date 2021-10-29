@@ -10,6 +10,19 @@ pub enum Array {
     Concrete(Rc<[Val]>),
 }
 
+impl Array {
+    pub fn len(&self) -> usize {
+        match self {
+            Array::Concrete(arr) => arr.len(),
+        }
+    }
+    pub fn index(&self, index: usize) -> Val {
+        match self {
+            Array::Concrete(arr) => arr[index].clone(),
+        }
+    }
+}
+
 impl PartialEq for Array {
     fn eq(&self, other: &Self) -> bool {
         todo!()

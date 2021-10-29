@@ -1,45 +1,84 @@
 use std::fmt;
 
-use crate::error::CompileError;
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Op {
+    Pervasive(Pervasive),
+    Rune(Rune),
+}
 
-pub trait Visit<S> {
-    type Input;
-    type Output;
-    type Error;
-    fn visit_un(&self, inner: Self::Input, state: &mut S) -> Result<Self::Output, Self::Error>;
-    fn visit_bin(
-        &self,
-        left: Self::Input,
-        right: Self::Output,
-        state: &mut S,
-    ) -> Result<Self::Output, Self::Error>;
+impl From<Pervasive> for Op {
+    fn from(p: Pervasive) -> Self {
+        Op::Pervasive(p)
+    }
+}
+
+impl From<Rune> for Op {
+    fn from(r: Rune) -> Self {
+        Op::Rune(r)
+    }
+}
+
+impl Op {
+    pub const fn glyph(&self) -> char {
+        match self {
+            Op::Pervasive(p) => p.glyph(),
+            Op::Rune(r) => r.glyph(),
+        }
+    }
+    pub const fn from_glyph(glyph: char) -> Option<Self> {
+        if let Some(p) = Pervasive::from_glyph(glyph) {
+            Some(Op::Pervasive(p))
+        } else if let Some(r) = Rune::from_glyph(glyph) {
+            Some(Op::Rune(r))
+        } else {
+            None
+        }
+    }
+}
+
+impl fmt::Debug for Op {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Op::Pervasive(p) => p.fmt(f),
+            Op::Rune(r) => r.fmt(f),
+        }
+    }
+}
+
+impl fmt::Display for Op {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Op::Pervasive(p) => p.fmt(f),
+            Op::Rune(r) => r.fmt(f),
+        }
+    }
 }
 
 macro_rules! op {
-    ($(($name:ident, $glyph:literal)),* $(,)?) => {
+    ($name:ident, $(($variant:ident, $glyph:literal)),* $(,)?) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-        pub enum Op {
-            $($name),*
+        pub enum $name {
+            $($variant),*
         }
 
-        impl Op {
+        impl $name {
             pub const fn glyph(&self) -> char {
                 match self {
-                    $(Op::$name => $glyph,)*
+                    $($name::$variant => $glyph,)*
                 }
             }
-            pub fn from_glyph(glyph: char) -> Option<Self> {
+            pub const fn from_glyph(glyph: char) -> Option<Self> {
                 match glyph {
-                    $($glyph => Some(Op::$name),)*
+                    $($glyph => Some($name::$variant),)*
                     _ => None,
                 }
             }
         }
 
-        impl fmt::Display for Op {
+        impl fmt::Display for $name {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 match self {
-                    $(Op::$name => $glyph.fmt(f),)*
+                    $($name::$variant => $glyph.fmt(f),)*
                 }
             }
         }
@@ -47,6 +86,7 @@ macro_rules! op {
 }
 
 op!(
+    Pervasive,
     // Math
     (Add, '+'),
     (Sub, '-'),
@@ -59,6 +99,10 @@ op!(
     (LessOrEqual, '≤'),
     (Greater, '>'),
     (GreaterOrEqual, '≥'),
+);
+
+op!(
+    Rune,
     // Runes
     (Fehu, 'ᚠ'),
     (Uruz, 'ᚢ'),
