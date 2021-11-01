@@ -2,53 +2,67 @@ use std::{cmp::Ordering, fmt, rc::Rc};
 
 use crate::{
     ast::{Bin, Un},
-    lex::Sp,
+    error::{RuntimeError, RuntimeResult},
+    lex::{Sp, Span},
     op::Pervasive,
-    value::Val,
+    value::{Atom, Val},
 };
 
-#[derive(Clone)]
-pub enum Array {
-    Concrete(Rc<[Val]>),
-    PervasiveUn(Rc<PervasiveUn>),
-    PervasiveBin(Rc<PervasiveBin>),
-}
+type Shape = Rc<[usize]>;
 
-pub type PervasiveUn = Un<Sp<Pervasive>, Array>;
-pub type PervasiveBin = Bin<Sp<Pervasive>, Array, Array>;
+#[derive(Clone)]
+pub struct Array {
+    shape: Shape,
+    items: Rc<[Val]>,
+}
 
 impl Array {
-    pub fn len(&self) -> usize {
-        match self {
-            Array::Concrete(arr) => arr.len(),
-            Array::PervasiveUn(un) => un.x.len(),
-            Array::PervasiveBin(bin) => bin.x.len(),
+    pub fn iter(&self) -> Box<dyn Iterator<Item = Val> + '_> {
+        if self.shape.len() == 1 {
+            Box::new(self.items.iter().cloned())
+        } else {
+            let sub_shape: Shape = self.shape.iter().skip(1).copied().collect();
+            let item_size: usize = sub_shape.iter().product();
+            Box::new(self.items.chunks(item_size).map(move |chunk| {
+                Val::from(Array {
+                    shape: sub_shape.clone(),
+                    items: Rc::from(chunk),
+                })
+            }))
         }
     }
-    pub fn index(&self, index: usize) -> Val {
-        match self {
-            Array::Concrete(arr) => arr[index].clone(),
-            Array::PervasiveUn(un) => todo!(),
-            Array::PervasiveBin(bin) => todo!(),
+    pub fn pervade<F, V>(&self, f: F) -> RuntimeResult<Self>
+    where
+        F: Fn(Val) -> RuntimeResult<V>,
+        V: Into<Val>,
+    {
+        let mut items = Vec::new();
+        for item in self.items.iter().cloned() {
+            items.push(f(item)?.into());
         }
+        Ok(Array {
+            shape: self.shape.clone(),
+            items: items.into(),
+        })
+    }
+    pub fn pervade_with<F, V>(&self, other: &Self, span: &Span, f: F) -> RuntimeResult<Self>
+    where
+        F: Fn(Val, Val) -> RuntimeResult<V>,
+        V: Into<Val>,
+    {
+        if self.shape != other.shape {
+            return Err(RuntimeError::new("Array shapes do not match", span.clone()));
+        }
+        let mut items = Vec::new();
+        for (a, b) in self.items.iter().cloned().zip(other.items.iter().cloned()) {
+            items.push(f(a, b)?.into());
+        }
+        Ok(Array {
+            shape: self.shape.clone(),
+            items: items.into(),
+        })
     }
 }
-
-macro_rules! array_from {
-    ($variant:ident) => {
-        array_from!($variant, $variant);
-    };
-    ($variant:ident, $type:ty) => {
-        impl From<$type> for Array {
-            fn from(inner: $type) -> Self {
-                Array::$variant(inner.into())
-            }
-        }
-    };
-}
-
-array_from!(PervasiveUn);
-array_from!(PervasiveBin);
 
 impl PartialEq for Array {
     fn eq(&self, other: &Self) -> bool {
@@ -78,7 +92,14 @@ impl fmt::Debug for Array {
 
 impl fmt::Display for Array {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        todo!()
+        write!(f, "〈")?;
+        for (i, val) in self.iter().enumerate() {
+            if i > 0 {
+                write!(f, ", ")?;
+            }
+            val.fmt(f)?;
+        }
+        write!(f, "〉")
     }
 }
 
@@ -90,6 +111,10 @@ where
     where
         T: IntoIterator<Item = V>,
     {
-        Array::Concrete(iter.into_iter().map(Into::into).collect())
+        let items: Rc<[Val]> = iter.into_iter().map(Into::into).collect();
+        Array {
+            shape: Rc::new([items.len()]),
+            items,
+        }
     }
 }

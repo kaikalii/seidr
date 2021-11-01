@@ -125,8 +125,8 @@ pub trait ToValNode {
 impl ToValNode for ValExpr {
     fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
         match self {
-            ValExpr::Num(num) => Val::Num(**num).into(),
-            ValExpr::Char(c) => Val::Char(**c).into(),
+            ValExpr::Num(num) => (**num).into(),
+            ValExpr::Char(c) => (**c).into(),
             ValExpr::String(string) => string.chars().collect(),
             ValExpr::Array(expr) => expr.items.iter().map(|expr| expr.to_val(builder)).collect(),
             ValExpr::Parened(expr) => expr.to_val(builder),

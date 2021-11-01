@@ -459,11 +459,11 @@ impl Lexer {
             return self.error(CompileError::InvalidEscape(String::new()));
         };
         self.token(match c {
-            'x' => Pervasive::Mul.into(),
-            '/' => Pervasive::Div.into(),
-            '<' => Pervasive::LessOrEqual.into(),
-            '>' => Pervasive::GreaterOrEqual.into(),
-            '=' => Pervasive::NotEqual.into(),
+            'x' => MathOp::Mul.into(),
+            '/' => MathOp::Div.into(),
+            '<' => ComparisonOp::LessOrEqual.into(),
+            '>' => ComparisonOp::GreaterOrEqual.into(),
+            '=' => ComparisonOp::NotEqual.into(),
             '[' => TT::OpenAngle,
             ']' => TT::CloseAngle,
             ' ' => TT::Undertie,

@@ -6,15 +6,36 @@ pub enum Op {
     Rune(Rune),
 }
 
-impl From<Pervasive> for Op {
-    fn from(p: Pervasive) -> Self {
-        Op::Pervasive(p)
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Pervasive {
+    Math(MathOp),
+    Comparison(ComparisonOp),
+}
+
+impl<P> From<P> for Op
+where
+    P: Into<Pervasive>,
+{
+    fn from(p: P) -> Self {
+        Op::Pervasive(p.into())
     }
 }
 
 impl From<Rune> for Op {
     fn from(r: Rune) -> Self {
         Op::Rune(r)
+    }
+}
+
+impl From<MathOp> for Pervasive {
+    fn from(m: MathOp) -> Self {
+        Pervasive::Math(m)
+    }
+}
+
+impl From<ComparisonOp> for Pervasive {
+    fn from(c: ComparisonOp) -> Self {
+        Pervasive::Comparison(c)
     }
 }
 
@@ -36,6 +57,24 @@ impl Op {
     }
 }
 
+impl Pervasive {
+    pub const fn glyph(&self) -> char {
+        match self {
+            Pervasive::Math(m) => m.glyph(),
+            Pervasive::Comparison(c) => c.glyph(),
+        }
+    }
+    pub const fn from_glyph(glyph: char) -> Option<Self> {
+        if let Some(m) = MathOp::from_glyph(glyph) {
+            Some(Pervasive::Math(m))
+        } else if let Some(c) = ComparisonOp::from_glyph(glyph) {
+            Some(Pervasive::Comparison(c))
+        } else {
+            None
+        }
+    }
+}
+
 impl fmt::Debug for Op {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -50,6 +89,24 @@ impl fmt::Display for Op {
         match self {
             Op::Pervasive(p) => p.fmt(f),
             Op::Rune(r) => r.fmt(f),
+        }
+    }
+}
+
+impl fmt::Debug for Pervasive {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Pervasive::Math(m) => m.fmt(f),
+            Pervasive::Comparison(c) => c.fmt(f),
+        }
+    }
+}
+
+impl fmt::Display for Pervasive {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Pervasive::Math(m) => m.fmt(f),
+            Pervasive::Comparison(c) => c.fmt(f),
         }
     }
 }
@@ -91,14 +148,10 @@ macro_rules! op {
     }
 }
 
+op!(MathOp, (Add, '+'), (Sub, '-'), (Mul, '×'), (Div, '÷'),);
+
 op!(
-    Pervasive,
-    // Math
-    (Add, '+'),
-    (Sub, '-'),
-    (Mul, '×'),
-    (Div, '÷'),
-    // Comparison
+    ComparisonOp,
     (Equal, '='),
     (NotEqual, '≠'),
     (Less, '<'),

@@ -8,23 +8,69 @@ use crate::{
     op::Op,
 };
 
-#[derive(Clone)]
-pub enum Val {
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Atom {
     Num(Num),
     Char(char),
-    Array(Array),
     Op(Op),
 }
 
-impl From<Num> for Val {
-    fn from(num: Num) -> Self {
-        Val::Num(num)
+impl From<bool> for Atom {
+    fn from(b: bool) -> Self {
+        Atom::Num(Num::Int(b as i64))
     }
 }
 
-impl From<char> for Val {
+impl From<Num> for Atom {
+    fn from(num: Num) -> Self {
+        Atom::Num(num)
+    }
+}
+
+impl From<char> for Atom {
     fn from(c: char) -> Self {
-        Val::Char(c)
+        Atom::Char(c)
+    }
+}
+
+impl From<Op> for Atom {
+    fn from(op: Op) -> Self {
+        Atom::Op(op)
+    }
+}
+
+impl fmt::Debug for Atom {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Atom::Num(num) => num.fmt(f),
+            Atom::Char(c) => c.fmt(f),
+            Atom::Op(op) => op.fmt(f),
+        }
+    }
+}
+
+impl fmt::Display for Atom {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Atom::Num(num) => num.fmt(f),
+            Atom::Char(c) => c.fmt(f),
+            Atom::Op(op) => op.fmt(f),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub enum Val {
+    Atom(Atom),
+    Array(Array),
+}
+
+impl<A> From<A> for Val
+where
+    A: Into<Atom>,
+{
+    fn from(atom: A) -> Self {
+        Val::Atom(atom.into())
     }
 }
 
@@ -34,19 +80,11 @@ impl From<Array> for Val {
     }
 }
 
-impl From<Op> for Val {
-    fn from(op: Op) -> Self {
-        Val::Op(op)
-    }
-}
-
 impl fmt::Debug for Val {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Val::Num(num) => num.fmt(f),
-            Val::Char(c) => c.fmt(f),
+            Val::Atom(atom) => atom.fmt(f),
             Val::Array(arr) => arr.fmt(f),
-            Val::Op(op) => op.fmt(f),
         }
     }
 }
@@ -54,10 +92,8 @@ impl fmt::Debug for Val {
 impl fmt::Display for Val {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Val::Num(num) => num.fmt(f),
-            Val::Char(c) => c.fmt(f),
+            Val::Atom(atom) => atom.fmt(f),
             Val::Array(arr) => arr.fmt(f),
-            Val::Op(op) => op.fmt(f),
         }
     }
 }
