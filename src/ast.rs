@@ -24,6 +24,9 @@ macro_rules! format_display {
 format_display!(OpTreeExpr);
 format_display!(OpExpr);
 format_display!(ValExpr);
+format_display!(UnOpExpr);
+format_display!(BinOpExpr);
+format_display!(ArrayExpr);
 
 pub enum ValExpr {
     Num(Sp<Num>),

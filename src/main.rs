@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use crate::cwt::ToVal;
+use crate::cwt::ToValNode;
 
 mod array;
 mod ast;
@@ -25,7 +25,7 @@ fn main() {
                         for warning in warnings {
                             println!("{}", warning);
                         }
-                        println!("{}", val);
+                        println!("{:?}", val);
                     }
                     Err(problems) => {
                         for problem in problems {

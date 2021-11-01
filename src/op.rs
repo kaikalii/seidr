@@ -56,7 +56,7 @@ impl fmt::Display for Op {
 
 macro_rules! op {
     ($name:ident, $(($variant:ident, $glyph:literal)),* $(,)?) => {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+        #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
         pub enum $name {
             $($variant),*
         }
@@ -72,6 +72,12 @@ macro_rules! op {
                     $($glyph => Some($name::$variant),)*
                     _ => None,
                 }
+            }
+        }
+
+        impl fmt::Debug for $name {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                write!(f, "{}", self)
             }
         }
 

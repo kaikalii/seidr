@@ -5,6 +5,7 @@ use crate::{
     ast::{Bin, Un},
     lex::Sp,
     num::Num,
+    op::Op,
 };
 
 #[derive(Clone)]
@@ -12,12 +13,8 @@ pub enum Val {
     Num(Num),
     Char(char),
     Array(Array),
-    Un(Rc<UnVal>),
-    Bin(Rc<BinVal>),
+    Op(Op),
 }
-
-pub type UnVal = Un<Sp<Val>, Val>;
-pub type BinVal = Bin<Sp<Val>, Val, Val>;
 
 impl From<Num> for Val {
     fn from(num: Num) -> Self {
@@ -37,15 +34,9 @@ impl From<Array> for Val {
     }
 }
 
-impl From<UnVal> for Val {
-    fn from(un: UnVal) -> Self {
-        Val::Un(un.into())
-    }
-}
-
-impl From<BinVal> for Val {
-    fn from(bin: BinVal) -> Self {
-        Val::Bin(bin.into())
+impl From<Op> for Val {
+    fn from(op: Op) -> Self {
+        Val::Op(op)
     }
 }
 
@@ -55,8 +46,7 @@ impl fmt::Debug for Val {
             Val::Num(num) => num.fmt(f),
             Val::Char(c) => c.fmt(f),
             Val::Array(arr) => arr.fmt(f),
-            Val::Un(expr) => expr.fmt(f),
-            Val::Bin(expr) => expr.fmt(f),
+            Val::Op(op) => op.fmt(f),
         }
     }
 }
@@ -67,8 +57,7 @@ impl fmt::Display for Val {
             Val::Num(num) => num.fmt(f),
             Val::Char(c) => c.fmt(f),
             Val::Array(arr) => arr.fmt(f),
-            Val::Un(expr) => write!(f, "{} {}", expr.op, expr.x),
-            Val::Bin(expr) => write!(f, "{} {} {}", expr.w, expr.op, expr.x),
+            Val::Op(op) => op.fmt(f),
         }
     }
 }
