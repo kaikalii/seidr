@@ -26,7 +26,7 @@
 | ᛃ     | reverse    | rotate                    | j                | jera     | year/harvest        |
 | ᛇ     |            |                           | A                | iwaz     | yew-tree            |
 | ᛈ     |            |                           | p                | perth    | unknown             |
-| ᛉ     |            |                           | z                | algiz    | elk                 |
+| ᛉ     | range      |                           | z                | algiz    | elk                 |
 | ᛋ ᛊ   |            |                           | s                | sowilo   | sun                 |
 | ᛏ     |            |                           | t                | tiwaz    | Týr                 |
 | ᛒ     |            |                           | b                | berkanan | birch               |

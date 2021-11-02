@@ -8,7 +8,7 @@ use crate::{
     value::{Atom, Val},
 };
 
-type Shape = Rc<[usize]>;
+pub type Shape = Rc<[usize]>;
 
 #[derive(Clone)]
 pub struct Array {
@@ -17,6 +17,15 @@ pub struct Array {
 }
 
 impl Array {
+    pub fn shape(&self) -> &[usize] {
+        &self.shape
+    }
+    pub fn len(&self) -> usize {
+        self.shape[0]
+    }
+    pub fn rank(&self) -> usize {
+        self.shape.len()
+    }
     pub fn iter(&self) -> Box<dyn Iterator<Item = Val> + '_> {
         if self.shape.len() == 1 {
             Box::new(self.items.iter().cloned())
@@ -92,14 +101,29 @@ impl fmt::Debug for Array {
 
 impl fmt::Display for Array {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "〈")?;
-        for (i, val) in self.iter().enumerate() {
-            if i > 0 {
-                write!(f, ", ")?;
+        if self.rank() == 1
+            && self
+                .items
+                .iter()
+                .all(|val| matches!(val, Val::Atom(Atom::Char(_))))
+        {
+            let mut s = String::new();
+            for val in self.items.iter() {
+                if let Val::Atom(Atom::Char(c)) = val {
+                    s.push(*c);
+                }
             }
-            val.fmt(f)?;
+            write!(f, "{:?}", s)
+        } else {
+            write!(f, "〈")?;
+            for (i, val) in self.iter().enumerate() {
+                if i > 0 {
+                    write!(f, ", ")?;
+                }
+                val.fmt(f)?;
+            }
+            write!(f, "〉")
         }
-        write!(f, "〉")
     }
 }
 

@@ -2,7 +2,7 @@ use std::{error::Error, fmt, io};
 
 use colored::{Color, Colorize};
 
-use crate::{lex::Span, op::Op};
+use crate::{lex::Span, op::Op, value::Val};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum CompileError {
@@ -185,4 +185,4 @@ impl fmt::Display for RuntimeError {
     }
 }
 
-pub type RuntimeResult<T = ()> = Result<T, RuntimeError>;
+pub type RuntimeResult<T = Val> = Result<T, RuntimeError>;

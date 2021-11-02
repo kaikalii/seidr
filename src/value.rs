@@ -15,6 +15,16 @@ pub enum Atom {
     Op(Op),
 }
 
+impl Atom {
+    pub const fn type_name(&self) -> &'static str {
+        match self {
+            Atom::Num(_) => "number",
+            Atom::Char(_) => "character",
+            Atom::Op(_) => "op",
+        }
+    }
+}
+
 impl From<bool> for Atom {
     fn from(b: bool) -> Self {
         Atom::Num(Num::Int(b as i64))
@@ -53,7 +63,7 @@ impl fmt::Display for Atom {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Atom::Num(num) => num.fmt(f),
-            Atom::Char(c) => c.fmt(f),
+            Atom::Char(c) => write!(f, "{:?}", c),
             Atom::Op(op) => op.fmt(f),
         }
     }
