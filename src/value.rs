@@ -27,13 +27,16 @@ impl Atom {
 
 impl From<bool> for Atom {
     fn from(b: bool) -> Self {
-        Atom::Num(Num::Int(b as i64))
+        (b as i64).into()
     }
 }
 
-impl From<Num> for Atom {
-    fn from(num: Num) -> Self {
-        Atom::Num(num)
+impl<N> From<N> for Atom
+where
+    N: Into<Num>,
+{
+    fn from(num: N) -> Self {
+        Atom::Num(num.into())
     }
 }
 

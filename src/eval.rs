@@ -50,6 +50,7 @@ impl Eval for UnVal {
             Val::Atom(Atom::Op(Op::Pervasive(per))) => un_pervade_val(per, x, &span),
             Val::Atom(Atom::Op(Op::Rune(rune))) => match rune {
                 Rune::Jera => Ok(reverse(x, &span)),
+                Rune::Algiz => range(x, &span).map(Val::Array),
                 rune => todo!("{}", rune),
             },
             val => Ok(val),
@@ -217,6 +218,37 @@ fn reverse(x: Val, span: &Span) -> Val {
     }
 }
 
-fn error(message: impl Into<String>, span: &Span) -> RuntimeResult {
+fn range(x: Val, span: &Span) -> RuntimeResult<Array> {
+    match x {
+        Val::Atom(Atom::Num(n)) => {
+            let n = i64::from(n);
+            if n < 0 {
+                error("x must be natural numbers", span)
+            } else {
+                Ok((0..n).collect())
+            }
+        }
+        Val::Atom(atom) => error(
+            format!("A range cannot be built from {}", atom.type_name()),
+            span,
+        ),
+        Val::Array(arr) => {
+            if arr.len() == 0 {
+                error("Range array cannot be empty", span)
+            } else {
+                let columns: Vec<Array> = arr
+                    .iter()
+                    .map(|val| range(val, span))
+                    .collect::<RuntimeResult<_>>()?;
+                Ok(columns
+                    .into_iter()
+                    .reduce(|a, b| a.product(&b, |a, b| Array::from_iter([a, b])))
+                    .unwrap())
+            }
+        }
+    }
+}
+
+fn error<T>(message: impl Into<String>, span: &Span) -> RuntimeResult<T> {
     Err(RuntimeError::new(message, span.clone()))
 }

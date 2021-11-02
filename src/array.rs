@@ -71,6 +71,28 @@ impl Array {
             items: items.into(),
         })
     }
+    pub fn product<F, V>(&self, other: &Self, f: F) -> Self
+    where
+        F: Fn(Val, Val) -> V,
+        V: Into<Val>,
+    {
+        let mut items = Vec::new();
+        for a in self.iter() {
+            for b in other.iter() {
+                let v = f(a.clone(), b).into();
+                items.push(v);
+            }
+        }
+        Array {
+            shape: self
+                .shape
+                .iter()
+                .copied()
+                .chain(other.shape.iter().copied())
+                .collect(),
+            items: items.into(),
+        }
+    }
 }
 
 impl PartialEq for Array {
@@ -114,6 +136,14 @@ impl fmt::Display for Array {
                 }
             }
             write!(f, "{:?}", s)
+        } else if self.rank() == 1 && self.items.iter().all(|val| matches!(val, Val::Atom(_))) {
+            for (i, val) in self.items.iter().enumerate() {
+                if i > 0 {
+                    write!(f, "‿")?;
+                }
+                val.fmt(f)?;
+            }
+            Ok(())
         } else {
             write!(f, "〈")?;
             for (i, val) in self.iter().enumerate() {
