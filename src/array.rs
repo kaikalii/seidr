@@ -135,6 +135,7 @@ impl fmt::Debug for Array {
 impl fmt::Display for Array {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.rank() == 1
+            && self.len() > 0
             && self
                 .items
                 .iter()
