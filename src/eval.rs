@@ -1,3 +1,5 @@
+use std::iter::repeat;
+
 use crate::{
     array::Array,
     ast::{Bin, OpTreeExpr},
@@ -51,7 +53,7 @@ impl Eval for UnVal {
             Val::Atom(Atom::Op(Op::Rune(rune))) => match rune {
                 Rune::Jera => Ok(reverse(x, &span)),
                 Rune::Algiz => range(x, &span).map(Val::Array),
-                rune => todo!("{}", rune),
+                rune => error(format!("{} has no unary form", rune), &span),
             },
             val => Ok(val),
         }
@@ -67,8 +69,9 @@ impl Eval for BinVal {
         match op {
             Val::Atom(Atom::Op(Op::Pervasive(per))) => bin_pervade_val(per, w, x, &span),
             Val::Atom(Atom::Op(Op::Rune(rune))) => match rune {
+                Rune::Fehu => replicate(w, x, &span).map(Val::Array),
                 Rune::Jera => rotate(w, x, &span),
-                rune => todo!("{}", rune),
+                rune => error(format!("{} has no binary form", rune), &span),
             },
             val => Ok(val),
         }
@@ -246,6 +249,47 @@ fn range(x: Val, span: &Span) -> RuntimeResult<Array> {
                     .unwrap())
             }
         }
+    }
+}
+
+fn replicate(w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
+    match (w, x) {
+        (Val::Atom(Atom::Num(w)), Val::Atom(x)) => {
+            let n = i64::from(w);
+            if n < 0 {
+                error("Replicator must be natural numbers", span)
+            } else {
+                let n = n as usize;
+                Ok(Array::new([n], repeat(x).take(n)))
+            }
+        }
+        (w @ Val::Atom(Atom::Num(_)), Val::Array(x)) => {
+            let mut arrays: Vec<Array> = x
+                .iter()
+                .map(|x| replicate(w.clone(), x, span))
+                .collect::<RuntimeResult<_>>()?;
+            Ok(arrays.iter().flat_map(|arr| arr.iter()).collect())
+        }
+        (Val::Array(w), Val::Array(x)) => {
+            if w.len() == x.len() {
+                let mut arrays: Vec<Array> = w
+                    .iter()
+                    .zip(x.iter())
+                    .map(|(w, x)| replicate(w, x, span))
+                    .collect::<RuntimeResult<_>>()?;
+                Ok(arrays.iter().flat_map(|arr| arr.iter()).collect())
+            } else {
+                error("Arrays must have matching lengths", span)
+            }
+        }
+        (Val::Array(_), Val::Atom(x)) => error(
+            format!("{} cannot be replicated with array", x.type_name()),
+            span,
+        ),
+        (Val::Atom(w), x) => error(
+            format!("{} cannot be used to replicate", w.type_name()),
+            span,
+        ),
     }
 }
 

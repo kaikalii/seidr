@@ -17,11 +17,22 @@ pub struct Array {
 }
 
 impl Array {
+    pub fn new<S, I>(shape: S, items: I) -> Array
+    where
+        S: IntoIterator<Item = usize>,
+        I: IntoIterator,
+        I::Item: Into<Val>,
+    {
+        Array {
+            shape: shape.into_iter().collect(),
+            items: items.into_iter().map(Into::into).collect(),
+        }
+    }
     pub fn shape(&self) -> &[usize] {
         &self.shape
     }
     pub fn len(&self) -> usize {
-        self.shape[0]
+        self.shape.get(0).copied().unwrap_or(1)
     }
     pub fn rank(&self) -> usize {
         self.shape.len()
