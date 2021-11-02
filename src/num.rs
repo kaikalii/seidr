@@ -168,16 +168,16 @@ impl From<Num> for u32 {
 
 impl fmt::Debug for Num {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Num::Int(i) => i.fmt(f),
-            Num::Float(i) => i.fmt(f),
-        }
+        write!(f, "{}", self)
     }
 }
 
 impl fmt::Display for Num {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
+        if self < &Num::Int(0) {
+            write!(f, "⁻")?;
+        }
+        match self.abs() {
             Num::Int(i) => i.fmt(f),
             Num::Float(i) => i.fmt(f),
         }

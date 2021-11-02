@@ -10,7 +10,7 @@ use crate::{
     error::{CompileError, CompileResult, IoError},
     lex::*,
     num::Num,
-    op::Op,
+    op::*,
 };
 
 pub fn parse<P>(input: &str, file: P) -> CompileResult<Vec<OpTreeExpr>>
@@ -126,11 +126,20 @@ impl Parser {
         }
         Ok(exprs)
     }
+    #[allow(irrefutable_let_patterns)]
     fn op_tree_expr(&mut self) -> CompileResult<Option<OpTreeExpr>> {
         Ok(Some(if let Some(op) = self.op_expr()? {
-            let x = self
+            let mut x = self
                 .expect_with("expression", Self::op_tree_expr)?
                 .unparen();
+            // Replace sub number with negative number
+            if let OpTreeExpr::Val(ValExpr::Num(n)) = &x {
+                if let OpExpr::Op(op) = &op {
+                    if let Op::Pervasive(Pervasive::Math(MathOp::Sub)) = **op {
+                        return Ok(Some(OpTreeExpr::Val(ValExpr::Num(n.clone().map(|n| -n)))));
+                    }
+                }
+            }
             OpTreeExpr::Un(Un { op, x }.into())
         } else if let Some(w) = self.val_expr()? {
             if let Some(op) = self.op_expr()? {

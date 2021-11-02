@@ -196,7 +196,11 @@ impl Format for ValExpr {
                 if s.contains('e') || s.contains('E') {
                     write!(f, "{}", s)
                 } else {
-                    let n = n.to_string();
+                    let n = **n;
+                    if n < Num::Int(0) {
+                        write!(f, "⁻")?;
+                    }
+                    let n = n.abs().to_string();
                     let mut parts = n.split('.');
                     let left = parts.next().unwrap();
                     let right = parts.next();

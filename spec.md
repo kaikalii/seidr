@@ -1,3 +1,9 @@
+# Literals
+
+| glyph | meaning  | escape character |
+| ----- | -------- | ---------------- |
+| ⁻     | negative | -                |
+
 # Operators
 
 | glyph | unary      | binary                    | escape character | name     | meaning             |

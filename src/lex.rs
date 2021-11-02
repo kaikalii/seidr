@@ -124,6 +124,7 @@ pub enum TT {
     Whitespace,
     Newline,
     Undertie,
+    SuperscriptMinus,
 }
 
 impl<O> From<O> for TT
@@ -179,6 +180,7 @@ impl fmt::Display for TT {
             TT::Whitespace => ' '.fmt(f),
             TT::Newline => '\n'.fmt(f),
             TT::Undertie => '‿'.fmt(f),
+            TT::SuperscriptMinus => '⁻'.fmt(f),
         }
     }
 }
@@ -426,7 +428,8 @@ impl Lexer {
                     }
                 }
                 '\\' => self.escape()?,
-                c if c.is_digit(10) => self.number(c)?,
+                '⁻' => self.negative_number()?,
+                c if c.is_digit(10) => self.number(c, false)?,
                 c if ident_head_char(c) => {
                     let mut ident = String::from(c);
                     while let Some(c) = self.next_if(ident_body_char) {
@@ -459,14 +462,15 @@ impl Lexer {
             return self.error(CompileError::InvalidEscape(String::new()));
         };
         self.token(match c {
+            '[' => TT::OpenAngle,
+            ']' => TT::CloseAngle,
+            ' ' => TT::Undertie,
+            '-' => return self.negative_number(),
             'x' => MathOp::Mul.into(),
             '/' => MathOp::Div.into(),
             '<' => ComparisonOp::LessOrEqual.into(),
             '>' => ComparisonOp::GreaterOrEqual.into(),
             '=' => ComparisonOp::NotEqual.into(),
-            '[' => TT::OpenAngle,
-            ']' => TT::CloseAngle,
-            ' ' => TT::Undertie,
             'f' => Rune::Fehu.into(),
             'u' => Rune::Uruz.into(),
             'T' => Rune::Thurisaz.into(),
@@ -496,7 +500,14 @@ impl Lexer {
         self.escaped = true;
         Ok(())
     }
-    fn number(&mut self, first: char) -> CompileResult {
+    fn negative_number(&mut self) -> CompileResult {
+        if let Some(c) = self.next_if(|c| c.is_digit(10)) {
+            self.number(c, true)
+        } else {
+            self.error(CompileError::Expected("digit".into()))
+        }
+    }
+    fn number(&mut self, first: char, neg: bool) -> CompileResult {
         let mut s = String::from(first);
         while let Some(c) = self.next_if(|c| c.is_digit(10) || c == '_') {
             s.push(c);
@@ -524,6 +535,7 @@ impl Lexer {
         }
         let no_underscores = s.replace('_', "");
         match no_underscores.parse::<Num>() {
+            Ok(num) if neg => self.token(TT::Num(-num, s.into())),
             Ok(num) => self.token(TT::Num(num, s.into())),
             Err(_) => return self.error(CompileError::InvalidNumber(s)),
         }

@@ -10,6 +10,7 @@ pub enum CompileError {
     InvalidCharacter(char),
     InvalidNumber(String),
     InvalidEscape(String),
+    Expected(String),
     ExpectedFound(String, String),
     UnclosedString,
     UnclosedChar,
@@ -29,6 +30,7 @@ impl fmt::Display for CompileError {
             CompileError::InvalidEscape(s) => write!(f, "Invalid escape `{}`", s),
             CompileError::UnclosedString => write!(f, "Unclosed string literal"),
             CompileError::UnclosedChar => write!(f, "Unclosed character literal"),
+            CompileError::Expected(expected) => write!(f, "Expected {}", expected),
             CompileError::ExpectedFound(expected, found) => {
                 write!(f, "Expected {}, found {}", expected, found)
             }
