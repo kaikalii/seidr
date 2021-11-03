@@ -15,7 +15,6 @@ where
     let tokens = lex(input, &file)?;
     let mut parser = Parser { tokens, curr: 0 };
     let items = parser.items()?;
-    dbg!(&items);
     if let Some(token) = parser.next() {
         return Err(
             CompileError::ExpectedFound("item".into(), token.span.as_string()).at(token.span),

@@ -1,4 +1,4 @@
-use std::{fmt, iter::empty};
+use std::fmt;
 
 use crate::{array::Array, num::Num, op::Op};
 
@@ -70,15 +70,6 @@ impl fmt::Display for Atom {
 pub enum Val {
     Atom(Atom),
     Array(Array),
-}
-
-impl Val {
-    pub fn promote(self) -> Array {
-        match self {
-            Val::Array(arr) => arr,
-            Val::Atom(_) => Array::new(empty(), [self]),
-        }
-    }
 }
 
 impl<A> From<A> for Val

@@ -1,5 +1,12 @@
 use std::{cmp::Ordering, fmt, num::ParseFloatError, ops::*, str::FromStr};
 
+pub fn modulus<T>(a: T, b: T) -> T
+where
+    T: Copy + Rem<Output = T> + Add<Output = T>,
+{
+    (a % b + b) % b
+}
+
 /// Numbers in can be either integers or floating point.
 /// All operations on integers, except for division, produce integers.
 /// Floating point numbers infect integers, turning them into floating
@@ -75,7 +82,7 @@ impl Num {
     }
     /// Get the true modulus of the number with some radix
     pub fn modulus(self, radix: Num) -> Self {
-        self.binary_op(radix, |a, b| (a % b + b) % b, |a, b| (a % b + b) % b)
+        self.binary_op(radix, modulus, modulus)
     }
     /// Perform a binary operation on this number and another
     pub fn binary_op<I, F>(self, other: Num, int: I, float: F) -> Num

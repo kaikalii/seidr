@@ -175,34 +175,20 @@ pub fn bin_pervade_atom(per: Pervasive, w: Atom, x: Atom, span: &Span) -> Runtim
 fn rotate(w: Val, x: Val, span: &Span) -> RuntimeResult {
     match (w, x) {
         (Val::Atom(Atom::Num(n)), Val::Array(arr)) => {
-            let mut items: Vec<Val> = arr.iter().collect();
-            let n = i64::from(n);
-            if n >= 0 {
-                items.rotate_left(n as usize);
-            } else {
-                items.rotate_right((-n) as usize);
-            }
-            Ok(items.into_iter().collect())
+            Ok(Array::Rotate(arr.into(), i64::from(n)).into())
         }
-        (Val::Array(ns), x) if ns.len() == 1 => rotate(ns.iter().next().unwrap(), x, span),
+        (Val::Array(ns), x) if ns.len() == 1 => rotate(ns.get(0).unwrap().into_owned(), x, span),
         (Val::Array(ns), Val::Array(arr)) => {
-            if ns.len() != arr.rank() {
-                error(
-                    format!(
-                        "w's length {} does not match x's rank {}",
-                        ns.len(),
-                        arr.rank()
-                    ),
-                    span,
-                )
-            } else {
-                let sub_ns: Array = ns.iter().skip(1).collect();
-                let mut items: Vec<Val> = arr
-                    .iter()
-                    .map(|sub| rotate(sub_ns.clone().into(), sub, span))
-                    .collect::<RuntimeResult<_>>()?;
-                Ok(items.into_iter().collect())
-            }
+            let sub_ns: Array = ns.iter().skip(1).collect();
+            let mut items: Vec<Val> = arr
+                .iter()
+                .map(|sub| rotate(sub_ns.clone().into(), sub, span))
+                .collect::<RuntimeResult<_>>()?;
+            rotate(
+                ns.get(0).unwrap().into_owned(),
+                Array::concrete(items).into(),
+                span,
+            )
         }
         (Val::Atom(atom), _) => error(
             format!("Attempted to rotate with {}", atom.type_name()),
@@ -215,11 +201,7 @@ fn rotate(w: Val, x: Val, span: &Span) -> RuntimeResult {
 fn reverse(x: Val, span: &Span) -> Val {
     match x {
         Val::Atom(_) => x,
-        Val::Array(arr) => {
-            let mut items: Vec<Val> = arr.iter().collect();
-            items.reverse();
-            items.into_iter().collect()
-        }
+        Val::Array(arr) => Array::Reverse(arr.into()).into(),
     }
 }
 
@@ -230,7 +212,7 @@ fn range(x: Val, span: &Span) -> RuntimeResult<Array> {
             if n < 0 {
                 error("x must be natural numbers", span)
             } else {
-                Ok((0..n).collect())
+                Ok(Array::Range(n as usize))
             }
         }
         Val::Atom(atom) => error(
@@ -241,11 +223,11 @@ fn range(x: Val, span: &Span) -> RuntimeResult<Array> {
             if arr.len() == 0 {
                 error("Range array cannot be empty", span)
             } else {
-                let columns: Vec<Array> = arr
-                    .iter()
-                    .map(|val| range(val, span))
+                let rows: Vec<Array> = arr
+                    .cow_iter()
+                    .map(|val| range(val.into_owned(), span))
                     .collect::<RuntimeResult<_>>()?;
-                Ok(columns
+                Ok(rows
                     .into_iter()
                     .reduce(|a, b| a.product(&b, |a, b| Array::from_iter([a, b])))
                     .unwrap())
@@ -262,7 +244,7 @@ fn replicate(w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
                 error("Replicator must be natural numbers", span)
             } else {
                 let n = n as usize;
-                Ok(Array::new([n], repeat(x).take(n)))
+                Ok(Array::concrete(repeat(x).take(n)))
             }
         }
         (w @ Val::Atom(Atom::Num(_)), Val::Array(x)) => {

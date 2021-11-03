@@ -1,53 +1,73 @@
-use std::{cmp::Ordering, fmt, rc::Rc};
+use std::{borrow::Cow, cmp::Ordering, fmt, iter, rc::Rc};
 
 use crate::{
     error::{RuntimeError, RuntimeResult},
     lex::Span,
+    num::modulus,
     value::{Atom, Val},
 };
 
-pub type Shape = Rc<[usize]>;
+type Items = Rc<[Val]>;
 
 #[derive(Clone)]
-pub struct Array {
-    shape: Shape,
-    items: Rc<[Val]>,
+pub enum Array {
+    Concrete(Items),
+    Rotate(Box<Self>, i64),
+    Reverse(Box<Self>),
+    Range(usize),
 }
 
 impl Array {
-    pub fn new<S, I>(shape: S, items: I) -> Array
+    pub fn concrete<I>(items: I) -> Array
     where
-        S: IntoIterator<Item = usize>,
         I: IntoIterator,
         I::Item: Into<Val>,
     {
-        Array {
-            shape: shape.into_iter().collect(),
-            items: items.into_iter().map(Into::into).collect(),
-        }
-    }
-    pub fn shape(&self) -> &[usize] {
-        &self.shape
+        Array::Concrete(items.into_iter().map(Into::into).collect())
     }
     pub fn len(&self) -> usize {
-        self.shape.get(0).copied().unwrap_or(1)
-    }
-    pub fn rank(&self) -> usize {
-        self.shape.len()
-    }
-    pub fn iter(&self) -> Box<dyn Iterator<Item = Val> + '_> {
-        if self.shape.len() == 1 {
-            Box::new(self.items.iter().cloned())
-        } else {
-            let sub_shape: Shape = self.shape.iter().skip(1).copied().collect();
-            let item_size: usize = sub_shape.iter().product();
-            Box::new(self.items.chunks(item_size).map(move |chunk| {
-                Val::from(Array {
-                    shape: sub_shape.clone(),
-                    items: Rc::from(chunk),
-                })
-            }))
+        match self {
+            Array::Concrete(items) => items.len(),
+            Array::Rotate(arr, _) | Array::Reverse(arr) => arr.len(),
+            Array::Range(n) => *n,
         }
+    }
+    pub fn get(&self, index: usize) -> Option<Cow<Val>> {
+        match self {
+            Array::Concrete(items) => items.get(index).map(Cow::Borrowed),
+            Array::Rotate(arr, r) => {
+                if index >= arr.len() {
+                    None
+                } else {
+                    let index = modulus(index as i64 + *r, arr.len() as i64) as usize;
+                    arr.get(index)
+                }
+            }
+            Array::Reverse(arr) => {
+                if index >= arr.len() {
+                    None
+                } else {
+                    arr.get(arr.len() - 1 - index)
+                }
+            }
+            Array::Range(n) => {
+                if index >= *n {
+                    None
+                } else {
+                    Some(Cow::Owned(index.into()))
+                }
+            }
+        }
+    }
+    pub fn cow_iter(&self) -> impl Iterator<Item = Cow<Val>> {
+        let mut i = 0;
+        iter::from_fn(move || {
+            i += 1;
+            self.get(i - 1)
+        })
+    }
+    pub fn iter(&self) -> impl Iterator<Item = Val> + '_ {
+        self.cow_iter().map(Cow::into_owned)
     }
     pub fn pervade<F, V>(&self, f: F) -> RuntimeResult<Self>
     where
@@ -55,30 +75,27 @@ impl Array {
         V: Into<Val>,
     {
         let mut items = Vec::new();
-        for item in self.items.iter().cloned() {
+        for item in self.cow_iter().map(Cow::into_owned) {
             items.push(f(item)?.into());
         }
-        Ok(Array {
-            shape: self.shape.clone(),
-            items: items.into(),
-        })
+        Ok(Array::Concrete(items.into()))
     }
     pub fn pervade_with<F, V>(&self, other: &Self, span: &Span, f: F) -> RuntimeResult<Self>
     where
         F: Fn(Val, Val) -> RuntimeResult<V>,
         V: Into<Val>,
     {
-        if self.shape != other.shape {
-            return Err(RuntimeError::new("Array shapes do not match", span.clone()));
+        if self.len() != other.len() {
+            return Err(RuntimeError::new(
+                "Array lengths do not match",
+                span.clone(),
+            ));
         }
         let mut items = Vec::new();
-        for (a, b) in self.items.iter().cloned().zip(other.items.iter().cloned()) {
-            items.push(f(a, b)?.into());
+        for (a, b) in self.cow_iter().zip(other.cow_iter()) {
+            items.push(f(a.into_owned(), b.into_owned())?.into());
         }
-        Ok(Array {
-            shape: self.shape.clone(),
-            items: items.into(),
-        })
+        Ok(Array::Concrete(items.into()))
     }
     pub fn product<F, V>(&self, other: &Self, f: F) -> Self
     where
@@ -86,21 +103,16 @@ impl Array {
         V: Into<Val>,
     {
         let mut items = Vec::new();
-        for a in self.iter() {
-            for b in other.iter() {
-                let v = f(a.clone(), b).into();
-                items.push(v);
+        for a in self.cow_iter() {
+            let mut column = Vec::new();
+            let a = a.into_owned();
+            for b in other.cow_iter() {
+                let v = f(a.clone(), b.into_owned()).into();
+                column.push(v);
             }
+            items.push(Val::from(Array::Concrete(column.into())));
         }
-        Array {
-            shape: self
-                .shape
-                .iter()
-                .copied()
-                .chain(other.shape.iter().copied())
-                .collect(),
-            items: items.into(),
-        }
+        Array::Concrete(items.into())
     }
 }
 
@@ -132,22 +144,23 @@ impl fmt::Debug for Array {
 
 impl fmt::Display for Array {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.rank() == 1
-            && self.len() > 0
+        if self.len() > 0
             && self
-                .items
-                .iter()
-                .all(|val| matches!(val, Val::Atom(Atom::Char(_))))
+                .cow_iter()
+                .all(|val| matches!(val.as_ref(), Val::Atom(Atom::Char(_))))
         {
             let mut s = String::new();
-            for val in self.items.iter() {
-                if let Val::Atom(Atom::Char(c)) = val {
+            for val in self.cow_iter() {
+                if let Val::Atom(Atom::Char(c)) = val.as_ref() {
                     s.push(*c);
                 }
             }
             write!(f, "{:?}", s)
-        } else if self.rank() == 1 && self.items.iter().all(|val| matches!(val, Val::Atom(_))) {
-            for (i, val) in self.items.iter().enumerate() {
+        } else if self
+            .cow_iter()
+            .all(|val| matches!(val.as_ref(), Val::Atom(_)))
+        {
+            for (i, val) in self.cow_iter().enumerate() {
                 if i > 0 {
                     write!(f, "‿")?;
                 }
@@ -156,7 +169,7 @@ impl fmt::Display for Array {
             Ok(())
         } else {
             write!(f, "〈")?;
-            for (i, val) in self.iter().enumerate() {
+            for (i, val) in self.cow_iter().enumerate() {
                 if i > 0 {
                     write!(f, ", ")?;
                 }
@@ -175,10 +188,6 @@ where
     where
         T: IntoIterator<Item = V>,
     {
-        let items: Rc<[Val]> = iter.into_iter().map(Into::into).collect();
-        Array {
-            shape: Rc::new([items.len()]),
-            items,
-        }
+        Array::Concrete(iter.into_iter().map(Into::into).collect())
     }
 }

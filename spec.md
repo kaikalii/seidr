@@ -18,7 +18,7 @@
 | ≤     |            | less than or equal to     | <                |          |                     |
 | >     |            | greater than              |                  |          |                     |
 | ≥     |            | greater than  or equal to | >                |          |                     |
-| ᚠ     |            |                           | f                | fehu     | cattle/wealth       |
+| ᚠ     |            | replicate                 | f                | fehu     | cattle/wealth       |
 | ᚢ     |            |                           | u                | uruz     | aurochs             |
 | ᚦ     |            |                           | T                | thurisaz | jötunn              |
 | ᚨ     |            |                           | a                | ansuz    | god                 |
