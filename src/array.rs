@@ -1,4 +1,10 @@
-use std::{borrow::Cow, cmp::Ordering, fmt, iter, rc::Rc};
+use std::{
+    borrow::Cow,
+    cmp::Ordering,
+    fmt,
+    iter::{self, once},
+    rc::Rc,
+};
 
 use crate::{
     error::{RuntimeError, RuntimeResult},
@@ -15,6 +21,7 @@ pub enum Array {
     Rotate(Box<Self>, i64),
     Reverse(Box<Self>),
     Range(usize),
+    Product(Box<[Self]>, Items),
 }
 
 impl Array {
@@ -30,6 +37,7 @@ impl Array {
             Array::Concrete(items) => items.len(),
             Array::Rotate(arr, _) | Array::Reverse(arr) => arr.len(),
             Array::Range(n) => *n,
+            Array::Product(arrs, _) => arrs[0].len(),
         }
     }
     pub fn get(&self, index: usize) -> Option<Cow<Val>> {
@@ -56,6 +64,28 @@ impl Array {
                 } else {
                     Some(Cow::Owned(index.into()))
                 }
+            }
+            Array::Product(arrs, items) => {
+                let first = arrs[0].get(index)?;
+                Some(if arrs.len() == 1 {
+                    if items.is_empty() {
+                        first
+                    } else {
+                        Cow::Owned(
+                            Array::concrete(once(first.into_owned()).chain(items.iter().cloned()))
+                                .into(),
+                        )
+                    }
+                } else {
+                    let val = first.into_owned();
+                    Cow::Owned(
+                        Array::Product(
+                            arrs[1..].to_vec().into(),
+                            items.iter().cloned().chain(once(val)).collect(),
+                        )
+                        .into(),
+                    )
+                })
             }
         }
     }
@@ -96,23 +126,6 @@ impl Array {
             items.push(f(a.into_owned(), b.into_owned())?.into());
         }
         Ok(Array::Concrete(items.into()))
-    }
-    pub fn product<F, V>(&self, other: &Self, f: F) -> Self
-    where
-        F: Fn(Val, Val) -> V,
-        V: Into<Val>,
-    {
-        let mut items = Vec::new();
-        for a in self.cow_iter() {
-            let mut column = Vec::new();
-            let a = a.into_owned();
-            for b in other.cow_iter() {
-                let v = f(a.clone(), b.into_owned()).into();
-                column.push(v);
-            }
-            items.push(Val::from(Array::Concrete(column.into())));
-        }
-        Array::Concrete(items.into())
     }
 }
 

@@ -1,4 +1,4 @@
-use std::iter::repeat;
+use std::{iter::repeat, rc::Rc};
 
 use crate::{
     array::Array,
@@ -223,14 +223,11 @@ fn range(x: Val, span: &Span) -> RuntimeResult<Array> {
             if arr.len() == 0 {
                 error("Range array cannot be empty", span)
             } else {
-                let rows: Vec<Array> = arr
+                let arrays: Vec<Array> = arr
                     .cow_iter()
                     .map(|val| range(val.into_owned(), span))
                     .collect::<RuntimeResult<_>>()?;
-                Ok(rows
-                    .into_iter()
-                    .reduce(|a, b| a.product(&b, |a, b| Array::from_iter([a, b])))
-                    .unwrap())
+                Ok(Array::Product(arrays.into(), Rc::new([])))
             }
         }
     }
