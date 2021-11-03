@@ -2,7 +2,6 @@ use std::iter::repeat;
 
 use crate::{
     array::Array,
-    ast::{Bin, OpTreeExpr},
     cwt::{BinVal, UnVal, ValNode},
     error::{RuntimeError, RuntimeResult},
     lex::Span,

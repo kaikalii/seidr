@@ -1,9 +1,4 @@
-use std::{
-    fs::{self, OpenOptions},
-    io::Write,
-    path::Path,
-    rc::Rc,
-};
+use std::{fs, path::Path, rc::Rc};
 
 use crate::{
     ast::*,

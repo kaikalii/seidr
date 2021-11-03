@@ -2,7 +2,7 @@ use std::{
     borrow::Borrow,
     cmp::Ordering,
     fmt,
-    fs::{File, OpenOptions},
+    fs::OpenOptions,
     io::Write,
     mem::take,
     ops::{Deref, DerefMut},

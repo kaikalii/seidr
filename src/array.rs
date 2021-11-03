@@ -1,10 +1,8 @@
 use std::{cmp::Ordering, fmt, rc::Rc};
 
 use crate::{
-    ast::{Bin, Un},
     error::{RuntimeError, RuntimeResult},
-    lex::{Sp, Span},
-    op::Pervasive,
+    lex::Span,
     value::{Atom, Val},
 };
 

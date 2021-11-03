@@ -1,6 +1,7 @@
 #![allow(unused)]
+#![warn(unused_imports)]
 
-use std::{fs::read_to_string, path::Path, process::exit, sync::mpsc::channel};
+use std::fs::read_to_string;
 
 use crate::{
     ast::Item,

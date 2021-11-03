@@ -3,11 +3,9 @@
 use std::{fmt, rc::Rc};
 
 use crate::{
-    array::Array,
     ast::*,
-    error::{CompileResult, Problem, SpannedCompileWarning, WarnedCompileResult},
+    error::{Problem, SpannedCompileWarning},
     lex::Sp,
-    op::Op,
     value::Val,
 };
 

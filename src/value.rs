@@ -1,12 +1,6 @@
-use std::{fmt, iter::empty, rc::Rc};
+use std::{fmt, iter::empty};
 
-use crate::{
-    array::Array,
-    ast::{Bin, Un},
-    lex::Sp,
-    num::Num,
-    op::Op,
-};
+use crate::{array::Array, num::Num, op::Op};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Atom {
