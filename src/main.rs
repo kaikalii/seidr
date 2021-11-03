@@ -41,17 +41,26 @@ fn main() {
     })
     .unwrap();
     let watch_path = Path::new(".");
-    watcher.watch(watch_path, RecursiveMode::Recursive).unwrap();
+
+    let mut watch = |watch: bool| {
+        if watch {
+            watcher.watch(watch_path, RecursiveMode::Recursive).unwrap();
+        } else {
+            watcher.unwatch(watch_path).unwrap();
+        }
+    };
+    watch(true);
 
     // Listen for changes
     for path in path_recv {
-        watcher.unwatch(watch_path).unwrap();
+        watch(false);
 
         // Read in file
         let code = match read_to_string(&path) {
             Ok(code) => code,
             Err(e) => {
                 println!("{}", e);
+                watch(true);
                 continue;
             }
         };
@@ -61,6 +70,7 @@ fn main() {
             Ok(exprs) => exprs,
             Err(e) => {
                 println!("{}", e);
+                watch(true);
                 continue;
             }
         };
@@ -87,6 +97,6 @@ fn main() {
         }
 
         println!();
-        watcher.watch(watch_path, RecursiveMode::Recursive).unwrap();
+        watch(true);
     }
 }

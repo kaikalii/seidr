@@ -130,6 +130,12 @@ impl From<usize> for Num {
     }
 }
 
+impl From<u32> for Num {
+    fn from(u: u32) -> Self {
+        Num::Int(u as i64)
+    }
+}
+
 impl From<Num> for i64 {
     fn from(num: Num) -> Self {
         match num {
@@ -144,15 +150,6 @@ impl From<Num> for f64 {
         match num {
             Num::Int(i) => i as f64,
             Num::Float(f) => f,
-        }
-    }
-}
-
-impl From<Num> for usize {
-    fn from(num: Num) -> Self {
-        match num {
-            Num::Int(i) => i as usize,
-            Num::Float(f) => f as usize,
         }
     }
 }

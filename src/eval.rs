@@ -130,7 +130,7 @@ pub fn bin_pervade_atom(per: Pervasive, w: Atom, x: Atom, span: &Span) -> Runtim
             }
             (Atom::Char(w), Atom::Num(x)) => {
                 let w = w as u32;
-                let x = i64::from(x) as u32;
+                let x = u32::from(x);
                 match math {
                     MathOp::Add => {
                         return Ok(char::from_u32(w.saturating_add(x))
@@ -146,9 +146,12 @@ pub fn bin_pervade_atom(per: Pervasive, w: Atom, x: Atom, span: &Span) -> Runtim
                 }
             }
             (Atom::Num(w), Atom::Char(x)) if math == MathOp::Add => {
-                return Ok(char::from_u32(i64::from(w) as u32 + x as u32)
+                return Ok(char::from_u32((i64::from(w) + x as u32 as i64) as u32)
                     .unwrap_or_default()
                     .into())
+            }
+            (Atom::Char(w), Atom::Char(x)) if math == MathOp::Sub => {
+                return Ok((Num::from(w as u32) - Num::from(x as u32)).into())
             }
             _ => {}
         },
