@@ -14,15 +14,15 @@ where
 {
     let tokens = lex(input, &file)?;
     let mut parser = Parser { tokens, curr: 0 };
-    parser.skip_whitespace();
     let items = parser.items()?;
+    dbg!(&items);
     if let Some(token) = parser.next() {
         return Err(
             CompileError::ExpectedFound("item".into(), token.span.as_string()).at(token.span),
         );
     }
     // Write back to file
-    let formatted: String = items.iter().map(|item| format!("{}\n", item)).collect();
+    let formatted: String = items.iter().map(|item| item.to_string()).collect();
     if let Err(error) = fs::write(&file, &formatted) {
         return Err(CompileError::IO(IoError {
             message: format!("Unable to format `{}`", file.as_ref().to_string_lossy()),
@@ -43,19 +43,6 @@ struct Parser {
 }
 
 impl Parser {
-    fn skip_whitespace(&mut self) {
-        while let Some(Token {
-            tt: TT::Whitespace | TT::Newline,
-            ..
-        }) = self.tokens.get(self.curr)
-        {
-            self.curr += 1;
-        }
-    }
-    fn increment(&mut self) {
-        self.curr += 1;
-        self.skip_whitespace();
-    }
     fn match_to<F, T>(&mut self, f: F) -> Option<Sp<T>>
     where
         F: FnOnce(&TT) -> Option<T>,
@@ -63,7 +50,7 @@ impl Parser {
         let token = self.tokens.get(self.curr)?;
         let val = f(&token.tt)?;
         let span = token.span.clone();
-        self.increment();
+        self.curr += 1;
         Some(span.sp(val))
     }
     fn match_if<F>(&mut self, f: F) -> Option<Token>
@@ -75,7 +62,7 @@ impl Parser {
             return None;
         }
         let token = token.clone();
-        self.increment();
+        self.curr += 1;
         Some(token)
     }
     fn peek(&self) -> Option<&Token> {
@@ -83,7 +70,7 @@ impl Parser {
     }
     fn next(&mut self) -> Option<Token> {
         let token = self.tokens.get(self.curr).cloned()?;
-        self.increment();
+        self.curr += 1;
         Some(token)
     }
     fn match_token(&mut self, token_type: TT) -> Option<Token> {
@@ -123,12 +110,23 @@ impl Parser {
     fn item(&mut self) -> CompileResult<Option<Item>> {
         let comment = self.comment();
         Ok(Some(if let Some(expr) = self.op_tree_expr()? {
+            self.match_token(TT::Newline);
             Item::Expr(ExprItem { expr, comment })
         } else if let Some(comment) = comment {
+            self.match_token(TT::Newline);
             Item::Comment(comment)
+        } else if self.newline() {
+            Item::Newline
         } else {
             return Ok(None);
         }))
+    }
+    fn newline(&mut self) -> bool {
+        let mut newline = false;
+        while self.match_token(TT::Newline).is_some() {
+            newline = true;
+        }
+        newline
     }
     fn comment(&mut self) -> Option<Comment> {
         self.match_to(comment).map(|comment| comment.data)

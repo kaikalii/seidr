@@ -44,7 +44,7 @@ fn main() {
     let mut rt = Runtime::default();
     for item in items {
         match item {
-            Item::Comment(_) => {}
+            Item::Newline | Item::Comment(_) => {}
             Item::Expr(expr) => {
                 println!("    {}", expr.expr);
                 match expr.expr.build_val_tree() {

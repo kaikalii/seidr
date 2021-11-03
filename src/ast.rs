@@ -30,11 +30,14 @@ format_display!(UnOpExpr);
 format_display!(BinOpExpr);
 format_display!(ArrayExpr);
 
+#[derive(Debug)]
 pub enum Item {
+    Newline,
     Comment(Comment),
     Expr(ExprItem),
 }
 
+#[derive(Debug)]
 pub struct ExprItem {
     pub expr: OpTreeExpr,
     pub comment: Option<Comment>,
@@ -203,9 +206,11 @@ pub trait Format {
 impl Format for Item {
     fn format(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Item::Expr(expr) => expr.format(f),
-            Item::Comment(comment) => write!(f, "{}", comment),
-        }
+            Item::Newline => {}
+            Item::Expr(expr) => expr.format(f)?,
+            Item::Comment(comment) => write!(f, "{}", comment)?,
+        };
+        writeln!(f)
     }
 }
 
