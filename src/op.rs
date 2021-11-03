@@ -171,7 +171,7 @@ op!(
     (Kaunan, 'ᚲ'),
     (Gebo, 'ᚷ'),
     (Wunjo, 'ᚹ'),
-    (Haglaz, 'ᚻ'),
+    (Haglaz, 'ᚺ'),
     (Naudiz, 'ᚾ'),
     (Isaz, 'ᛁ'),
     (Jera, 'ᛃ'),

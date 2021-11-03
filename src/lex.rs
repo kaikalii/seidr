@@ -436,9 +436,6 @@ impl Lexer {
                 '〉' => self.token(TT::CloseAngle),
                 ',' => self.token(TT::Comma),
                 '‿' => self.token(TT::Undertie),
-                'ᚺ' => self.token(Rune::Haglaz),
-                'ᛊ' => self.token(Rune::Sowilo),
-                'ᛝ' => self.token(Rune::Ingwaz),
                 '\n' => self.token(TT::Newline),
                 '"' => self.string()?,
                 '\'' => {
