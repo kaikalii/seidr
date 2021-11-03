@@ -1,5 +1,5 @@
 #![allow(unused)]
-#![warn(unused_imports)]
+#![warn(unused_imports, unused_must_use)]
 
 use std::fs::read_to_string;
 

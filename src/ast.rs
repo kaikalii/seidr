@@ -198,7 +198,7 @@ pub trait Format {
     fn as_string(&self) -> String {
         let mut string = String::new();
         let mut formatter = Formatter::new(&mut string);
-        self.format(&mut formatter);
+        let _ = self.format(&mut formatter);
         string
     }
 }

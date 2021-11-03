@@ -89,6 +89,8 @@
 - Identity
 - Couple
 - Classify
+- Min
+- Max
 
 # Unassigned Unary Modifiers
 - Constant

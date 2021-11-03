@@ -140,6 +140,7 @@ impl Parser {
     #[allow(irrefutable_let_patterns)]
     fn op_tree_expr(&mut self) -> CompileResult<Option<OpTreeExpr>> {
         Ok(Some(if let Some(op) = self.op_expr()? {
+            // Unary
             let mut x = self
                 .expect_with("expression", Self::op_tree_expr)?
                 .unparen();
@@ -153,6 +154,7 @@ impl Parser {
             }
             OpTreeExpr::Un(Un { op, x }.into())
         } else if let Some(w) = self.val_expr()? {
+            // Binary or Val
             if let Some(op) = self.op_expr()? {
                 let x = self
                     .expect_with("expression", Self::op_tree_expr)?
@@ -196,7 +198,7 @@ impl Parser {
             ValExpr::String(s)
         } else if self.match_token(TT::OpenParen).is_some() {
             let expr = self.expect_with("expression", Self::op_tree_expr)?;
-            self.expect_token(TT::CloseParen);
+            self.expect_token(TT::CloseParen)?;
             match expr {
                 OpTreeExpr::Val(expr) => expr,
                 expr => ValExpr::Parened(expr.into()),
