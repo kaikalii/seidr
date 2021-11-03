@@ -156,9 +156,10 @@ impl fmt::Display for Array {
                 }
             }
             write!(f, "{:?}", s)
-        } else if self
-            .cow_iter()
-            .all(|val| matches!(val.as_ref(), Val::Atom(_)))
+        } else if self.len() >= 2
+            && self
+                .cow_iter()
+                .all(|val| matches!(val.as_ref(), Val::Atom(_)))
         {
             for (i, val) in self.cow_iter().enumerate() {
                 if i > 0 {
