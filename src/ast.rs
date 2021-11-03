@@ -198,7 +198,7 @@ impl Format for ValExpr {
                 } else {
                     let n = **n;
                     if n < Num::Int(0) {
-                        write!(f, "⁻")?;
+                        write!(f, "‾")?;
                     }
                     let n = n.abs().to_string();
                     let mut parts = n.split('.');

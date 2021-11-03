@@ -180,7 +180,7 @@ impl fmt::Display for TT {
             TT::Whitespace => ' '.fmt(f),
             TT::Newline => '\n'.fmt(f),
             TT::Undertie => '‿'.fmt(f),
-            TT::SuperscriptMinus => '⁻'.fmt(f),
+            TT::SuperscriptMinus => '‾'.fmt(f),
         }
     }
 }
@@ -428,7 +428,7 @@ impl Lexer {
                     }
                 }
                 '\\' => self.escape()?,
-                '⁻' => self.negative_number()?,
+                '‾' => self.negative_number()?,
                 c if c.is_digit(10) => self.number(c, false)?,
                 c if ident_head_char(c) => {
                     let mut ident = String::from(c);

@@ -28,6 +28,7 @@ where
     }
     // Write back to file
     let formatted: String = exprs.iter().map(|item| format!("{}\n", item)).collect();
+    println!("{:?}", formatted);
     if let Err(error) = fs::write(&file, &formatted) {
         return Err(CompileError::IO(IoError {
             message: format!("Unable to format `{}`", file.as_ref().to_string_lossy()),
@@ -35,9 +36,8 @@ where
         })
         .at(Span::dud()));
     }
-    // println!("items:");
-    // for item in &items {
-    //     println!("    {:?}", item);
+    // for expr in &exprs {
+    //     println!("    {:?}", expr);
     // }
     // println!();
     Ok(exprs)

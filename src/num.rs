@@ -172,7 +172,7 @@ impl fmt::Debug for Num {
 impl fmt::Display for Num {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self < &Num::Int(0) {
-            write!(f, "⁻")?;
+            write!(f, "‾")?;
         }
         match self.abs() {
             Num::Int(i) => i.fmt(f),

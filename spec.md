@@ -1,8 +1,8 @@
 # Literals
 
-| glyph | meaning  | escape character |
-| ----- | -------- | ---------------- |
-| ⁻     | negative | -                |
+| glyph        | meaning  | escape character |
+| ------------ | -------- | ---------------- |
+| ‾ (overline) | negative | -                |
 
 # Operators
 
