@@ -122,6 +122,12 @@ pub trait ToValNode {
     }
 }
 
+impl ToValNode for ExprItem {
+    fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
+        self.expr.to_val(builder)
+    }
+}
+
 impl ToValNode for ValExpr {
     fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
         match self {

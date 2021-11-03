@@ -104,12 +104,31 @@ impl PartialEq<str> for Ident {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Comment {
+    pub message: Rc<str>,
+    pub multiline: bool,
+}
+
+const SINGLE_LINE_COMMENT_CHAR: char = '᛫';
+
+impl fmt::Display for Comment {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.multiline {
+            write!(f, "⌞{}⌝", self.message)
+        } else {
+            write!(f, "{} {}", SINGLE_LINE_COMMENT_CHAR, self.message)
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TT {
     // Literals
     Num(Num, Rc<str>),
     Ident(Ident),
     Char(char),
     String(Rc<str>),
+    Comment(Comment),
     // Ops
     Op(Op),
     // Brackets
@@ -181,6 +200,7 @@ impl fmt::Display for TT {
             TT::Newline => '\n'.fmt(f),
             TT::Undertie => '‿'.fmt(f),
             TT::SuperscriptMinus => '‾'.fmt(f),
+            TT::Comment(comment) => comment.fmt(f),
         }
     }
 }
@@ -429,6 +449,8 @@ impl Lexer {
                 }
                 '\\' => self.escape()?,
                 '‾' => self.negative_number()?,
+                '⌞' => self.comment('⌝', true),
+                SINGLE_LINE_COMMENT_CHAR => self.comment('\n', false),
                 c if c.is_digit(10) => self.number(c, false)?,
                 c if ident_head_char(c) => {
                     let mut ident = String::from(c);
@@ -455,6 +477,17 @@ impl Lexer {
         }
         Ok(take(&mut self.tokens))
     }
+    fn comment(&mut self, terminator: char, multiline: bool) {
+        let mut message = String::new();
+        while let Some(c) = self.next_if(|c| c != terminator) {
+            message.push(c);
+        }
+        self.next();
+        self.token(TT::Comment(Comment {
+            message: message.trim().into(),
+            multiline,
+        }))
+    }
     fn escape(&mut self) -> CompileResult {
         let c = if let Some(c) = self.next() {
             c
@@ -466,6 +499,14 @@ impl Lexer {
             ']' => TT::CloseAngle,
             ' ' => TT::Undertie,
             '-' => return self.negative_number(),
+            '\\' => {
+                self.comment('\n', false);
+                return Ok(());
+            }
+            '*' => {
+                self.comment('*', true);
+                return Ok(());
+            }
             'x' => MathOp::Mul.into(),
             '/' => MathOp::Div.into(),
             '<' => ComparisonOp::LessOrEqual.into(),

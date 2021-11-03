@@ -13,22 +13,21 @@ use crate::{
     op::*,
 };
 
-pub fn parse<P>(input: &str, file: P) -> CompileResult<Vec<OpTreeExpr>>
+pub fn parse<P>(input: &str, file: P) -> CompileResult<Vec<Item>>
 where
     P: AsRef<Path>,
 {
     let tokens = lex(input, &file)?;
     let mut parser = Parser { tokens, curr: 0 };
     parser.skip_whitespace();
-    let exprs = parser.exprs()?;
+    let items = parser.items()?;
     if let Some(token) = parser.next() {
         return Err(
             CompileError::ExpectedFound("item".into(), token.span.as_string()).at(token.span),
         );
     }
     // Write back to file
-    let formatted: String = exprs.iter().map(|item| format!("{}\n", item)).collect();
-    println!("{:?}", formatted);
+    let formatted: String = items.iter().map(|item| format!("{}\n", item)).collect();
     if let Err(error) = fs::write(&file, &formatted) {
         return Err(CompileError::IO(IoError {
             message: format!("Unable to format `{}`", file.as_ref().to_string_lossy()),
@@ -40,7 +39,7 @@ where
     //     println!("    {:?}", expr);
     // }
     // println!();
-    Ok(exprs)
+    Ok(items)
 }
 
 struct Parser {
@@ -118,6 +117,26 @@ impl Parser {
         let expectation = format!("{} or `{}`", or, tt);
         let token = self.match_token(tt);
         self.expect(&expectation, token)
+    }
+    fn items(&mut self) -> CompileResult<Vec<Item>> {
+        let mut items = Vec::new();
+        while let Some(item) = self.item()? {
+            items.push(item);
+        }
+        Ok(items)
+    }
+    fn item(&mut self) -> CompileResult<Option<Item>> {
+        let comment = self.comment();
+        Ok(Some(if let Some(expr) = self.op_tree_expr()? {
+            Item::Expr(ExprItem { expr, comment })
+        } else if let Some(comment) = comment {
+            Item::Comment(comment)
+        } else {
+            return Ok(None);
+        }))
+    }
+    fn comment(&mut self) -> Option<Comment> {
+        self.match_to(comment).map(|comment| comment.data)
     }
     fn exprs(&mut self) -> CompileResult<Vec<OpTreeExpr>> {
         let mut exprs = Vec::new();
@@ -246,6 +265,14 @@ fn string(tt: &TT) -> Option<Rc<str>> {
 fn op(tt: &TT) -> Option<Op> {
     if let TT::Op(op) = tt {
         Some(*op)
+    } else {
+        None
+    }
+}
+
+fn comment(tt: &TT) -> Option<Comment> {
+    if let TT::Comment(comment) = tt {
+        Some(comment.clone())
     } else {
         None
     }

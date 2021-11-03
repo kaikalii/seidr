@@ -3,6 +3,7 @@
 use std::{fs::read_to_string, path::Path, process::exit, sync::mpsc::channel};
 
 use crate::{
+    ast::Item,
     cwt::ToValNode,
     eval::{Eval, Runtime},
 };
@@ -66,7 +67,7 @@ fn main() {
         };
 
         // Parse file
-        let exprs = match parse::parse(&code, path) {
+        let items = match parse::parse(&code, path) {
             Ok(exprs) => exprs,
             Err(e) => {
                 println!("{}", e);
@@ -76,21 +77,26 @@ fn main() {
         };
 
         let mut rt = Runtime::default();
-        for expr in exprs {
-            println!("    {}", expr);
-            match expr.build_val_tree() {
-                Ok((node, warnings)) => {
-                    for warning in warnings {
-                        println!("{}", warning);
-                    }
-                    match node.eval(&mut rt) {
-                        Ok(val) => println!("{}", val),
-                        Err(e) => println!("\n{}", e),
-                    }
-                }
-                Err(problems) => {
-                    for problem in problems {
-                        println!("{}", problem)
+        for item in items {
+            match item {
+                Item::Comment(_) => {}
+                Item::Expr(expr) => {
+                    println!("    {}", expr.expr);
+                    match expr.expr.build_val_tree() {
+                        Ok((node, warnings)) => {
+                            for warning in warnings {
+                                println!("{}", warning);
+                            }
+                            match node.eval(&mut rt) {
+                                Ok(val) => println!("{}", val),
+                                Err(e) => println!("\n{}", e),
+                            }
+                        }
+                        Err(problems) => {
+                            for problem in problems {
+                                println!("{}", problem)
+                            }
+                        }
                     }
                 }
             }

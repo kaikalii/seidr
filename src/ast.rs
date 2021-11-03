@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::{
-    lex::{Sp, Span},
+    lex::{Comment, Sp, Span},
     num::Num,
     op::Op,
 };
@@ -21,12 +21,24 @@ macro_rules! format_display {
     };
 }
 
+format_display!(Item);
+format_display!(ExprItem);
 format_display!(OpTreeExpr);
 format_display!(OpExpr);
 format_display!(ValExpr);
 format_display!(UnOpExpr);
 format_display!(BinOpExpr);
 format_display!(ArrayExpr);
+
+pub enum Item {
+    Comment(Comment),
+    Expr(ExprItem),
+}
+
+pub struct ExprItem {
+    pub expr: OpTreeExpr,
+    pub comment: Option<Comment>,
+}
 
 pub enum ValExpr {
     Num(Sp<Num>),
@@ -185,6 +197,24 @@ pub trait Format {
         let mut formatter = Formatter::new(&mut string);
         self.format(&mut formatter);
         string
+    }
+}
+
+impl Format for Item {
+    fn format(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Item::Expr(expr) => expr.format(f),
+            Item::Comment(comment) => write!(f, "{}", comment),
+        }
+    }
+}
+
+impl Format for ExprItem {
+    fn format(&self, f: &mut Formatter) -> fmt::Result {
+        if let Some(comment) = &self.comment {
+            writeln!(f, "{}", comment)?;
+        }
+        self.expr.format(f)
     }
 }
 
