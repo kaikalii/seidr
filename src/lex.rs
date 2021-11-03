@@ -110,11 +110,17 @@ pub struct Comment {
 }
 
 const SINGLE_LINE_COMMENT_CHAR: char = '᛫';
+const MULTI_LINE_COMMENT_OPEN: char = '⌜';
+const MULTI_LINE_COMMENT_CLOSE: char = '⌟';
 
 impl fmt::Display for Comment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.multiline {
-            write!(f, "⌞{}⌝", self.message)
+            write!(
+                f,
+                "{}{}{}",
+                MULTI_LINE_COMMENT_OPEN, self.message, MULTI_LINE_COMMENT_CLOSE
+            )
         } else {
             write!(f, "{} {}", SINGLE_LINE_COMMENT_CHAR, self.message)
         }
@@ -449,7 +455,7 @@ impl Lexer {
                 }
                 '\\' => self.escape()?,
                 '‾' => self.negative_number()?,
-                '⌞' => self.comment('⌝', true),
+                MULTI_LINE_COMMENT_OPEN => self.comment(MULTI_LINE_COMMENT_CLOSE, true),
                 SINGLE_LINE_COMMENT_CHAR => self.comment('\n', false),
                 c if c.is_digit(10) => self.number(c, false)?,
                 c if ident_head_char(c) => {
