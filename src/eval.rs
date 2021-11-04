@@ -1,7 +1,7 @@
-use std::{iter::repeat, rc::Rc};
+use std::iter::repeat;
 
 use crate::{
-    array::Array,
+    array::{Array, RcView},
     cwt::{BinVal, UnVal, ValNode},
     error::{RuntimeError, RuntimeResult},
     lex::Span,
@@ -227,7 +227,7 @@ fn range(x: Val, span: &Span) -> RuntimeResult<Array> {
                     .cow_iter()
                     .map(|val| range(val.into_owned(), span))
                     .collect::<RuntimeResult<_>>()?;
-                Ok(Array::Product(arrays.into(), Rc::new([])))
+                Ok(Array::Product(arrays.into(), RcView::new([])))
             }
         }
     }

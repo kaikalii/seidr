@@ -1,8 +1,9 @@
 use std::{
-    borrow::Cow,
+    borrow::{Borrow, Cow},
     cmp::Ordering,
     fmt,
     iter::{self, once},
+    ops::{Bound, Deref, RangeBounds},
     rc::Rc,
 };
 
@@ -13,7 +14,7 @@ use crate::{
     value::{Atom, Val},
 };
 
-type Items = Rc<[Val]>;
+type Items = RcView<Val>;
 
 #[derive(Clone)]
 pub enum Array {
@@ -21,7 +22,7 @@ pub enum Array {
     Rotate(Box<Self>, i64),
     Reverse(Box<Self>),
     Range(usize),
-    Product(Box<[Self]>, Items),
+    Product(RcView<Self>, Items),
 }
 
 impl Array {
@@ -80,7 +81,7 @@ impl Array {
                     let val = first.into_owned();
                     Cow::Owned(
                         Array::Product(
-                            arrs[1..].to_vec().into(),
+                            arrs.sub(1..),
                             items.iter().cloned().chain(once(val)).collect(),
                         )
                         .into(),
@@ -203,5 +204,85 @@ where
         T: IntoIterator<Item = V>,
     {
         Array::Concrete(iter.into_iter().map(Into::into).collect())
+    }
+}
+
+#[derive(Clone)]
+pub struct RcView<T> {
+    items: Rc<[T]>,
+    start: usize,
+    end: usize,
+}
+
+impl<T> RcView<T> {
+    pub fn new<I>(items: I) -> Self
+    where
+        I: IntoIterator<Item = T>,
+    {
+        Self::from_iter(items)
+    }
+    pub fn sub<R>(&self, range: R) -> Self
+    where
+        R: RangeBounds<usize>,
+    {
+        let len = self.end - self.start;
+        let start = match range.start_bound() {
+            Bound::Unbounded => self.start,
+            Bound::Included(i) => self.start + *i,
+            Bound::Excluded(i) => self.start + *i + 1,
+        };
+        let end = match range.end_bound() {
+            Bound::Unbounded => self.end,
+            Bound::Included(i) => *i + 2 - (start - self.start),
+            Bound::Excluded(i) => *i + 1 - (start - self.start),
+        };
+        RcView {
+            items: self.items.clone(),
+            start,
+            end,
+        }
+    }
+}
+
+impl<T> From<Rc<[T]>> for RcView<T> {
+    fn from(items: Rc<[T]>) -> Self {
+        let start = 0;
+        let end = items.len();
+        RcView { items, start, end }
+    }
+}
+
+impl<T> From<Vec<T>> for RcView<T> {
+    fn from(items: Vec<T>) -> Self {
+        Self::from(Rc::from(items))
+    }
+}
+
+impl<T> FromIterator<T> for RcView<T> {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = T>,
+    {
+        let items: Rc<[T]> = iter.into_iter().collect();
+        items.into()
+    }
+}
+
+impl<T> Deref for RcView<T> {
+    type Target = [T];
+    fn deref(&self) -> &Self::Target {
+        &self.items[self.start..self.end]
+    }
+}
+
+impl<T> AsRef<[T]> for RcView<T> {
+    fn as_ref(&self) -> &[T] {
+        self
+    }
+}
+
+impl<T> Borrow<[T]> for RcView<T> {
+    fn borrow(&self) -> &[T] {
+        self
     }
 }
