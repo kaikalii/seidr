@@ -72,7 +72,7 @@ impl Array {
                         first
                     } else {
                         Cow::Owned(
-                            Array::concrete(once(first.into_owned()).chain(items.iter().cloned()))
+                            Array::concrete(items.iter().cloned().chain(once(first.into_owned())))
                                 .into(),
                         )
                     }
