@@ -286,3 +286,92 @@ impl<T> Borrow<[T]> for RcView<T> {
         self
     }
 }
+
+impl<T> IntoIterator for RcView<T>
+where
+    T: Clone,
+{
+    type Item = T;
+    type IntoIter = RcViewIntoIter<T>;
+    fn into_iter(self) -> Self::IntoIter {
+        if Rc::strong_count(&self.items) + Rc::weak_count(&self.items) == 1 {
+            RcViewIntoIter::Raw {
+                len: self.items.len(),
+                index: 0,
+                ptr: Rc::into_raw(self.items) as *const T,
+            }
+        } else {
+            RcViewIntoIter::Cloned {
+                index: 0,
+                rcv: self,
+            }
+        }
+    }
+}
+
+pub enum RcViewIntoIter<T>
+where
+    T: Clone,
+{
+    Cloned {
+        index: usize,
+        rcv: RcView<T>,
+    },
+    Raw {
+        ptr: *const T,
+        index: usize,
+        len: usize,
+    },
+}
+
+impl<T> Iterator for RcViewIntoIter<T>
+where
+    T: Clone,
+{
+    type Item = T;
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            RcViewIntoIter::Cloned { index, rcv } => {
+                let item = rcv.get(*index)?.clone();
+                *index += 1;
+                Some(item)
+            }
+            RcViewIntoIter::Raw { ptr, index, len } => {
+                if index < len {
+                    unsafe {
+                        let item = std::ptr::read(ptr.add(*index));
+                        *index += 1;
+                        Some(item)
+                    }
+                } else {
+                    None
+                }
+            }
+        }
+    }
+}
+
+impl<T> Drop for RcViewIntoIter<T>
+where
+    T: Clone,
+{
+    fn drop(&mut self) {
+        if let RcViewIntoIter::Raw { .. } = self {
+            for item in self {
+                drop(item)
+            }
+        }
+    }
+}
+
+#[test]
+fn rc_view_into_iter() {
+    let items = RcView::new(0..10);
+    let clone = items.clone();
+    for (i, j) in items.into_iter().enumerate() {
+        assert_eq!(i, j);
+    }
+    for (i, j) in clone.into_iter().enumerate() {
+        assert_eq!(i, j);
+    }
+}
