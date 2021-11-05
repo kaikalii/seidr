@@ -81,7 +81,10 @@ impl Eval for BinVal {
 pub fn un_pervade_val(per: Pervasive, x: Val, span: &Span) -> RuntimeResult {
     Ok(match (per, x) {
         (per, Val::Atom(x)) => un_pervade_atom(per, x, span)?,
-        (Pervasive::Comparison(cmp), Val::Array(arr)) => todo!(),
+        (Pervasive::Comparison(cmp), Val::Array(arr)) => match cmp {
+            ComparisonOp::Equal => arr.len().into(),
+            cmp => todo!("{}", cmp),
+        },
         (per @ Pervasive::Math(_), Val::Array(x)) => {
             x.pervade(|x| un_pervade_val(per, x, span))?.into()
         }
