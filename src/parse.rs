@@ -167,6 +167,24 @@ impl Parser {
             return Ok(None);
         }))
     }
+    #[allow(clippy::manual_map)]
+    fn mod_tree_expr(&mut self) -> CompileResult<Option<ModTreeExpr>> {
+        Ok(Some(if let Some(m) = self.match_to(un_mod) {
+            // Unary
+            let mut x = self.expect_with("expression", Self::mod_tree_expr)?;
+            ModTreeExpr::Un(Un { op: m, x }.into())
+        } else if let Some(w) = self.match_to(op) {
+            // Binary or op
+            if let Some(m) = self.match_to(bin_mod) {
+                let x = self.expect_with("expression", Self::mod_tree_expr)?;
+                ModTreeExpr::Bin(Bin { op: m, w: *w, x }.into())
+            } else {
+                ModTreeExpr::Op(w)
+            }
+        } else {
+            return Ok(None);
+        }))
+    }
     fn val_expr(&mut self) -> CompileResult<Option<ValExpr>> {
         let first = if let Some(expr) = self.single_val_expr()? {
             expr
@@ -221,14 +239,6 @@ impl Parser {
         } else {
             return Ok(None);
         }))
-    }
-    #[allow(clippy::manual_map)]
-    fn mod_tree_expr(&mut self) -> CompileResult<Option<ModTreeExpr>> {
-        Ok(if let Some(op) = self.match_to(op) {
-            Some(ModTreeExpr::Op(op))
-        } else {
-            None
-        })
     }
 }
 

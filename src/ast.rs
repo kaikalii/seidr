@@ -82,7 +82,7 @@ pub enum ModTreeExpr {
 }
 
 pub type UnModExpr = Un<Sp<RuneUnMod>, ModTreeExpr>;
-pub type BinModExpr = Bin<Sp<RuneBinMod>, ModTreeExpr, OpTreeExpr>;
+pub type BinModExpr = Bin<Sp<RuneBinMod>, Op, ModTreeExpr>;
 
 impl ModTreeExpr {
     pub fn span(&self) -> &Span {
@@ -285,6 +285,12 @@ where
 {
     fn format(&self, f: &mut Formatter) -> fmt::Result {
         self.data.format(f)
+    }
+}
+
+impl Format for Op {
+    fn format(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}", self)
     }
 }
 

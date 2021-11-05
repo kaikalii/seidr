@@ -486,7 +486,11 @@ impl Lexer {
                 }
                 c => {
                     if let Some(op) = Op::from_glyph(c) {
-                        self.token(TT::Op(op))
+                        self.token(op)
+                    } else if let Some(m) = RuneUnMod::from_glyph(c) {
+                        self.token(m)
+                    } else if let Some(m) = RuneBinMod::from_glyph(c) {
+                        self.token(m)
                     } else {
                         return self.error(CompileError::InvalidCharacter(c));
                     }
