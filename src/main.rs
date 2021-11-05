@@ -49,7 +49,7 @@ fn main() {
             Item::Newline | Item::Comment(_) => {}
             Item::Expr(expr) => {
                 println!("    {:?}", expr.expr);
-                println!("    {}", expr.expr);
+                println!("     {}", expr.expr);
                 match expr.expr.build_val_tree() {
                     Ok((node, warnings)) => {
                         for warning in warnings {
