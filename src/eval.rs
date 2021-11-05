@@ -5,8 +5,8 @@ use crate::{
     cwt::{BinVal, UnVal, ValNode},
     error::{RuntimeError, RuntimeResult},
     lex::Span,
-    num::Num,
     op::*,
+    pervade::{bin_pervade_val, un_pervade_val},
     rcview::RcView,
     value::{Atom, Val},
 };
@@ -53,7 +53,7 @@ impl Eval for UnVal {
             Val::Atom(Atom::Op(Op::Rune(rune))) => match rune {
                 RuneOp::Jera => Ok(reverse(x, &span)),
                 RuneOp::Algiz => range(x, &span).map(Val::Array),
-                rune => error(format!("{} has no unary form", rune), &span),
+                rune => rt_error(format!("{} has no unary form", rune), &span),
             },
             val => Ok(val),
         }
@@ -74,109 +74,11 @@ impl Eval for BinVal {
                 RuneOp::Laguz => {
                     Ok(Array::JoinTo(w.into_array().into(), x.into_array().into()).into())
                 }
-                rune => error(format!("{} has no binary form", rune), &span),
+                rune => rt_error(format!("{} has no binary form", rune), &span),
             },
             val => Ok(val),
         }
     }
-}
-
-pub fn un_pervade_val(per: Pervasive, x: Val, span: &Span) -> RuntimeResult {
-    Ok(match (per, x) {
-        (per, Val::Atom(x)) => un_pervade_atom(per, x, span)?,
-        (Pervasive::Comparison(cmp), Val::Array(arr)) => match cmp {
-            ComparisonOp::Equal => arr.len().map(Num::from).unwrap_or(Num::INFINIFY).into(),
-            cmp => todo!("{}", cmp),
-        },
-        (per @ Pervasive::Math(_), Val::Array(x)) => {
-            x.pervade(|x| un_pervade_val(per, x, span))?.into()
-        }
-    })
-}
-
-pub fn bin_pervade_val(per: Pervasive, w: Val, x: Val, span: &Span) -> RuntimeResult {
-    Ok(match (w, x) {
-        (Val::Atom(w), Val::Atom(x)) => bin_pervade_atom(per, w, x, span)?,
-        (Val::Array(w), Val::Array(x)) => w
-            .pervade_with(&x, span, |w, x| bin_pervade_val(per, w, x, span))?
-            .into(),
-        (w, Val::Array(x)) => x
-            .pervade(|x| bin_pervade_val(per, w.clone(), x, span))?
-            .into(),
-        (Val::Array(w), x) => w
-            .pervade(|w| bin_pervade_val(per, w, x.clone(), span))?
-            .into(),
-    })
-}
-
-pub fn un_pervade_atom(per: Pervasive, x: Atom, span: &Span) -> RuntimeResult {
-    match (per, x) {
-        (Pervasive::Math(MathOp::Add), atom) => Ok(atom.into()),
-        (Pervasive::Math(MathOp::Sub), Atom::Num(n)) => Ok((-n).into()),
-        (Pervasive::Math(MathOp::Sub), atom) => {
-            error(format!("{} cannot be negated", atom.type_name()), span)
-        }
-        (Pervasive::Math(MathOp::Mul), Atom::Num(n)) => Ok(n.sign().into()),
-        (Pervasive::Math(MathOp::Div), Atom::Num(n)) => Ok((Num::Int(1) / n).into()),
-        _ => error(format!("{} {} is invalid", per, x.type_name()), span),
-    }
-}
-
-pub fn bin_pervade_atom(per: Pervasive, w: Atom, x: Atom, span: &Span) -> RuntimeResult {
-    match per {
-        Pervasive::Math(math) => match (w, x) {
-            (Atom::Num(w), Atom::Num(x)) => {
-                return Ok((match math {
-                    MathOp::Add => w + x,
-                    MathOp::Sub => w - x,
-                    MathOp::Mul => w * x,
-                    MathOp::Div => w / x,
-                })
-                .into())
-            }
-            (Atom::Char(w), Atom::Num(x)) => {
-                let w = w as u32;
-                let x = u32::from(x);
-                match math {
-                    MathOp::Add => {
-                        return Ok(char::from_u32(w.saturating_add(x))
-                            .unwrap_or_default()
-                            .into())
-                    }
-                    MathOp::Sub => {
-                        return Ok(char::from_u32(w.saturating_sub(x))
-                            .unwrap_or_default()
-                            .into())
-                    }
-                    _ => {}
-                }
-            }
-            (Atom::Num(w), Atom::Char(x)) if math == MathOp::Add => {
-                return Ok(char::from_u32((i64::from(w) + x as u32 as i64) as u32)
-                    .unwrap_or_default()
-                    .into())
-            }
-            (Atom::Char(w), Atom::Char(x)) if math == MathOp::Sub => {
-                return Ok((Num::from(w as u32) - Num::from(x as u32)).into())
-            }
-            _ => {}
-        },
-        Pervasive::Comparison(comp) => {
-            return Ok(match comp {
-                ComparisonOp::Equal => w == x,
-                ComparisonOp::NotEqual => w != x,
-                ComparisonOp::Less => w < x,
-                ComparisonOp::LessOrEqual => w <= x,
-                ComparisonOp::Greater => w > x,
-                ComparisonOp::GreaterOrEqual => w >= x,
-            }
-            .into())
-        }
-    }
-    error(
-        format!("{} {} {} is invalid", w.type_name(), per, x.type_name()),
-        span,
-    )
 }
 
 fn rotate(w: Val, x: Val, span: &Span) -> RuntimeResult {
@@ -185,23 +87,27 @@ fn rotate(w: Val, x: Val, span: &Span) -> RuntimeResult {
             Ok(Array::Rotate(arr.into(), i64::from(n)).into())
         }
         (Val::Array(ns), x) if ns.len() == Some(1) => {
-            rotate(ns.get(0).unwrap().into_owned(), x, span)
+            rotate(ns.get(0)?.unwrap().into_owned(), x, span)
         }
         (Val::Array(ns), Val::Array(arr)) => {
             let mut ns = ns.into_iter();
-            let first = ns.next().unwrap();
-            let sub_ns: Array = ns.skip(1).collect();
-            let mut items: Vec<Val> = arr
-                .into_iter()
-                .map(|sub| rotate(sub_ns.clone().into(), sub, span))
-                .collect::<RuntimeResult<_>>()?;
-            rotate(first, Array::concrete(items).into(), span)
+            let first = ns.next().unwrap()?;
+            let sub_ns: Array = ns.skip(1).collect::<RuntimeResult<_>>()?;
+            rotate(
+                first,
+                Array::try_concrete(
+                    arr.into_iter()
+                        .map(|sub| sub.and_then(|sub| rotate(sub_ns.clone().into(), sub, span))),
+                )?
+                .into(),
+                span,
+            )
         }
-        (Val::Atom(atom), _) => error(
+        (Val::Atom(atom), _) => rt_error(
             format!("Attempted to rotate with {}", atom.type_name()),
             span,
         ),
-        (_, Val::Atom(_)) => error("x must be an array", span),
+        (_, Val::Atom(_)) => rt_error("x must be an array", span),
     }
 }
 
@@ -216,24 +122,25 @@ fn range(x: Val, span: &Span) -> RuntimeResult<Array> {
     match x {
         Val::Atom(Atom::Num(n)) => {
             if n < 0 {
-                error("x must be natural numbers", span)
+                rt_error("x must be natural numbers", span)
             } else {
                 Ok(Array::Range(n))
             }
         }
-        Val::Atom(atom) => error(
+        Val::Atom(atom) => rt_error(
             format!("A range cannot be built from {}", atom.type_name()),
             span,
         ),
         Val::Array(arr) => {
             if arr.len().map_or(true, |len| len == 0) {
-                error("Range array must have a positive, finite size", span)
+                rt_error("Range array must have a positive, finite size", span)
             } else {
-                let arrays: Vec<Array> = arr
-                    .into_iter()
-                    .map(|val| range(val, span))
-                    .collect::<RuntimeResult<_>>()?;
-                Ok(Array::Product(arrays.into(), RcView::new([])))
+                Ok(Array::Product(
+                    arr.into_iter()
+                        .map(|val| val.and_then(|val| range(val, span)))
+                        .collect::<RuntimeResult<_>>()?,
+                    RcView::new([]),
+                ))
             }
         }
     }
@@ -244,42 +151,39 @@ fn replicate(w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
         (Val::Atom(Atom::Num(w)), Val::Atom(x)) => {
             let n = i64::from(w);
             if n < 0 {
-                error("Replicator must be natural numbers", span)
+                rt_error("Replicator must be natural numbers", span)
             } else {
                 let n = n as usize;
                 Ok(Array::concrete(repeat(x).take(n)))
             }
         }
-        (w @ Val::Atom(Atom::Num(_)), Val::Array(x)) => {
-            let mut arrays: Vec<Array> = x
-                .into_iter()
-                .map(|x| replicate(w.clone(), x, span))
-                .collect::<RuntimeResult<_>>()?;
-            Ok(arrays.into_iter().flatten().collect())
-        }
+        (w @ Val::Atom(Atom::Num(_)), Val::Array(x)) => Ok(x
+            .into_iter()
+            .map(|x| x.and_then(|x| replicate(w.clone(), x, span)))
+            .flatten()
+            .collect()),
         (Val::Array(w), Val::Array(x)) => {
             if w.len() == x.len() {
-                let mut arrays: Vec<Array> = w
-                    .into_iter()
+                Ok(w.into_iter()
                     .zip(x)
-                    .map(|(w, x)| replicate(w, x, span))
-                    .collect::<RuntimeResult<_>>()?;
-                Ok(arrays.into_iter().flatten().collect())
+                    .map(|(w, x)| w.and_then(|w| x.and_then(|x| replicate(w, x, span))))
+                    .flatten()
+                    .collect())
             } else {
-                error("Arrays must have matching lengths", span)
+                rt_error("Arrays must have matching lengths", span)
             }
         }
-        (Val::Array(_), Val::Atom(x)) => error(
+        (Val::Array(_), Val::Atom(x)) => rt_error(
             format!("{} cannot be replicated with array", x.type_name()),
             span,
         ),
-        (Val::Atom(w), x) => error(
+        (Val::Atom(w), x) => rt_error(
             format!("{} cannot be used to replicate", w.type_name()),
             span,
         ),
     }
 }
 
-fn error<T>(message: impl Into<String>, span: &Span) -> RuntimeResult<T> {
+pub fn rt_error<T>(message: impl Into<String>, span: &Span) -> RuntimeResult<T> {
     Err(RuntimeError::new(message, span.clone()))
 }

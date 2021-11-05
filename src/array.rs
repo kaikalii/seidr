@@ -6,9 +6,9 @@ use std::{
 };
 
 use crate::{
-    error::{RuntimeError, RuntimeResult},
-    lex::Span,
+    error::RuntimeResult,
     num::{modulus, Num},
+    pervade::PervadedArray,
     rcview::{RcView, RcViewIntoIter},
     value::{Atom, Val},
 };
@@ -23,9 +23,22 @@ pub enum Array {
     Range(Num),
     Product(RcView<Self>, Items),
     JoinTo(Box<Self>, Box<Self>),
+    Pervaded(Box<PervadedArray>),
 }
 
 impl Array {
+    pub fn try_concrete<I>(items: I) -> RuntimeResult<Array>
+    where
+        I: IntoIterator,
+        I::Item: Into<RuntimeResult>,
+    {
+        Ok(Array::Concrete(
+            items
+                .into_iter()
+                .map(Into::into)
+                .collect::<RuntimeResult<_>>()?,
+        ))
+    }
     pub fn concrete<I>(items: I) -> Array
     where
         I: IntoIterator,
@@ -46,10 +59,11 @@ impl Array {
             }
             Array::Product(arrs, _) => arrs[0].len()?,
             Array::JoinTo(a, b) => a.len().zip(b.len()).map(|(a, b)| a + b)?,
+            Array::Pervaded(pa) => pa.len()?,
         })
     }
-    pub fn get(&self, index: usize) -> Option<Cow<Val>> {
-        match self {
+    pub fn get(&self, index: usize) -> RuntimeResult<Option<Cow<Val>>> {
+        Ok(match self {
             Array::Concrete(items) => items.get(index).map(Cow::Borrowed),
             Array::Rotate(arr, r) => {
                 if let Some(len) = arr.len() {
@@ -57,21 +71,24 @@ impl Array {
                         None
                     } else {
                         let index = modulus(index as i64 + *r, len as i64) as usize;
-                        arr.get(index)
+                        arr.get(index)?
                     }
                 } else if *r >= 0 {
                     let index = index + *r as usize;
-                    arr.get(index)
+                    arr.get(index)?
                 } else {
                     None
                 }
             }
             Array::Reverse(arr) => {
-                let len = arr.len()?;
-                if index >= len {
-                    None
+                if let Some(len) = arr.len() {
+                    if index >= len {
+                        None
+                    } else {
+                        arr.get(len - 1 - index)?
+                    }
                 } else {
-                    arr.get(len - 1 - index)
+                    None
                 }
             }
             Array::Range(n) => {
@@ -82,9 +99,8 @@ impl Array {
                     Some(Cow::Owned(index.into()))
                 }
             }
-            Array::Product(arrs, items) => {
-                let first = arrs[0].get(index)?;
-                Some(if arrs.len() == 1 {
+            Array::Product(arrs, items) => arrs[0].get(index)?.map(|first| {
+                if arrs.len() == 1 {
                     if items.is_empty() {
                         first
                     } else {
@@ -102,53 +118,26 @@ impl Array {
                         )
                         .into(),
                     )
-                })
-            }
+                }
+            }),
             Array::JoinTo(a, b) => {
-                if let Some(val) = a.get(index) {
+                if let Some(val) = a.get(index)? {
                     Some(val)
                 } else if let Some(len) = a.len() {
-                    b.get(index - len)
+                    b.get(index - len)?
                 } else {
                     None
                 }
             }
-        }
+            Array::Pervaded(pa) => pa.get(index)?.map(Cow::Owned),
+        })
     }
-    pub fn iter(&self) -> impl Iterator<Item = Cow<Val>> {
+    pub fn iter(&self) -> impl Iterator<Item = RuntimeResult<Cow<Val>>> {
         let mut i = 0;
         iter::from_fn(move || {
             i += 1;
-            self.get(i - 1)
+            self.get(i - 1).transpose()
         })
-    }
-    pub fn pervade<F, V>(&self, f: F) -> RuntimeResult<Self>
-    where
-        F: Fn(Val) -> RuntimeResult<V>,
-        V: Into<Val>,
-    {
-        let mut items = Vec::new();
-        for item in self.iter().map(Cow::into_owned) {
-            items.push(f(item)?.into());
-        }
-        Ok(Array::Concrete(items.into()))
-    }
-    pub fn pervade_with<F, V>(&self, other: &Self, span: &Span, f: F) -> RuntimeResult<Self>
-    where
-        F: Fn(Val, Val) -> RuntimeResult<V>,
-        V: Into<Val>,
-    {
-        if self.len() != other.len() {
-            return Err(RuntimeError::new(
-                "Array lengths do not match",
-                span.clone(),
-            ));
-        }
-        let mut items = Vec::new();
-        for (a, b) in self.iter().zip(other.iter()) {
-            items.push(f(a.into_owned(), b.into_owned())?.into());
-        }
-        Ok(Array::Concrete(items.into()))
     }
 }
 
@@ -180,46 +169,73 @@ impl fmt::Debug for Array {
 
 impl fmt::Display for Array {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let len = if let Some(len) = self.len() {
-            len
-        } else {
-            return write!(f, "⟨...⟩");
-        };
+        let len = if let Some(len) = self.len() { len } else { 5 };
         if len > 0
             && self
                 .iter()
-                .all(|val| matches!(val.as_ref(), Val::Atom(Atom::Char(_))))
+                .take(len)
+                .all(|val| matches!(val.as_deref(), Ok(Val::Atom(Atom::Char(_)))))
         {
             let mut s = String::new();
-            for val in self.iter() {
-                if let Val::Atom(Atom::Char(c)) = val.as_ref() {
+            for val in self.iter().take(len) {
+                if let Ok(Val::Atom(Atom::Char(c))) = val.as_deref() {
                     s.push(*c);
+                } else {
+                    s.push('?');
                 }
             }
-            write!(f, "{:?}", s)
-        } else if len >= 2 && self.iter().all(|val| matches!(val.as_ref(), Val::Atom(_))) {
-            for (i, val) in self.iter().enumerate() {
+            let s = format!("{:?}", s);
+            write!(f, "{}", &s[..s.len() - 1])?;
+            if self.len().is_none() {
+                write!(f, "...")?;
+            }
+            write!(f, "\"")
+        } else if len >= 2
+            && self
+                .iter()
+                .take(len)
+                .all(|val| matches!(val.as_deref(), Ok(Val::Atom(_))))
+        {
+            for (i, val) in self.iter().take(len).enumerate() {
                 if i > 0 {
                     write!(f, "‿")?;
                 }
-                val.fmt(f)?;
+                match val {
+                    Ok(val) => val.fmt(f)?,
+                    Err(_) => write!(f, "<error>")?,
+                }
+            }
+            if self.len().is_none() {
+                write!(f, "...")?;
             }
             Ok(())
         } else {
             write!(f, "⟨")?;
-            for (i, val) in self.iter().enumerate() {
+            for (i, val) in self.iter().take(len).enumerate() {
                 if i > 0 {
                     write!(f, ", ")?;
                 }
-                val.fmt(f)?;
+                match val {
+                    Ok(val) => val.fmt(f)?,
+                    Err(_) => write!(f, "<error>")?,
+                }
+            }
+            if self.len().is_none() {
+                write!(f, "...")?;
             }
             write!(f, "⟩")
         }
     }
 }
 
+impl From<PervadedArray> for Array {
+    fn from(pa: PervadedArray) -> Self {
+        Array::Pervaded(pa.into())
+    }
+}
+
 impl IntoIterator for Array {
-    type Item = Val;
+    type Item = RuntimeResult;
     type IntoIter = ArrayIntoIter;
     fn into_iter(self) -> Self::IntoIter {
         match self {
@@ -251,14 +267,14 @@ pub enum ArrayIntoIter {
 }
 
 impl Iterator for ArrayIntoIter {
-    type Item = Val;
+    type Item = RuntimeResult;
     fn next(&mut self) -> Option<Self::Item> {
         match self {
-            ArrayIntoIter::RcView(iter) => iter.next(),
+            ArrayIntoIter::RcView(iter) => iter.next().map(Ok),
             ArrayIntoIter::Get { index, array } => {
-                let item = array.get(*index)?;
+                let item = array.get(*index).transpose()?;
                 *index += 1;
-                Some(item.into_owned())
+                Some(item.map(Cow::into_owned))
             }
             ArrayIntoIter::JoinTo(a, b) => a.next().or_else(|| b.next()),
         }

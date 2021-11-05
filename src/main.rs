@@ -18,6 +18,7 @@ mod lex;
 mod num;
 mod op;
 mod parse;
+mod pervade;
 mod rcview;
 mod value;
 

@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::{array::Array, num::Num, op::Op};
+use crate::{array::Array, num::Num, op::Op, pervade::PervadedArray};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Atom {
@@ -93,6 +93,12 @@ where
 impl From<Array> for Val {
     fn from(arr: Array) -> Self {
         Val::Array(arr)
+    }
+}
+
+impl From<PervadedArray> for Val {
+    fn from(pa: PervadedArray) -> Self {
+        Val::Array(pa.into())
     }
 }
 
