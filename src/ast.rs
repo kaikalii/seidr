@@ -291,7 +291,7 @@ impl Format for OpTreeExpr {
 impl Format for ArrayExpr {
     fn format(&self, f: &mut Formatter) -> fmt::Result {
         if !self.tied {
-            write!(f, "〈")?;
+            write!(f, "⟨")?;
         }
         for (i, item) in self.items.iter().enumerate() {
             if i > 0 {
@@ -304,7 +304,7 @@ impl Format for ArrayExpr {
             item.format(f)?;
         }
         if !self.tied {
-            write!(f, "〉")?;
+            write!(f, "⟩")?;
         }
         Ok(())
     }

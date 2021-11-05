@@ -215,11 +215,10 @@ fn reverse(x: Val, span: &Span) -> Val {
 fn range(x: Val, span: &Span) -> RuntimeResult<Array> {
     match x {
         Val::Atom(Atom::Num(n)) => {
-            let n = i64::from(n);
             if n < 0 {
                 error("x must be natural numbers", span)
             } else {
-                Ok(Array::Range(n as usize))
+                Ok(Array::Range(n))
             }
         }
         Val::Atom(atom) => error(

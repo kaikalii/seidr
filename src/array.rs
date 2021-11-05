@@ -8,7 +8,7 @@ use std::{
 use crate::{
     error::{RuntimeError, RuntimeResult},
     lex::Span,
-    num::modulus,
+    num::{modulus, Num},
     rcview::{RcView, RcViewIntoIter},
     value::{Atom, Val},
 };
@@ -20,7 +20,7 @@ pub enum Array {
     Concrete(Items),
     Rotate(Box<Self>, i64),
     Reverse(Box<Self>),
-    Range(usize),
+    Range(Num),
     Product(RcView<Self>, Items),
     JoinTo(Box<Self>, Box<Self>),
 }
@@ -37,7 +37,13 @@ impl Array {
         Some(match self {
             Array::Concrete(items) => items.len(),
             Array::Rotate(arr, _) | Array::Reverse(arr) => arr.len()?,
-            Array::Range(n) => *n,
+            Array::Range(n) => {
+                if n.is_infinite() {
+                    return None;
+                } else {
+                    i64::from(*n) as usize
+                }
+            }
             Array::Product(arrs, _) => arrs[0].len()?,
             Array::JoinTo(a, b) => a.len().zip(b.len()).map(|(a, b)| a + b)?,
         })
@@ -69,7 +75,8 @@ impl Array {
                 }
             }
             Array::Range(n) => {
-                if index >= *n {
+                let n = i64::from(*n) as usize;
+                if index >= n {
                     None
                 } else {
                     Some(Cow::Owned(index.into()))
@@ -176,7 +183,7 @@ impl fmt::Display for Array {
         let len = if let Some(len) = self.len() {
             len
         } else {
-            return write!(f, "..");
+            return write!(f, "⟨...⟩");
         };
         if len > 0
             && self
@@ -199,14 +206,14 @@ impl fmt::Display for Array {
             }
             Ok(())
         } else {
-            write!(f, "〈")?;
+            write!(f, "⟨")?;
             for (i, val) in self.iter().enumerate() {
                 if i > 0 {
                     write!(f, ", ")?;
                 }
                 val.fmt(f)?;
             }
-            write!(f, "〉")
+            write!(f, "⟩")
         }
     }
 }
