@@ -63,10 +63,12 @@
 
 | glyph | meaing | escape character | name   | meaning |
 | ----- | ------ | ---------------- | ------ | ------- |
+| ᚻ     |        | H                | haegl  | hail    |
 | ᚺ     |        | h                | haglaz | hail    |
 | ᛖ     |        | e                | ehwaz  | horse   |
 | ᛗ     |        | m                | mannaz | man     |
 | ᛞ     |        | d                | dagaz  | day     |
+| ᛥ     |        | S                | stan   | stone   |
 
 # Unassigned Unary Operators
 - Sort

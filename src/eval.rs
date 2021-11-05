@@ -51,8 +51,8 @@ impl Eval for UnVal {
         match op {
             Val::Atom(Atom::Op(Op::Pervasive(per))) => un_pervade_val(per, x, &span),
             Val::Atom(Atom::Op(Op::Rune(rune))) => match rune {
-                Rune::Jera => Ok(reverse(x, &span)),
-                Rune::Algiz => range(x, &span).map(Val::Array),
+                RuneOp::Jera => Ok(reverse(x, &span)),
+                RuneOp::Algiz => range(x, &span).map(Val::Array),
                 rune => error(format!("{} has no unary form", rune), &span),
             },
             val => Ok(val),
@@ -69,8 +69,8 @@ impl Eval for BinVal {
         match op {
             Val::Atom(Atom::Op(Op::Pervasive(per))) => bin_pervade_val(per, w, x, &span),
             Val::Atom(Atom::Op(Op::Rune(rune))) => match rune {
-                Rune::Fehu => replicate(w, x, &span).map(Val::Array),
-                Rune::Jera => rotate(w, x, &span),
+                RuneOp::Fehu => replicate(w, x, &span).map(Val::Array),
+                RuneOp::Jera => rotate(w, x, &span),
                 rune => error(format!("{} has no binary form", rune), &span),
             },
             val => Ok(val),

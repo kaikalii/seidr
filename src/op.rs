@@ -3,7 +3,7 @@ use std::fmt;
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Op {
     Pervasive(Pervasive),
-    Rune(Rune),
+    Rune(RuneOp),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -21,8 +21,8 @@ where
     }
 }
 
-impl From<Rune> for Op {
-    fn from(r: Rune) -> Self {
+impl From<RuneOp> for Op {
+    fn from(r: RuneOp) -> Self {
         Op::Rune(r)
     }
 }
@@ -49,7 +49,7 @@ impl Op {
     pub const fn from_glyph(glyph: char) -> Option<Self> {
         if let Some(p) = Pervasive::from_glyph(glyph) {
             Some(Op::Pervasive(p))
-        } else if let Some(r) = Rune::from_glyph(glyph) {
+        } else if let Some(r) = RuneOp::from_glyph(glyph) {
             Some(Op::Rune(r))
         } else {
             None
@@ -161,17 +161,12 @@ op!(
 );
 
 op!(
-    Rune,
-    // Runes
+    RuneOp,
     (Fehu, 'ᚠ'),
     (Uruz, 'ᚢ'),
-    (Thurisaz, 'ᚦ'),
     (Ansuz, 'ᚨ'),
-    (Raido, 'ᚱ'),
     (Kaunan, 'ᚲ'),
     (Gebo, 'ᚷ'),
-    (Wunjo, 'ᚹ'),
-    (Haglaz, 'ᚺ'),
     (Naudiz, 'ᚾ'),
     (Isaz, 'ᛁ'),
     (Jera, 'ᛃ'),
@@ -180,11 +175,25 @@ op!(
     (Algiz, 'ᛉ'),
     (Sowilo, 'ᛊ'),
     (Tiwaz, 'ᛏ'),
-    (Berkanan, 'ᛒ'),
-    (Ehwaz, 'ᛖ'),
-    (Mannaz, 'ᛗ'),
     (Laguz, 'ᛚ'),
+);
+
+op!(
+    RuneUnMod,
+    (Thurisaz, 'ᚦ'),
+    (Raido, 'ᚱ'),
+    (Wunjo, 'ᚹ'),
+    (Berkanan, 'ᛒ'),
     (Ingwaz, 'ᛜ'),
     (Othala, 'ᛟ'),
+);
+
+op!(
+    RuneBinMod,
+    (Haegl, 'ᚻ'),
+    (Haglaz, 'ᚺ'),
+    (Ehwaz, 'ᛖ'),
+    (Mannaz, 'ᛗ'),
     (Dagaz, 'ᛞ'),
+    (Stan, 'ᛥ'),
 );

@@ -137,6 +137,8 @@ pub enum TT {
     Comment(Comment),
     // Ops
     Op(Op),
+    UnMod(RuneUnMod),
+    BinMod(RuneBinMod),
     // Brackets
     OpenParen,
     CloseParen,
@@ -157,6 +159,18 @@ where
 {
     fn from(op: O) -> Self {
         TT::Op(op.into())
+    }
+}
+
+impl From<RuneUnMod> for TT {
+    fn from(m: RuneUnMod) -> Self {
+        TT::UnMod(m)
+    }
+}
+
+impl From<RuneBinMod> for TT {
+    fn from(m: RuneBinMod) -> Self {
+        TT::BinMod(m)
     }
 }
 
@@ -200,6 +214,8 @@ impl fmt::Display for TT {
             TT::OpenAngle => '〈'.fmt(f),
             TT::CloseAngle => '〉'.fmt(f),
             TT::Op(op) => op.glyph().fmt(f),
+            TT::UnMod(m) => m.glyph().fmt(f),
+            TT::BinMod(m) => m.glyph().fmt(f),
             TT::Comma => ','.fmt(f),
             TT::Newline => '\n'.fmt(f),
             TT::Undertie => '‿'.fmt(f),
@@ -512,30 +528,32 @@ impl Lexer {
             '<' => ComparisonOp::LessOrEqual.into(),
             '>' => ComparisonOp::GreaterOrEqual.into(),
             '=' => ComparisonOp::NotEqual.into(),
-            'f' => Rune::Fehu.into(),
-            'u' => Rune::Uruz.into(),
-            'T' => Rune::Thurisaz.into(),
-            'a' => Rune::Ansuz.into(),
-            'r' => Rune::Raido.into(),
-            'k' => Rune::Kaunan.into(),
-            'g' => Rune::Gebo.into(),
-            'w' => Rune::Wunjo.into(),
-            'h' => Rune::Haglaz.into(),
-            'n' => Rune::Naudiz.into(),
-            'i' => Rune::Isaz.into(),
-            'j' => Rune::Jera.into(),
-            'A' => Rune::Iwaz.into(),
-            'p' => Rune::Perth.into(),
-            'z' => Rune::Algiz.into(),
-            's' => Rune::Sowilo.into(),
-            't' => Rune::Tiwaz.into(),
-            'b' => Rune::Berkanan.into(),
-            'e' => Rune::Ehwaz.into(),
-            'm' => Rune::Mannaz.into(),
-            'l' => Rune::Laguz.into(),
-            'N' => Rune::Ingwaz.into(),
-            'o' => Rune::Othala.into(),
-            'd' => Rune::Dagaz.into(),
+            'f' => RuneOp::Fehu.into(),
+            'u' => RuneOp::Uruz.into(),
+            'T' => RuneUnMod::Thurisaz.into(),
+            'a' => RuneOp::Ansuz.into(),
+            'r' => RuneUnMod::Raido.into(),
+            'k' => RuneOp::Kaunan.into(),
+            'g' => RuneOp::Gebo.into(),
+            'w' => RuneUnMod::Wunjo.into(),
+            'H' => RuneBinMod::Haegl.into(),
+            'h' => RuneBinMod::Haglaz.into(),
+            'n' => RuneOp::Naudiz.into(),
+            'i' => RuneOp::Isaz.into(),
+            'j' => RuneOp::Jera.into(),
+            'A' => RuneOp::Iwaz.into(),
+            'p' => RuneOp::Perth.into(),
+            'z' => RuneOp::Algiz.into(),
+            'S' => RuneBinMod::Stan.into(),
+            's' => RuneOp::Sowilo.into(),
+            't' => RuneOp::Tiwaz.into(),
+            'b' => RuneUnMod::Berkanan.into(),
+            'e' => RuneBinMod::Ehwaz.into(),
+            'm' => RuneBinMod::Mannaz.into(),
+            'l' => RuneOp::Laguz.into(),
+            'N' => RuneUnMod::Ingwaz.into(),
+            'o' => RuneUnMod::Othala.into(),
+            'd' => RuneBinMod::Dagaz.into(),
             c => return self.error(CompileError::InvalidEscape(c.into())),
         });
         self.escaped = true;
