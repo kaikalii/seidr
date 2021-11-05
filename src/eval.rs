@@ -1,12 +1,13 @@
 use std::iter::repeat;
 
 use crate::{
-    array::{Array, RcView},
+    array::Array,
     cwt::{BinVal, UnVal, ValNode},
     error::{RuntimeError, RuntimeResult},
     lex::Span,
     num::Num,
     op::*,
+    rcview::RcView,
     value::{Atom, Val},
 };
 
