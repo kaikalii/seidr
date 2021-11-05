@@ -1,7 +1,7 @@
 //! Types for the Abstract Syntax Tree
 
 use std::{
-    fmt::{self, Write},
+    fmt::{self, Debug, Write},
     rc::Rc,
 };
 
@@ -23,8 +23,8 @@ macro_rules! format_display {
 
 format_display!(Item);
 format_display!(ExprItem);
-format_display!(OpTreeExpr);
-format_display!(ModTreeExpr);
+format_display!(OpExpr);
+format_display!(ModExpr);
 format_display!(ValExpr);
 format_display!(UnOpExpr);
 format_display!(BinOpExpr);
@@ -39,7 +39,7 @@ pub enum Item {
 
 #[derive(Debug)]
 pub struct ExprItem {
-    pub expr: OpTreeExpr,
+    pub expr: OpExpr,
     pub comment: Option<Comment>,
 }
 
@@ -48,7 +48,7 @@ pub enum ValExpr {
     Char(Sp<char>),
     String(Sp<Rc<str>>),
     Array(ArrayExpr),
-    Parened(Box<OpTreeExpr>),
+    Parened(Box<OpExpr>),
 }
 
 impl ValExpr {
@@ -75,106 +75,117 @@ impl fmt::Debug for ValExpr {
     }
 }
 
-pub enum ModTreeExpr {
+pub enum ModExpr {
     Op(Sp<Op>),
+    Val(ValExpr),
     Un(Box<UnModExpr>),
     Bin(Box<BinModExpr>),
 }
 
-pub type UnModExpr = Un<Sp<RuneUnMod>, ModTreeExpr>;
-pub type BinModExpr = Bin<Sp<RuneBinMod>, Op, ModTreeExpr>;
+pub struct UnModExpr {
+    pub m: RuneUnMod,
+    pub span: Span,
+    pub f: ModExpr,
+}
 
-impl ModTreeExpr {
+pub struct BinModExpr {
+    pub m: RuneBinMod,
+    pub span: Span,
+    pub f: ModExpr,
+    pub g: ModExpr,
+}
+
+impl ModExpr {
     pub fn span(&self) -> &Span {
         match self {
-            ModTreeExpr::Op(op) => &op.span,
-            ModTreeExpr::Un(expr) => &expr.op.span,
-            ModTreeExpr::Bin(expr) => &expr.op.span,
+            ModExpr::Op(op) => &op.span,
+            ModExpr::Val(expr) => expr.span(),
+            ModExpr::Un(expr) => &expr.span,
+            ModExpr::Bin(expr) => &expr.span,
         }
     }
 }
 
-impl fmt::Debug for ModTreeExpr {
+impl fmt::Debug for ModExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ModTreeExpr::Op(op) => write!(f, "{}", op),
-            ModTreeExpr::Un(expr) => expr.fmt(f),
-            ModTreeExpr::Bin(expr) => expr.fmt(f),
+            ModExpr::Op(op) => op.fmt(f),
+            ModExpr::Val(expr) => expr.fmt(f),
+            ModExpr::Un(expr) => expr.fmt(f),
+            ModExpr::Bin(expr) => expr.fmt(f),
         }
     }
 }
 
-pub enum OpTreeExpr {
+impl fmt::Debug for UnModExpr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({} {})", self.m, self.f)
+    }
+}
+
+impl fmt::Debug for BinModExpr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({} {} {})", self.m, self.f, self.g)
+    }
+}
+
+pub enum OpExpr {
     Val(ValExpr),
     Un(Box<UnOpExpr>),
     Bin(Box<BinOpExpr>),
 }
 
-pub type UnOpExpr = Un<ModTreeExpr, OpTreeExpr>;
-pub type BinOpExpr = Bin<ModTreeExpr, ValExpr, OpTreeExpr>;
+pub struct UnOpExpr {
+    pub op: ModExpr,
+    pub x: OpExpr,
+}
 
-impl OpTreeExpr {
+pub struct BinOpExpr {
+    pub op: ModExpr,
+    pub w: ValExpr,
+    pub x: OpExpr,
+}
+
+impl OpExpr {
     pub fn span(&self) -> &Span {
         match self {
-            OpTreeExpr::Val(expr) => expr.span(),
-            OpTreeExpr::Un(expr) => expr.op.span(),
-            OpTreeExpr::Bin(expr) => expr.op.span(),
+            OpExpr::Val(expr) => expr.span(),
+            OpExpr::Un(expr) => expr.op.span(),
+            OpExpr::Bin(expr) => expr.op.span(),
         }
     }
     pub fn unparen(self) -> Self {
         match self {
-            OpTreeExpr::Val(ValExpr::Parened(expr)) => *expr,
+            OpExpr::Val(ValExpr::Parened(expr)) => *expr,
             expr => expr,
         }
     }
 }
 
-impl fmt::Debug for OpTreeExpr {
+impl fmt::Debug for OpExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            OpTreeExpr::Val(expr) => expr.fmt(f),
-            OpTreeExpr::Un(expr) => expr.fmt(f),
-            OpTreeExpr::Bin(expr) => expr.fmt(f),
+            OpExpr::Val(expr) => expr.fmt(f),
+            OpExpr::Un(expr) => expr.fmt(f),
+            OpExpr::Bin(expr) => expr.fmt(f),
         }
     }
 }
 
-#[derive(Clone)]
-pub struct Un<O, X> {
-    pub op: O,
-    pub x: X,
-}
-
-impl<O, X> fmt::Debug for Un<O, X>
-where
-    O: fmt::Debug,
-    X: fmt::Debug,
-{
+impl fmt::Debug for UnOpExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({:?} {:?})", self.op, self.x)
+        write!(f, "({} {})", self.op, self.x)
     }
 }
 
-#[derive(Clone)]
-pub struct Bin<O, W, X> {
-    pub op: O,
-    pub w: W,
-    pub x: X,
-}
-
-impl<O, W, X> fmt::Debug for Bin<O, W, X>
-where
-    O: fmt::Debug,
-    W: fmt::Debug,
-    X: fmt::Debug,
-{
+impl fmt::Debug for BinOpExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({:?} {:?} {:?})", self.w, self.op, self.x)
+        write!(f, "({} {} {})", self.w, self.op, self.x)
     }
 }
 
 pub struct ArrayExpr {
-    pub items: Vec<OpTreeExpr>,
+    pub items: Vec<OpExpr>,
     pub tied: bool,
     pub span: Span,
 }
@@ -279,15 +290,6 @@ impl Format for ValExpr {
     }
 }
 
-impl<T> Format for Sp<T>
-where
-    T: Format,
-{
-    fn format(&self, f: &mut Formatter) -> fmt::Result {
-        self.data.format(f)
-    }
-}
-
 impl Format for Op {
     fn format(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self)
@@ -306,22 +308,23 @@ impl Format for RuneBinMod {
     }
 }
 
-impl Format for ModTreeExpr {
+impl Format for ModExpr {
     fn format(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            ModTreeExpr::Op(op) => write!(f, "{}", op),
-            ModTreeExpr::Un(expr) => expr.format(f),
-            ModTreeExpr::Bin(expr) => expr.format(f),
+            ModExpr::Op(op) => op.format(f),
+            ModExpr::Val(expr) => expr.format(f),
+            ModExpr::Un(expr) => expr.format(f),
+            ModExpr::Bin(expr) => expr.format(f),
         }
     }
 }
 
-impl Format for OpTreeExpr {
+impl Format for OpExpr {
     fn format(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            OpTreeExpr::Val(expr) => expr.format(f),
-            OpTreeExpr::Un(expr) => expr.format(f),
-            OpTreeExpr::Bin(expr) => expr.format(f),
+            OpExpr::Val(expr) => expr.format(f),
+            OpExpr::Un(expr) => expr.format(f),
+            OpExpr::Bin(expr) => expr.format(f),
         }
     }
 }
@@ -348,40 +351,37 @@ impl Format for ArrayExpr {
     }
 }
 
-impl<O, W, X> Format for Bin<O, W, X>
-where
-    O: Format,
-    W: Format,
-    X: Format,
-{
+impl Format for UnOpExpr {
+    fn format(&self, f: &mut Formatter) -> fmt::Result {
+        self.op.format(f)?;
+        if matches!(&self.x, OpExpr::Bin(_)) {
+            write!(f, " ")?;
+        }
+        self.x.format(f)
+    }
+}
+
+impl Format for BinOpExpr {
     fn format(&self, f: &mut Formatter) -> fmt::Result {
         self.w.format(f)?;
         write!(f, " ")?;
         self.op.format(f)?;
         write!(f, " ")?;
-        self.x.format(f)?;
-        Ok(())
-    }
-}
-
-impl Format for UnOpExpr {
-    fn format(&self, f: &mut Formatter) -> fmt::Result {
-        self.op.format(f)?;
-        if let (ModTreeExpr::Op(_), OpTreeExpr::Bin(_)) = (&self.op, &self.x) {
-            write!(f, " ")?;
-        }
-        self.x.format(f)?;
-        Ok(())
+        self.x.format(f)
     }
 }
 
 impl Format for UnModExpr {
     fn format(&self, f: &mut Formatter) -> fmt::Result {
-        self.op.format(f)?;
-        if let ModTreeExpr::Bin(_) = &self.x {
-            write!(f, " ")?;
-        }
-        self.x.format(f)?;
-        Ok(())
+        self.m.format(f)?;
+        self.f.format(f)
+    }
+}
+
+impl Format for BinModExpr {
+    fn format(&self, f: &mut Formatter) -> fmt::Result {
+        self.m.format(f)?;
+        self.f.format(f)?;
+        self.g.format(f)
     }
 }

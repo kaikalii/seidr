@@ -2,7 +2,7 @@ use std::iter::repeat;
 
 use crate::{
     array::Array,
-    cwt::{BinVal, UnVal, ValNode},
+    cwt::{BinValNode, UnValNode, ValNode},
     error::{RuntimeError, RuntimeResult},
     lex::Span,
     op::*,
@@ -43,39 +43,37 @@ impl Eval for ValNode {
     }
 }
 
-impl Eval for UnVal {
+impl Eval for UnValNode {
     fn eval(&self, rt: &mut Runtime) -> RuntimeResult {
         let op = self.op.eval(rt)?;
-        let span = self.op.span.clone();
         let x = self.x.eval(rt)?;
         match op {
-            Val::Atom(Atom::Op(Op::Pervasive(per))) => un_pervade_val(per, x, &span),
+            Val::Atom(Atom::Op(Op::Pervasive(per))) => un_pervade_val(per, x, &self.span),
             Val::Atom(Atom::Op(Op::Rune(rune))) => match rune {
-                RuneOp::Jera => Ok(reverse(x, &span)),
-                RuneOp::Algiz => range(x, &span).map(Val::Array),
-                rune => rt_error(format!("{} has no unary form", rune), &span),
+                RuneOp::Jera => Ok(reverse(x, &self.span)),
+                RuneOp::Algiz => range(x, &self.span).map(Val::Array),
+                rune => rt_error(format!("{} has no unary form", rune), &self.span),
             },
             val => Ok(val),
         }
     }
 }
 
-impl Eval for BinVal {
+impl Eval for BinValNode {
     fn eval(&self, rt: &mut Runtime) -> RuntimeResult {
         let op = self.op.eval(rt)?;
-        let span = self.op.span.clone();
         let w = self.w.eval(rt)?;
         let x = self.x.eval(rt)?;
         match op {
-            Val::Atom(Atom::Op(Op::Pervasive(per))) => bin_pervade_val(per, w, x, &span),
+            Val::Atom(Atom::Op(Op::Pervasive(per))) => bin_pervade_val(per, w, x, &self.span),
             Val::Atom(Atom::Op(Op::Rune(rune))) => match rune {
-                RuneOp::Fehu => replicate(w, x, &span).map(Val::Array),
-                RuneOp::Jera => rotate(w, x, &span),
+                RuneOp::Fehu => replicate(w, x, &self.span).map(Val::Array),
+                RuneOp::Jera => rotate(w, x, &self.span),
                 RuneOp::Laguz => {
                     Ok(Array::JoinTo(w.into_array().into(), x.into_array().into()).into())
                 }
-                RuneOp::Naudiz => Ok(take(w, x, &span)?.into()),
-                rune => rt_error(format!("{} has no binary form", rune), &span),
+                RuneOp::Naudiz => Ok(take(w, x, &self.span)?.into()),
+                rune => rt_error(format!("{} has no binary form", rune), &self.span),
             },
             val => Ok(val),
         }

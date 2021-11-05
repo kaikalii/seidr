@@ -1,33 +1,43 @@
 //! Types for and conversion into the Concrete Walkable Tree
 
-use std::{fmt, rc::Rc};
+use std::rc::Rc;
 
 use crate::{
     ast::*,
     error::{Problem, SpannedCompileWarning},
-    lex::Sp,
+    lex::Span,
     value::Val,
 };
 
 #[derive(Clone)]
 pub enum ValNode {
     Val(Val),
-    Un(Rc<UnVal>),
-    Bin(Rc<BinVal>),
+    Un(Rc<UnValNode>),
+    Bin(Rc<BinValNode>),
     Array(Rc<[Self]>),
 }
 
-pub type UnVal = Un<Sp<ValNode>, ValNode>;
-pub type BinVal = Bin<Sp<ValNode>, ValNode, ValNode>;
+pub struct UnValNode {
+    pub op: ValNode,
+    pub span: Span,
+    pub x: ValNode,
+}
 
-impl From<UnVal> for ValNode {
-    fn from(un: UnVal) -> Self {
+pub struct BinValNode {
+    pub op: ValNode,
+    pub span: Span,
+    pub w: ValNode,
+    pub x: ValNode,
+}
+
+impl From<UnValNode> for ValNode {
+    fn from(un: UnValNode) -> Self {
         ValNode::Un(un.into())
     }
 }
 
-impl From<BinVal> for ValNode {
-    fn from(bin: BinVal) -> Self {
+impl From<BinValNode> for ValNode {
+    fn from(bin: BinValNode) -> Self {
         ValNode::Bin(bin.into())
     }
 }
@@ -59,17 +69,6 @@ impl FromIterator<ValNode> for ValNode {
         T: IntoIterator<Item = ValNode>,
     {
         ValNode::Array(iter.into_iter().collect())
-    }
-}
-
-impl fmt::Debug for ValNode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ValNode::Val(val) => val.fmt(f),
-            ValNode::Un(un) => un.fmt(f),
-            ValNode::Bin(bin) => bin.fmt(f),
-            ValNode::Array(arr) => f.debug_list().entries(arr.iter()).finish(),
-        }
     }
 }
 
@@ -138,46 +137,51 @@ impl ToValNode for ValExpr {
     }
 }
 
-impl ToValNode for OpTreeExpr {
+impl ToValNode for OpExpr {
     fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
         match self {
-            OpTreeExpr::Val(expr) => expr.to_val(builder),
-            OpTreeExpr::Un(expr) => expr.to_val(builder),
-            OpTreeExpr::Bin(expr) => expr.to_val(builder),
+            OpExpr::Val(expr) => expr.to_val(builder),
+            OpExpr::Un(expr) => expr.to_val(builder),
+            OpExpr::Bin(expr) => expr.to_val(builder),
         }
     }
 }
 
-impl<X> ToValNode for Un<ModTreeExpr, X>
-where
-    X: ToValNode,
-{
+impl ToValNode for UnOpExpr {
     fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
-        let op = self.op.span().clone().sp(self.op.to_val(builder));
+        let op = self.op.to_val(builder);
         let x = self.x.to_val(builder);
-        Un { op, x }.into()
+        UnValNode {
+            op,
+            span: self.op.span().clone(),
+            x,
+        }
+        .into()
     }
 }
 
-impl<W, X> ToValNode for Bin<ModTreeExpr, W, X>
-where
-    W: ToValNode,
-    X: ToValNode,
-{
+impl ToValNode for BinOpExpr {
     fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
-        let op = self.op.span().clone().sp(self.op.to_val(builder));
+        let op = self.op.to_val(builder);
         let x = self.x.to_val(builder);
         let w = self.w.to_val(builder);
-        Bin { op, w, x }.into()
+        BinValNode {
+            op,
+            span: self.op.span().clone(),
+            w,
+            x,
+        }
+        .into()
     }
 }
 
-impl ToValNode for ModTreeExpr {
+impl ToValNode for ModExpr {
     fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
         match self {
-            ModTreeExpr::Op(op) => (**op).into(),
-            ModTreeExpr::Un(expr) => todo!(),
-            ModTreeExpr::Bin(expr) => todo!(),
+            ModExpr::Op(op) => (**op).into(),
+            ModExpr::Val(expr) => expr.to_val(builder),
+            ModExpr::Un(expr) => todo!(),
+            ModExpr::Bin(expr) => todo!(),
         }
     }
 }

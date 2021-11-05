@@ -1,4 +1,4 @@
-use std::{fs, path::Path, rc::Rc};
+use std::{fmt::Display, fs, path::Path, rc::Rc};
 
 use crate::{
     ast::*,
@@ -75,15 +75,19 @@ impl Parser {
     fn match_token(&mut self, token_type: TT) -> Option<Token> {
         self.match_if(|tt| &token_type == tt)
     }
-    fn expect<T>(&self, expectation: &str, op: Option<T>) -> CompileResult<T> {
+    fn expect<S, T>(&self, expectation: S, op: Option<T>) -> CompileResult<T>
+    where
+        S: Display,
+    {
         op.ok_or_else(|| {
             let token = self.peek().or_else(|| self.tokens.last()).unwrap();
             let span = token.span.clone();
-            CompileError::ExpectedFound(expectation.into(), format!("`{}`", token.tt)).at(span)
+            CompileError::ExpectedFound(expectation.to_string(), format!("`{}`", token.tt)).at(span)
         })
     }
-    fn expect_with<F, T>(&mut self, expectation: &str, f: F) -> CompileResult<T>
+    fn expect_with<S, F, T>(&mut self, expectation: S, f: F) -> CompileResult<T>
     where
+        S: Display,
         F: Fn(&mut Self) -> CompileResult<Option<T>>,
     {
         let val = f(self)?;
@@ -108,7 +112,7 @@ impl Parser {
     }
     fn item(&mut self) -> CompileResult<Option<Item>> {
         let comment = self.comment();
-        Ok(Some(if let Some(expr) = self.op_tree_expr()? {
+        Ok(Some(if let Some(expr) = self.op_expr()? {
             self.match_token(TT::Newline);
             Item::Expr(ExprItem { expr, comment })
         } else if let Some(comment) = comment {
@@ -130,60 +134,79 @@ impl Parser {
     fn comment(&mut self) -> Option<Comment> {
         self.match_to(comment).map(|comment| comment.data)
     }
-    fn exprs(&mut self) -> CompileResult<Vec<OpTreeExpr>> {
+    fn exprs(&mut self) -> CompileResult<Vec<OpExpr>> {
         let mut exprs = Vec::new();
-        while let Some(expr) = self.op_tree_expr()? {
+        while let Some(expr) = self.op_expr()? {
             exprs.push(expr.unparen());
         }
         Ok(exprs)
     }
-    #[allow(irrefutable_let_patterns)]
-    fn op_tree_expr(&mut self) -> CompileResult<Option<OpTreeExpr>> {
-        Ok(Some(if let Some(op) = self.mod_tree_expr()? {
+    fn op_expr(&mut self) -> CompileResult<Option<OpExpr>> {
+        Ok(Some(if let Some(op) = self.mod_expr()? {
             // Unary
             let mut x = self
-                .expect_with("expression", Self::op_tree_expr)?
+                .expect_with(format!("{}'s x argument", op), Self::op_expr)?
                 .unparen();
             // Replace sub number with negative number
-            if let OpTreeExpr::Val(ValExpr::Num(n)) = &x {
-                if let ModTreeExpr::Op(op) = &op {
+            if let OpExpr::Val(ValExpr::Num(n)) = &x {
+                if let ModExpr::Op(op) = &op {
                     if let Op::Pervasive(Pervasive::Math(MathOp::Sub)) = **op {
-                        return Ok(Some(OpTreeExpr::Val(ValExpr::Num(n.clone().map(|n| -n)))));
+                        return Ok(Some(OpExpr::Val(ValExpr::Num(n.clone().map(|n| -n)))));
                     }
                 }
             }
-            OpTreeExpr::Un(Un { op, x }.into())
+            OpExpr::Un(UnOpExpr { op, x }.into())
         } else if let Some(w) = self.val_expr()? {
             // Binary or Val
-            if let Some(op) = self.mod_tree_expr()? {
+            if let Some(op) = self.mod_expr()? {
                 let x = self
-                    .expect_with("expression", Self::op_tree_expr)?
+                    .expect_with(format!("{} x argument", op), Self::op_expr)?
                     .unparen();
-                OpTreeExpr::Bin(Bin { op, w, x }.into())
+                OpExpr::Bin(BinOpExpr { op, w, x }.into())
             } else {
-                OpTreeExpr::Val(w)
+                OpExpr::Val(w)
             }
         } else {
             return Ok(None);
         }))
     }
-    #[allow(clippy::manual_map)]
-    fn mod_tree_expr(&mut self) -> CompileResult<Option<ModTreeExpr>> {
+    fn mod_expr(&mut self) -> CompileResult<Option<ModExpr>> {
         Ok(Some(if let Some(m) = self.match_to(un_mod) {
             // Unary
-            let mut x = self.expect_with("expression", Self::mod_tree_expr)?;
-            ModTreeExpr::Un(Un { op: m, x }.into())
-        } else if let Some(w) = self.match_to(op) {
-            // Binary or op
-            if let Some(m) = self.match_to(bin_mod) {
-                let x = self.expect_with("expression", Self::mod_tree_expr)?;
-                ModTreeExpr::Bin(Bin { op: m, w: *w, x }.into())
-            } else {
-                ModTreeExpr::Op(w)
-            }
+            let mut f = self.expect_with(format!("{} f argument", m), Self::mod_arg)?;
+            ModExpr::Un(
+                UnModExpr {
+                    m: *m,
+                    span: m.span,
+                    f,
+                }
+                .into(),
+            )
+        } else if let Some(m) = self.match_to(bin_mod) {
+            // Binary
+            let mut f = self.expect_with(format!("{}'s f argument", m), Self::mod_arg)?;
+            let mut g = self.expect_with(format!("{}'s g argument", m), Self::mod_arg)?;
+            ModExpr::Bin(
+                BinModExpr {
+                    m: *m,
+                    span: m.span,
+                    f,
+                    g,
+                }
+                .into(),
+            )
+        } else if let Some(op) = self.match_to(op) {
+            ModExpr::Op(op)
         } else {
             return Ok(None);
         }))
+    }
+    fn mod_arg(&mut self) -> CompileResult<Option<ModExpr>> {
+        Ok(if let Some(expr) = self.mod_expr()? {
+            Some(expr)
+        } else {
+            self.val_expr()?.map(ModExpr::Val)
+        })
     }
     fn val_expr(&mut self) -> CompileResult<Option<ValExpr>> {
         let first = if let Some(expr) = self.single_val_expr()? {
@@ -193,7 +216,7 @@ impl Parser {
         };
         let mut items = vec![first];
         while self.match_token(TT::Undertie).is_some() {
-            let item = self.expect_with("expression", Self::single_val_expr)?;
+            let item = self.expect_with("array item", Self::single_val_expr)?;
             items.push(item);
         }
         Ok(Some(if items.len() == 1 {
@@ -201,7 +224,7 @@ impl Parser {
         } else {
             let span = items[0].span().join(items.last().unwrap().span());
             ValExpr::Array(ArrayExpr {
-                items: items.into_iter().map(OpTreeExpr::Val).collect(),
+                items: items.into_iter().map(OpExpr::Val).collect(),
                 tied: true,
                 span,
             })
@@ -215,15 +238,15 @@ impl Parser {
         } else if let Some(s) = self.match_to(string) {
             ValExpr::String(s)
         } else if self.match_token(TT::OpenParen).is_some() {
-            let expr = self.expect_with("expression", Self::op_tree_expr)?;
+            let expr = self.expect_with("expression", Self::op_expr)?;
             self.expect_token(TT::CloseParen)?;
             match expr {
-                OpTreeExpr::Val(expr) => expr,
+                OpExpr::Val(expr) => expr,
                 expr => ValExpr::Parened(expr.into()),
             }
         } else if let Some(open) = self.match_token(TT::OpenAngle) {
             let mut items = Vec::new();
-            while let Some(item) = self.op_tree_expr()? {
+            while let Some(item) = self.op_expr()? {
                 items.push(item);
                 if self.match_token(TT::Comma).is_none() {
                     break;
