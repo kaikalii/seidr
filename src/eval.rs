@@ -71,6 +71,9 @@ impl Eval for BinVal {
             Val::Atom(Atom::Op(Op::Rune(rune))) => match rune {
                 RuneOp::Fehu => replicate(w, x, &span).map(Val::Array),
                 RuneOp::Jera => rotate(w, x, &span),
+                RuneOp::Laguz => {
+                    Ok(Array::JoinTo(w.into_array().into(), x.into_array().into()).into())
+                }
                 rune => error(format!("{} has no binary form", rune), &span),
             },
             val => Ok(val),
@@ -82,7 +85,7 @@ pub fn un_pervade_val(per: Pervasive, x: Val, span: &Span) -> RuntimeResult {
     Ok(match (per, x) {
         (per, Val::Atom(x)) => un_pervade_atom(per, x, span)?,
         (Pervasive::Comparison(cmp), Val::Array(arr)) => match cmp {
-            ComparisonOp::Equal => arr.len().into(),
+            ComparisonOp::Equal => arr.len().map(Num::from).unwrap_or(Num::INFINIFY).into(),
             cmp => todo!("{}", cmp),
         },
         (per @ Pervasive::Math(_), Val::Array(x)) => {
@@ -181,7 +184,9 @@ fn rotate(w: Val, x: Val, span: &Span) -> RuntimeResult {
         (Val::Atom(Atom::Num(n)), Val::Array(arr)) => {
             Ok(Array::Rotate(arr.into(), i64::from(n)).into())
         }
-        (Val::Array(ns), x) if ns.len() == 1 => rotate(ns.get(0).unwrap().into_owned(), x, span),
+        (Val::Array(ns), x) if ns.len() == Some(1) => {
+            rotate(ns.get(0).unwrap().into_owned(), x, span)
+        }
         (Val::Array(ns), Val::Array(arr)) => {
             let mut ns = ns.into_iter();
             let first = ns.next().unwrap();
@@ -222,8 +227,8 @@ fn range(x: Val, span: &Span) -> RuntimeResult<Array> {
             span,
         ),
         Val::Array(arr) => {
-            if arr.len() == 0 {
-                error("Range array cannot be empty", span)
+            if arr.len().map_or(true, |len| len == 0) {
+                error("Range array must have a positive, finite size", span)
             } else {
                 let arrays: Vec<Array> = arr
                     .into_iter()

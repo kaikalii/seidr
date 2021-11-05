@@ -37,7 +37,7 @@
 | ᛉ     | range   |           | z                | algiz  | elk           |
 | ᛊ     |         |           | s                | sowilo | sun           |
 | ᛏ     |         |           | t                | tiwaz  | Týr           |
-| ᛚ     |         |           | l                | laguz  | water/lake    |
+| ᛚ     | join    | join to   | l                | laguz  | water/lake    |
 
 # Unary Modifiers
 

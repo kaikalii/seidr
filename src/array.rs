@@ -22,6 +22,7 @@ pub enum Array {
     Reverse(Box<Self>),
     Range(usize),
     Product(RcView<Self>, Items),
+    JoinTo(Box<Self>, Box<Self>),
 }
 
 impl Array {
@@ -32,30 +33,39 @@ impl Array {
     {
         Array::Concrete(items.into_iter().map(Into::into).collect())
     }
-    pub fn len(&self) -> usize {
-        match self {
+    pub fn len(&self) -> Option<usize> {
+        Some(match self {
             Array::Concrete(items) => items.len(),
-            Array::Rotate(arr, _) | Array::Reverse(arr) => arr.len(),
+            Array::Rotate(arr, _) | Array::Reverse(arr) => arr.len()?,
             Array::Range(n) => *n,
-            Array::Product(arrs, _) => arrs[0].len(),
-        }
+            Array::Product(arrs, _) => arrs[0].len()?,
+            Array::JoinTo(a, b) => a.len().zip(b.len()).map(|(a, b)| a + b)?,
+        })
     }
     pub fn get(&self, index: usize) -> Option<Cow<Val>> {
         match self {
             Array::Concrete(items) => items.get(index).map(Cow::Borrowed),
             Array::Rotate(arr, r) => {
-                if index >= arr.len() {
-                    None
-                } else {
-                    let index = modulus(index as i64 + *r, arr.len() as i64) as usize;
+                if let Some(len) = arr.len() {
+                    if index >= len {
+                        None
+                    } else {
+                        let index = modulus(index as i64 + *r, len as i64) as usize;
+                        arr.get(index)
+                    }
+                } else if *r >= 0 {
+                    let index = index + *r as usize;
                     arr.get(index)
+                } else {
+                    None
                 }
             }
             Array::Reverse(arr) => {
-                if index >= arr.len() {
+                let len = arr.len()?;
+                if index >= len {
                     None
                 } else {
-                    arr.get(arr.len() - 1 - index)
+                    arr.get(len - 1 - index)
                 }
             }
             Array::Range(n) => {
@@ -86,6 +96,15 @@ impl Array {
                         .into(),
                     )
                 })
+            }
+            Array::JoinTo(a, b) => {
+                if let Some(val) = a.get(index) {
+                    Some(val)
+                } else if let Some(len) = a.len() {
+                    b.get(index - len)
+                } else {
+                    None
+                }
             }
         }
     }
@@ -154,7 +173,12 @@ impl fmt::Debug for Array {
 
 impl fmt::Display for Array {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.len() > 0
+        let len = if let Some(len) = self.len() {
+            len
+        } else {
+            return write!(f, "..");
+        };
+        if len > 0
             && self
                 .iter()
                 .all(|val| matches!(val.as_ref(), Val::Atom(Atom::Char(_))))
@@ -166,7 +190,7 @@ impl fmt::Display for Array {
                 }
             }
             write!(f, "{:?}", s)
-        } else if self.len() >= 2 && self.iter().all(|val| matches!(val.as_ref(), Val::Atom(_))) {
+        } else if len >= 2 && self.iter().all(|val| matches!(val.as_ref(), Val::Atom(_))) {
             for (i, val) in self.iter().enumerate() {
                 if i > 0 {
                     write!(f, "‿")?;
@@ -193,6 +217,9 @@ impl IntoIterator for Array {
     fn into_iter(self) -> Self::IntoIter {
         match self {
             Array::Concrete(rcv) => ArrayIntoIter::RcView(rcv.into_iter()),
+            Array::JoinTo(a, b) => {
+                ArrayIntoIter::JoinTo(a.into_iter().into(), b.into_iter().into())
+            }
             array => ArrayIntoIter::Get { index: 0, array },
         }
     }
@@ -213,6 +240,7 @@ where
 pub enum ArrayIntoIter {
     RcView(RcViewIntoIter<Val>),
     Get { index: usize, array: Array },
+    JoinTo(Box<Self>, Box<Self>),
 }
 
 impl Iterator for ArrayIntoIter {
@@ -225,6 +253,7 @@ impl Iterator for ArrayIntoIter {
                 *index += 1;
                 Some(item.into_owned())
             }
+            ArrayIntoIter::JoinTo(a, b) => a.next().or_else(|| b.next()),
         }
     }
 }

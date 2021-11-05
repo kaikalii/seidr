@@ -72,6 +72,15 @@ pub enum Val {
     Array(Array),
 }
 
+impl Val {
+    pub fn into_array(self) -> Array {
+        match self {
+            Val::Array(arr) => arr,
+            Val::Atom(_) => Array::concrete(Some(self)),
+        }
+    }
+}
+
 impl<A> From<A> for Val
 where
     A: Into<Atom>,
