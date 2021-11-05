@@ -180,16 +180,14 @@ fn rotate(w: Val, x: Val, span: &Span) -> RuntimeResult {
         }
         (Val::Array(ns), x) if ns.len() == 1 => rotate(ns.get(0).unwrap().into_owned(), x, span),
         (Val::Array(ns), Val::Array(arr)) => {
-            let sub_ns: Array = ns.iter().skip(1).collect();
+            let mut ns = ns.into_iter();
+            let first = ns.next().unwrap();
+            let sub_ns: Array = ns.skip(1).collect();
             let mut items: Vec<Val> = arr
-                .iter()
+                .into_iter()
                 .map(|sub| rotate(sub_ns.clone().into(), sub, span))
                 .collect::<RuntimeResult<_>>()?;
-            rotate(
-                ns.get(0).unwrap().into_owned(),
-                Array::concrete(items).into(),
-                span,
-            )
+            rotate(first, Array::concrete(items).into(), span)
         }
         (Val::Atom(atom), _) => error(
             format!("Attempted to rotate with {}", atom.type_name()),
@@ -225,8 +223,8 @@ fn range(x: Val, span: &Span) -> RuntimeResult<Array> {
                 error("Range array cannot be empty", span)
             } else {
                 let arrays: Vec<Array> = arr
-                    .cow_iter()
-                    .map(|val| range(val.into_owned(), span))
+                    .into_iter()
+                    .map(|val| range(val, span))
                     .collect::<RuntimeResult<_>>()?;
                 Ok(Array::Product(arrays.into(), RcView::new([])))
             }
@@ -247,19 +245,19 @@ fn replicate(w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
         }
         (w @ Val::Atom(Atom::Num(_)), Val::Array(x)) => {
             let mut arrays: Vec<Array> = x
-                .iter()
+                .into_iter()
                 .map(|x| replicate(w.clone(), x, span))
                 .collect::<RuntimeResult<_>>()?;
-            Ok(arrays.iter().flat_map(|arr| arr.iter()).collect())
+            Ok(arrays.into_iter().flatten().collect())
         }
         (Val::Array(w), Val::Array(x)) => {
             if w.len() == x.len() {
                 let mut arrays: Vec<Array> = w
-                    .iter()
-                    .zip(x.iter())
+                    .into_iter()
+                    .zip(x)
                     .map(|(w, x)| replicate(w, x, span))
                     .collect::<RuntimeResult<_>>()?;
-                Ok(arrays.iter().flat_map(|arr| arr.iter()).collect())
+                Ok(arrays.into_iter().flatten().collect())
             } else {
                 error("Arrays must have matching lengths", span)
             }

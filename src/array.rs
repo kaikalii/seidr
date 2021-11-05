@@ -9,7 +9,7 @@ use crate::{
     error::{RuntimeError, RuntimeResult},
     lex::Span,
     num::modulus,
-    rcview::RcView,
+    rcview::{RcView, RcViewIntoIter},
     value::{Atom, Val},
 };
 
@@ -89,15 +89,12 @@ impl Array {
             }
         }
     }
-    pub fn cow_iter(&self) -> impl Iterator<Item = Cow<Val>> {
+    pub fn iter(&self) -> impl Iterator<Item = Cow<Val>> {
         let mut i = 0;
         iter::from_fn(move || {
             i += 1;
             self.get(i - 1)
         })
-    }
-    pub fn iter(&self) -> impl Iterator<Item = Val> + '_ {
-        self.cow_iter().map(Cow::into_owned)
     }
     pub fn pervade<F, V>(&self, f: F) -> RuntimeResult<Self>
     where
@@ -105,7 +102,7 @@ impl Array {
         V: Into<Val>,
     {
         let mut items = Vec::new();
-        for item in self.cow_iter().map(Cow::into_owned) {
+        for item in self.iter().map(Cow::into_owned) {
             items.push(f(item)?.into());
         }
         Ok(Array::Concrete(items.into()))
@@ -122,7 +119,7 @@ impl Array {
             ));
         }
         let mut items = Vec::new();
-        for (a, b) in self.cow_iter().zip(other.cow_iter()) {
+        for (a, b) in self.iter().zip(other.iter()) {
             items.push(f(a.into_owned(), b.into_owned())?.into());
         }
         Ok(Array::Concrete(items.into()))
@@ -159,22 +156,18 @@ impl fmt::Display for Array {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.len() > 0
             && self
-                .cow_iter()
+                .iter()
                 .all(|val| matches!(val.as_ref(), Val::Atom(Atom::Char(_))))
         {
             let mut s = String::new();
-            for val in self.cow_iter() {
+            for val in self.iter() {
                 if let Val::Atom(Atom::Char(c)) = val.as_ref() {
                     s.push(*c);
                 }
             }
             write!(f, "{:?}", s)
-        } else if self.len() >= 2
-            && self
-                .cow_iter()
-                .all(|val| matches!(val.as_ref(), Val::Atom(_)))
-        {
-            for (i, val) in self.cow_iter().enumerate() {
+        } else if self.len() >= 2 && self.iter().all(|val| matches!(val.as_ref(), Val::Atom(_))) {
+            for (i, val) in self.iter().enumerate() {
                 if i > 0 {
                     write!(f, "‿")?;
                 }
@@ -183,13 +176,24 @@ impl fmt::Display for Array {
             Ok(())
         } else {
             write!(f, "〈")?;
-            for (i, val) in self.cow_iter().enumerate() {
+            for (i, val) in self.iter().enumerate() {
                 if i > 0 {
                     write!(f, ", ")?;
                 }
                 val.fmt(f)?;
             }
             write!(f, "〉")
+        }
+    }
+}
+
+impl IntoIterator for Array {
+    type Item = Val;
+    type IntoIter = ArrayIntoIter;
+    fn into_iter(self) -> Self::IntoIter {
+        match self {
+            Array::Concrete(rcv) => ArrayIntoIter::RcView(rcv.into_iter()),
+            array => ArrayIntoIter::Get { index: 0, array },
         }
     }
 }
@@ -203,5 +207,24 @@ where
         T: IntoIterator<Item = V>,
     {
         Array::Concrete(iter.into_iter().map(Into::into).collect())
+    }
+}
+
+pub enum ArrayIntoIter {
+    RcView(RcViewIntoIter<Val>),
+    Get { index: usize, array: Array },
+}
+
+impl Iterator for ArrayIntoIter {
+    type Item = Val;
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            ArrayIntoIter::RcView(iter) => iter.next(),
+            ArrayIntoIter::Get { index, array } => {
+                let item = array.get(*index)?;
+                *index += 1;
+                Some(item.into_owned())
+            }
+        }
     }
 }
