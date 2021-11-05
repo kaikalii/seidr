@@ -326,14 +326,12 @@ where
     }
 }
 
-impl<O, X> Format for Un<O, X>
-where
-    O: Format,
-    X: Format,
-{
+impl Format for UnOpExpr {
     fn format(&self, f: &mut Formatter) -> fmt::Result {
         self.op.format(f)?;
-        write!(f, " ")?;
+        if let (OpExpr::Op(_), OpTreeExpr::Bin(_)) = (&self.op, &self.x) {
+            write!(f, " ")?;
+        }
         self.x.format(f)?;
         Ok(())
     }
