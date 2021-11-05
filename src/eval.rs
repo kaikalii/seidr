@@ -158,18 +158,25 @@ fn replicate(w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
                 Ok(Array::concrete(repeat(x).take(n)))
             }
         }
-        (w @ Val::Atom(Atom::Num(_)), Val::Array(x)) => Ok(x
-            .into_iter()
-            .map(|x| x.and_then(|x| replicate(w.clone(), x, span)))
-            .flatten()
-            .collect()),
+        (w @ Val::Atom(Atom::Num(_)), Val::Array(x)) => {
+            let arrays: Vec<Array> = x
+                .into_iter()
+                .map(|x| x.and_then(|x| replicate(w.clone(), x, span)))
+                .collect::<RuntimeResult<_>>()?;
+            Ok(Array::Concrete(
+                arrays.into_iter().flatten().collect::<RuntimeResult<_>>()?,
+            ))
+        }
         (Val::Array(w), Val::Array(x)) => {
             if w.len() == x.len() {
-                Ok(w.into_iter()
+                let arrays: Vec<Array> = w
+                    .into_iter()
                     .zip(x)
                     .map(|(w, x)| w.and_then(|w| x.and_then(|x| replicate(w, x, span))))
-                    .flatten()
-                    .collect())
+                    .collect::<RuntimeResult<_>>()?;
+                Ok(Array::Concrete(
+                    arrays.into_iter().flatten().collect::<RuntimeResult<_>>()?,
+                ))
             } else {
                 rt_error("Arrays must have matching lengths", span)
             }
