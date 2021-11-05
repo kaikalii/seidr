@@ -453,6 +453,7 @@ impl Lexer {
                 ',' => self.token(TT::Comma),
                 '‿' => self.token(TT::Undertie),
                 '\n' => self.token(TT::Newline),
+                '∞' => self.token(TT::Num(Num::INFINIFY, "∞".into())),
                 '"' => self.string()?,
                 '\'' => {
                     if let Some(c) = self.char_literal('\'', CompileError::UnclosedChar)? {
@@ -514,6 +515,7 @@ impl Lexer {
             '[' => TT::OpenAngle,
             ']' => TT::CloseAngle,
             ' ' => TT::Undertie,
+            '8' => TT::Num(Num::INFINIFY, "∞".into()),
             '-' => return self.negative_number(),
             '\\' => {
                 self.comment('\n', false);

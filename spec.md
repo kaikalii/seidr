@@ -3,6 +3,7 @@
 | glyph        | meaning  | escape character |
 | ------------ | -------- | ---------------- |
 | ‾ (overline) | negative | -                |
+| ∞            | infinity | 8                |
 
 # Operators
 
@@ -24,7 +25,7 @@
 | glyph | unary   | binary    | escape character | name   | meaning       |
 | ----- | ------- | --------- | ---------------- | ------ | ------------- |
 | ᚠ     |         | replicate | f                | fehu   | cattle/wealth |
-| ᚢ     |         |           | u                | uruz   | aurochs       |
+| ᚢ     |         |           | u                | uruz   | strength      |
 | ᚨ     |         |           | a                | ansuz  | god           |
 | ᚲ     |         |           | k                | kaunan | ulcer/torch   |
 | ᚷ     |         |           | g                | gebo   | gift          |

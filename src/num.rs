@@ -27,6 +27,13 @@ impl Default for Num {
 }
 
 impl Num {
+    pub const INFINIFY: Self = Num::Float(f64::INFINITY);
+    pub fn is_infinite(&self) -> bool {
+        match self {
+            Num::Int(_) => false,
+            Num::Float(f) => f.is_infinite(),
+        }
+    }
     /// Convert to the next lowest integer
     pub fn floor(self) -> Self {
         match self {
@@ -181,9 +188,13 @@ impl fmt::Display for Num {
         if self < &Num::Int(0) {
             write!(f, "‾")?;
         }
-        match self.abs() {
-            Num::Int(i) => i.fmt(f),
-            Num::Float(i) => i.fmt(f),
+        if self.is_infinite() {
+            write!(f, "∞")
+        } else {
+            match self.abs() {
+                Num::Int(i) => i.fmt(f),
+                Num::Float(i) => i.fmt(f),
+            }
         }
     }
 }
