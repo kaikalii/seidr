@@ -159,6 +159,7 @@ pub fn un_pervade_atom(per: Pervasive, x: Atom, span: &Span) -> RuntimeResult {
         }
         (Pervasive::Math(MathOp::Mul), Atom::Num(n)) => Ok(n.sign().into()),
         (Pervasive::Math(MathOp::Div), Atom::Num(n)) => Ok((Num::Int(1) / n).into()),
+        (Pervasive::Math(MathOp::Mod), Atom::Num(n)) => Ok(n.abs().into()),
         (Pervasive::Math(MathOp::Max), Atom::Num(n)) => Ok(n.ceil().into()),
         (Pervasive::Math(MathOp::Min), Atom::Num(n)) => Ok(n.floor().into()),
         _ => rt_error(format!("{} {} is invalid", per, x.type_name()), span),
@@ -173,6 +174,7 @@ pub fn bin_pervade_atom(per: Pervasive, w: Atom, x: Atom, span: &Span) -> Runtim
                 MathOp::Sub => w - x,
                 MathOp::Mul => w * x,
                 MathOp::Div => w / x,
+                MathOp::Mod => x.modulus(w),
                 MathOp::Max => w.max(x),
                 MathOp::Min => w.min(x),
             })

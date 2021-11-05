@@ -455,6 +455,7 @@ impl Lexer {
                 '\n' => self.token(TT::Newline),
                 '∞' => self.token(TT::Num(Num::INFINIFY, "∞".into())),
                 '「' => self.token(MathOp::Max),
+                '|' => self.token(MathOp::Mod),
                 '"' => self.string()?,
                 '\'' => {
                     if let Some(c) = self.char_literal('\'', CompileError::UnclosedChar)? {
@@ -544,7 +545,6 @@ impl Lexer {
             'H' => RuneBinMod::Haegl.into(),
             'h' => RuneBinMod::Haglaz.into(),
             'n' => RuneOp::Naudiz.into(),
-            'i' => RuneOp::Isaz.into(),
             'j' => RuneOp::Jera.into(),
             'A' => RuneOp::Iwaz.into(),
             'p' => RuneOp::Perth.into(),

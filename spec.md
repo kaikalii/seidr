@@ -24,22 +24,22 @@
 
 # Rune Operators
 
-| glyph | unary   | binary    | escape character | name   | meaning       |
-| ----- | ------- | --------- | ---------------- | ------ | ------------- |
-| ᚠ     |         | replicate | f                | fehu   | cattle/wealth |
-| ᚢ     |         |           | u                | uruz   | strength      |
-| ᚨ     |         |           | a                | ansuz  | god           |
-| ᚲ     |         |           | k                | kaunan | ulcer/torch   |
-| ᚷ     |         |           | g                | gebo   | gift          |
-| ᚾ     |         | take      | n                | naudiz | need          |
-| ᛁ     |         |           | i                | isaz   | ice           |
-| ᛃ     | reverse | rotate    | j                | jera   | year/harvest  |
-| ᛇ     |         |           | A                | iwaz   | yew-tree      |
-| ᛈ     |         |           | p                | perth  | unknown       |
-| ᛉ     | range   |           | z                | algiz  | elk           |
-| ᛊ     |         |           | s                | sowilo | sun           |
-| ᛏ     |         |           | t                | tiwaz  | Týr           |
-| ᛚ     | join    | join to   | l                | laguz  | water/lake    |
+| glyph | unary          | binary    | escape character             | name   | meaning       |
+| ----- | -------------- | --------- | ---------------------------- | ------ | ------------- |
+| ᚠ     |                | replicate | f                            | fehu   | cattle/wealth |
+| ᚢ     |                |           | u                            | uruz   | strength      |
+| ᚨ     |                |           | a                            | ansuz  | god           |
+| ᚲ     |                |           | k                            | kaunan | ulcer/torch   |
+| ᚷ     |                |           | g                            | gebo   | gift          |
+| ᚾ     |                | take      | n                            | naudiz | need          |
+| ᛁ     | absolute value | modulus   | \| (vertical bar, unescaped) | isaz   | ice           |
+| ᛃ     | reverse        | rotate    | j                            | jera   | year/harvest  |
+| ᛇ     |                |           | A                            | iwaz   | yew-tree      |
+| ᛈ     |                |           | p                            | perth  | unknown       |
+| ᛉ     | range          |           | z                            | algiz  | elk           |
+| ᛊ     |                |           | s                            | sowilo | sun           |
+| ᛏ     |                |           | t                            | tiwaz  | Týr           |
+| ᛚ     | join           | join to   | l                            | laguz  | water/lake    |
 
 # Unary Modifiers
 
@@ -77,14 +77,12 @@
 - Sort
 - Grade
 - Not
-- Absolute Value
 - Depth
 - First
 - Throw
 
 # Unassigned Binary Operators
 - Match
-- Modulus
 - Index
 - Select
 - Identity
