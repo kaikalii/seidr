@@ -159,6 +159,8 @@ pub fn un_pervade_atom(per: Pervasive, x: Atom, span: &Span) -> RuntimeResult {
         }
         (Pervasive::Math(MathOp::Mul), Atom::Num(n)) => Ok(n.sign().into()),
         (Pervasive::Math(MathOp::Div), Atom::Num(n)) => Ok((Num::Int(1) / n).into()),
+        (Pervasive::Math(MathOp::Max), Atom::Num(n)) => Ok(n.ceil().into()),
+        (Pervasive::Math(MathOp::Min), Atom::Num(n)) => Ok(n.floor().into()),
         _ => rt_error(format!("{} {} is invalid", per, x.type_name()), span),
     }
 }
@@ -166,56 +168,53 @@ pub fn un_pervade_atom(per: Pervasive, x: Atom, span: &Span) -> RuntimeResult {
 pub fn bin_pervade_atom(per: Pervasive, w: Atom, x: Atom, span: &Span) -> RuntimeResult {
     match per {
         Pervasive::Math(math) => match (w, x) {
-            (Atom::Num(w), Atom::Num(x)) => {
-                return Ok((match math {
-                    MathOp::Add => w + x,
-                    MathOp::Sub => w - x,
-                    MathOp::Mul => w * x,
-                    MathOp::Div => w / x,
-                })
-                .into())
-            }
-            (Atom::Char(w), Atom::Num(x)) => {
-                let w = w as u32;
-                let x = u32::from(x);
+            (Atom::Num(w), Atom::Num(x)) => Ok((match math {
+                MathOp::Add => w + x,
+                MathOp::Sub => w - x,
+                MathOp::Mul => w * x,
+                MathOp::Div => w / x,
+                MathOp::Max => w.max(x),
+                MathOp::Min => w.min(x),
+            })
+            .into()),
+            (Atom::Char(wc), Atom::Num(xn)) => {
+                let w = wc as u32;
+                let x = u32::from(xn);
                 match math {
-                    MathOp::Add => {
-                        return Ok(char::from_u32(w.saturating_add(x))
-                            .unwrap_or_default()
-                            .into())
-                    }
-                    MathOp::Sub => {
-                        return Ok(char::from_u32(w.saturating_sub(x))
-                            .unwrap_or_default()
-                            .into())
-                    }
-                    _ => {}
+                    MathOp::Add => Ok(char::from_u32(w.saturating_add(x))
+                        .unwrap_or_default()
+                        .into()),
+                    MathOp::Sub => Ok(char::from_u32(w.saturating_sub(x))
+                        .unwrap_or_default()
+                        .into()),
+                    MathOp::Max => Ok(wc.into()),
+                    MathOp::Min => Ok(xn.into()),
+                    _ => rt_error(format!("character {} number is invalid", per), span),
                 }
             }
             (Atom::Num(w), Atom::Char(x)) if math == MathOp::Add => {
-                return Ok(char::from_u32((i64::from(w) + x as u32 as i64) as u32)
+                Ok(char::from_u32((i64::from(w) + x as u32 as i64) as u32)
                     .unwrap_or_default()
                     .into())
             }
             (Atom::Char(w), Atom::Char(x)) if math == MathOp::Sub => {
-                return Ok((Num::from(w as u32) - Num::from(x as u32)).into())
+                Ok((Num::from(w as u32) - Num::from(x as u32)).into())
             }
-            _ => {}
+            _ if math == MathOp::Max => Ok(w.max(x).into()),
+            _ if math == MathOp::Min => Ok(w.min(x).into()),
+            _ => rt_error(
+                format!("{} {} {} is invalid", w.type_name(), per, x.type_name()),
+                span,
+            ),
         },
-        Pervasive::Comparison(comp) => {
-            return Ok(match comp {
-                ComparisonOp::Equal => w == x,
-                ComparisonOp::NotEqual => w != x,
-                ComparisonOp::Less => w < x,
-                ComparisonOp::LessOrEqual => w <= x,
-                ComparisonOp::Greater => w > x,
-                ComparisonOp::GreaterOrEqual => w >= x,
-            }
-            .into())
+        Pervasive::Comparison(comp) => Ok(match comp {
+            ComparisonOp::Equal => w == x,
+            ComparisonOp::NotEqual => w != x,
+            ComparisonOp::Less => w < x,
+            ComparisonOp::LessOrEqual => w <= x,
+            ComparisonOp::Greater => w > x,
+            ComparisonOp::GreaterOrEqual => w >= x,
         }
+        .into()),
     }
-    rt_error(
-        format!("{} {} {} is invalid", w.type_name(), per, x.type_name()),
-        span,
-    )
 }

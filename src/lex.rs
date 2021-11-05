@@ -454,6 +454,7 @@ impl Lexer {
                 '‿' => self.token(TT::Undertie),
                 '\n' => self.token(TT::Newline),
                 '∞' => self.token(TT::Num(Num::INFINIFY, "∞".into())),
+                '「' => self.token(MathOp::Max),
                 '"' => self.string()?,
                 '\'' => {
                     if let Some(c) = self.char_literal('\'', CompileError::UnclosedChar)? {
@@ -525,6 +526,8 @@ impl Lexer {
                 self.comment('*', true);
                 return Ok(());
             }
+            '^' => MathOp::Max.into(),
+            '_' => MathOp::Min.into(),
             'x' => MathOp::Mul.into(),
             '/' => MathOp::Div.into(),
             '<' => ComparisonOp::LessOrEqual.into(),

@@ -19,6 +19,8 @@
 | ≤     |            | less than or equal to     | <                |
 | >     |            | greater than              |                  |
 | ≥     |            | greater than  or equal to | >                |
+| ⎡     | ceiling    | max                       | ^                |
+| ⎣     | floor      | min                       | _                |
 
 # Rune Operators
 
@@ -75,9 +77,7 @@
 - Sort
 - Grade
 - Not
-- Join
 - Absolute Value
-- Length
 - Depth
 - First
 - Throw
@@ -85,14 +85,11 @@
 # Unassigned Binary Operators
 - Match
 - Modulus
-- Join To
 - Index
 - Select
 - Identity
 - Couple
 - Classify
-- Min
-- Max
 
 # Unassigned Unary Modifiers
 - Constant

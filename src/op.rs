@@ -148,7 +148,15 @@ macro_rules! op {
     }
 }
 
-op!(MathOp, (Add, '+'), (Sub, '-'), (Mul, '×'), (Div, '÷'),);
+op!(
+    MathOp,
+    (Add, '+'),
+    (Sub, '-'),
+    (Mul, '×'),
+    (Div, '÷'),
+    (Max, '⎡'),
+    (Min, '⎣'),
+);
 
 op!(
     ComparisonOp,

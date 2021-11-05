@@ -212,25 +212,6 @@ impl fmt::Display for Array {
                 write!(f, "...")?;
             }
             write!(f, "\"")
-        } else if len >= 2
-            && self
-                .iter()
-                .take(len)
-                .all(|val| matches!(val.as_deref(), Ok(Val::Atom(_))))
-        {
-            for (i, val) in self.iter().take(len).enumerate() {
-                if i > 0 {
-                    write!(f, "‿")?;
-                }
-                match val {
-                    Ok(val) => val.fmt(f)?,
-                    Err(_) => write!(f, "<error>")?,
-                }
-            }
-            if self.len().is_none() {
-                write!(f, "...")?;
-            }
-            Ok(())
         } else {
             write!(f, "⟨")?;
             for (i, val) in self.iter().take(len).enumerate() {
