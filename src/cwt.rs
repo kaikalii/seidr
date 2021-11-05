@@ -148,7 +148,7 @@ impl ToValNode for OpTreeExpr {
     }
 }
 
-impl<X> ToValNode for Un<OpExpr, X>
+impl<X> ToValNode for Un<ModTreeExpr, X>
 where
     X: ToValNode,
 {
@@ -159,7 +159,7 @@ where
     }
 }
 
-impl<W, X> ToValNode for Bin<OpExpr, W, X>
+impl<W, X> ToValNode for Bin<ModTreeExpr, W, X>
 where
     W: ToValNode,
     X: ToValNode,
@@ -172,10 +172,12 @@ where
     }
 }
 
-impl ToValNode for OpExpr {
+impl ToValNode for ModTreeExpr {
     fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
         match self {
-            OpExpr::Op(op) => (**op).into(),
+            ModTreeExpr::Op(op) => (**op).into(),
+            ModTreeExpr::Un(expr) => todo!(),
+            ModTreeExpr::Bin(expr) => todo!(),
         }
     }
 }

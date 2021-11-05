@@ -139,14 +139,14 @@ impl Parser {
     }
     #[allow(irrefutable_let_patterns)]
     fn op_tree_expr(&mut self) -> CompileResult<Option<OpTreeExpr>> {
-        Ok(Some(if let Some(op) = self.op_expr()? {
+        Ok(Some(if let Some(op) = self.mod_tree_expr()? {
             // Unary
             let mut x = self
                 .expect_with("expression", Self::op_tree_expr)?
                 .unparen();
             // Replace sub number with negative number
             if let OpTreeExpr::Val(ValExpr::Num(n)) = &x {
-                if let OpExpr::Op(op) = &op {
+                if let ModTreeExpr::Op(op) = &op {
                     if let Op::Pervasive(Pervasive::Math(MathOp::Sub)) = **op {
                         return Ok(Some(OpTreeExpr::Val(ValExpr::Num(n.clone().map(|n| -n)))));
                     }
@@ -155,7 +155,7 @@ impl Parser {
             OpTreeExpr::Un(Un { op, x }.into())
         } else if let Some(w) = self.val_expr()? {
             // Binary or Val
-            if let Some(op) = self.op_expr()? {
+            if let Some(op) = self.mod_tree_expr()? {
                 let x = self
                     .expect_with("expression", Self::op_tree_expr)?
                     .unparen();
@@ -223,9 +223,9 @@ impl Parser {
         }))
     }
     #[allow(clippy::manual_map)]
-    fn op_expr(&mut self) -> CompileResult<Option<OpExpr>> {
+    fn mod_tree_expr(&mut self) -> CompileResult<Option<ModTreeExpr>> {
         Ok(if let Some(op) = self.match_to(op) {
-            Some(OpExpr::Op(op))
+            Some(ModTreeExpr::Op(op))
         } else {
             None
         })
@@ -259,6 +259,22 @@ fn string(tt: &TT) -> Option<Rc<str>> {
 fn op(tt: &TT) -> Option<Op> {
     if let TT::Op(op) = tt {
         Some(*op)
+    } else {
+        None
+    }
+}
+
+fn un_mod(tt: &TT) -> Option<RuneUnMod> {
+    if let TT::UnMod(m) = tt {
+        Some(*m)
+    } else {
+        None
+    }
+}
+
+fn bin_mod(tt: &TT) -> Option<RuneBinMod> {
+    if let TT::BinMod(m) = tt {
+        Some(*m)
     } else {
         None
     }
