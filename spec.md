@@ -29,7 +29,7 @@
 | ᚨ     |         |           | a                | ansuz  | god           |
 | ᚲ     |         |           | k                | kaunan | ulcer/torch   |
 | ᚷ     |         |           | g                | gebo   | gift          |
-| ᚾ     |         |           | n                | naudiz | need          |
+| ᚾ     |         | take      | n                | naudiz | need          |
 | ᛁ     |         |           | i                | isaz   | ice           |
 | ᛃ     | reverse | rotate    | j                | jera   | year/harvest  |
 | ᛇ     |         |           | A                | iwaz   | yew-tree      |
@@ -85,7 +85,6 @@
 # Unassigned Binary Operators
 - Match
 - Modulus
-- Take
 - Join To
 - Index
 - Select

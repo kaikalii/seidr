@@ -74,6 +74,7 @@ impl Eval for BinVal {
                 RuneOp::Laguz => {
                     Ok(Array::JoinTo(w.into_array().into(), x.into_array().into()).into())
                 }
+                RuneOp::Naudiz => Ok(take(w, x, &span)?.into()),
                 rune => rt_error(format!("{} has no binary form", rune), &span),
             },
             val => Ok(val),
@@ -179,6 +180,20 @@ fn replicate(w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
         ),
         (Val::Atom(w), x) => rt_error(
             format!("{} cannot be used to replicate", w.type_name()),
+            span,
+        ),
+    }
+}
+
+pub fn take(w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
+    match (w, x) {
+        (Val::Atom(Atom::Num(n)), Val::Array(arr)) => Ok(Array::Take(arr.into(), i64::from(n))),
+        (w, x) => rt_error(
+            format!(
+                "Attempted to take {} items from {}",
+                w.type_name(),
+                x.type_name()
+            ),
             span,
         ),
     }

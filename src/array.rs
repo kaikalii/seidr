@@ -24,6 +24,7 @@ pub enum Array {
     Product(RcView<Self>, Items),
     JoinTo(Box<Self>, Box<Self>),
     Pervaded(Box<PervadedArray>),
+    Take(Box<Self>, i64),
 }
 
 impl Array {
@@ -60,6 +61,12 @@ impl Array {
             Array::Product(arrs, _) => arrs[0].len()?,
             Array::JoinTo(a, b) => a.len().zip(b.len()).map(|(a, b)| a + b)?,
             Array::Pervaded(pa) => pa.len()?,
+            Array::Take(arr, n) => match (arr.len(), *n >= 0) {
+                (Some(len), true) => len.min(*n as usize),
+                (Some(len), false) => len.min(n.abs() as usize),
+                (None, true) => *n as usize,
+                (None, false) => 0,
+            },
         })
     }
     pub fn get(&self, index: usize) -> RuntimeResult<Option<Cow<Val>>> {
@@ -130,6 +137,21 @@ impl Array {
                 }
             }
             Array::Pervaded(pa) => pa.get(index)?.map(Cow::Owned),
+            Array::Take(arr, n) => {
+                if *n >= 0 {
+                    let n = *n as usize;
+                    if index < n {
+                        arr.get(index)?
+                    } else {
+                        None
+                    }
+                } else if let Some(len) = arr.len() {
+                    let n = n.abs() as usize;
+                    arr.get(len - n + index)?
+                } else {
+                    None
+                }
+            }
         })
     }
     pub fn iter(&self) -> impl Iterator<Item = RuntimeResult<Cow<Val>>> {

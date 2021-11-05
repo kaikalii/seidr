@@ -73,6 +73,12 @@ pub enum Val {
 }
 
 impl Val {
+    pub const fn type_name(&self) -> &'static str {
+        match self {
+            Val::Array(_) => "array",
+            Val::Atom(atom) => atom.type_name(),
+        }
+    }
     pub fn into_array(self) -> Array {
         match self {
             Val::Array(arr) => arr,
