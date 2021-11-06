@@ -148,6 +148,7 @@ pub enum TT {
     CloseAngle,
     // Misc
     Comma,
+    Whitespace,
     Newline,
     Undertie,
     SuperscriptMinus,
@@ -221,6 +222,7 @@ impl fmt::Display for TT {
             TT::Undertie => '‿'.fmt(f),
             TT::SuperscriptMinus => '‾'.fmt(f),
             TT::Comment(comment) => comment.fmt(f),
+            TT::Whitespace => ' '.fmt(f),
         }
     }
 }
@@ -483,6 +485,7 @@ impl Lexer {
                 }
                 c if c.is_whitespace() => {
                     while self.next_if(|c| c.is_whitespace() && c == '\n').is_some() {}
+                    self.token(TT::Whitespace);
                 }
                 c => {
                     if let Some(op) = Op::from_glyph(c) {

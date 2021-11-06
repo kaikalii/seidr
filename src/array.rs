@@ -216,7 +216,7 @@ impl fmt::Display for Array {
             write!(f, "⟨")?;
             for (i, val) in self.iter().take(len).enumerate() {
                 if i > 0 {
-                    write!(f, ", ")?;
+                    write!(f, " ")?;
                 }
                 match val {
                     Ok(val) => val.fmt(f)?,

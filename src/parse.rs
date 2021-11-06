@@ -42,6 +42,15 @@ struct Parser {
 }
 
 impl Parser {
+    fn increment(&mut self) {
+        self.curr += 1;
+        while let Some(Token {
+            tt: TT::Whitespace, ..
+        }) = self.peek()
+        {
+            self.curr += 1;
+        }
+    }
     fn match_to<F, T>(&mut self, f: F) -> Option<Sp<T>>
     where
         F: FnOnce(&TT) -> Option<T>,
@@ -49,7 +58,7 @@ impl Parser {
         let token = self.tokens.get(self.curr)?;
         let val = f(&token.tt)?;
         let span = token.span.clone();
-        self.curr += 1;
+        self.increment();
         Some(span.sp(val))
     }
     fn match_if<F>(&mut self, f: F) -> Option<Token>
@@ -61,7 +70,7 @@ impl Parser {
             return None;
         }
         let token = token.clone();
-        self.curr += 1;
+        self.increment();
         Some(token)
     }
     fn peek(&self) -> Option<&Token> {
@@ -69,7 +78,7 @@ impl Parser {
     }
     fn next(&mut self) -> Option<Token> {
         let token = self.tokens.get(self.curr).cloned()?;
-        self.curr += 1;
+        self.increment();
         Some(token)
     }
     fn match_token(&mut self, token_type: TT) -> Option<Token> {
