@@ -78,10 +78,12 @@ impl PervadedArray {
                     return Ok(None);
                 };
                 match x {
-                    Val::Atom(x) => bin_pervade_atom(self.op.per, *w, x, &self.op.span).map(Some),
+                    Val::Atom(x) => {
+                        bin_pervade_atom(self.op.per, w.clone(), x, &self.op.span).map(Some)
+                    }
                     Val::Array(x) => Ok(Some(
                         Array::from(PervadedArray {
-                            form: PervadedArrayForm::BinLeft(*w, x),
+                            form: PervadedArrayForm::BinLeft(w.clone(), x),
                             op: self.op.clone(),
                         })
                         .into(),
@@ -95,10 +97,12 @@ impl PervadedArray {
                     return Ok(None);
                 };
                 match w {
-                    Val::Atom(w) => bin_pervade_atom(self.op.per, w, *x, &self.op.span).map(Some),
+                    Val::Atom(w) => {
+                        bin_pervade_atom(self.op.per, w, x.clone(), &self.op.span).map(Some)
+                    }
                     Val::Array(w) => Ok(Some(
                         Array::from(PervadedArray {
-                            form: PervadedArrayForm::BinRight(w, *x),
+                            form: PervadedArrayForm::BinRight(w, x.clone()),
                             op: self.op.clone(),
                         })
                         .into(),
@@ -162,7 +166,7 @@ pub fn un_pervade_atom(per: Pervasive, x: Atom, span: &Span) -> RuntimeResult {
         (Pervasive::Math(MathOp::Mod), Atom::Num(n)) => Ok(n.abs().into()),
         (Pervasive::Math(MathOp::Max), Atom::Num(n)) => Ok(n.ceil().into()),
         (Pervasive::Math(MathOp::Min), Atom::Num(n)) => Ok(n.floor().into()),
-        _ => rt_error(format!("{} {} is invalid", per, x.type_name()), span),
+        (per, x) => rt_error(format!("{} {} is invalid", per, x.type_name()), span),
     }
 }
 
@@ -202,9 +206,9 @@ pub fn bin_pervade_atom(per: Pervasive, w: Atom, x: Atom, span: &Span) -> Runtim
             (Atom::Char(w), Atom::Char(x)) if math == MathOp::Sub => {
                 Ok((Num::from(w as u32) - Num::from(x as u32)).into())
             }
-            _ if math == MathOp::Max => Ok(w.max(x).into()),
-            _ if math == MathOp::Min => Ok(w.min(x).into()),
-            _ => rt_error(
+            (w, x) if math == MathOp::Max => Ok(w.max(x).into()),
+            (w, x) if math == MathOp::Min => Ok(w.min(x).into()),
+            (w, x) => rt_error(
                 format!("{} {} {} is invalid", w.type_name(), per, x.type_name()),
                 span,
             ),

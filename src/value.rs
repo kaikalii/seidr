@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::{array::Array, num::Num, op::Op, pervade::PervadedArray};
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Atom {
     Num(Num),
     Char(char),
