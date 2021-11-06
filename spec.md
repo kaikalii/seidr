@@ -29,8 +29,8 @@
 | ᚠ     |                | replicate | f                            | fehu   | cattle/wealth |
 | ᚢ     |                |           | u                            | uruz   | strength      |
 | ᚨ     |                |           | a                            | ansuz  | god           |
-| ᚲ     | identity       | identity  | k                            | kaunan | ulcer/torch   |
-| ᚷ     |                |           | g                            | gebo   | gift          |
+| ᚲ     | identity       | right     | k                            | kaunan | torch         |
+| ᚷ     |                | drop      | g                            | gebo   | gift          |
 | ᚾ     |                | take      | n                            | naudiz | need          |
 | ᛁ     | absolute value | modulus   | \| (vertical bar, unescaped) | isaz   | ice           |
 | ᛃ     | reverse        | rotate    | j                            | jera   | year/harvest  |

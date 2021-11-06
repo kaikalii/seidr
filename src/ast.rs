@@ -249,7 +249,7 @@ impl Format for ValExpr {
             ValExpr::Num(n) => {
                 let s = n.span.as_string();
                 if s.contains('e') || s.contains('E') {
-                    write!(f, "{}", s)
+                    write!(f, "{}", s.replace('-', "‾"))
                 } else {
                     let n = **n;
                     if n < Num::Int(0) {

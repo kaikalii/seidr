@@ -179,7 +179,7 @@ impl fmt::Display for TT {
         match self {
             TT::Num(n, s) => {
                 if s.contains('e') || s.contains('E') {
-                    s.fmt(f)
+                    dbg!(s.replace('-', "‾")).fmt(f)
                 } else {
                     let n = n.to_string();
                     let mut parts = n.split('.');
@@ -591,7 +591,7 @@ impl Lexer {
         }
         if let Some(e) = self.next_if(|c| ['e', 'E'].contains(&c)) {
             s.push(e);
-            if let Some(sign) = self.next_if(|c| ['+', '-'].contains(&c)) {
+            if let Some(sign) = self.next_if(|c| ['+', '-', '‾'].contains(&c)) {
                 s.push(sign);
             }
             while let Some(c) = self.next_if(ident_body_char) {
@@ -601,8 +601,8 @@ impl Lexer {
                 return self.error(CompileError::InvalidNumber(s));
             }
         }
-        let no_underscores = s.replace('_', "");
-        match no_underscores.parse::<Num>() {
+        let normalized = s.replace('_', "").replace('‾', "-");
+        match normalized.parse::<Num>() {
             Ok(num) if neg => self.token(TT::Num(-num, s.into())),
             Ok(num) => self.token(TT::Num(num, s.into())),
             Err(_) => return self.error(CompileError::InvalidNumber(s)),
