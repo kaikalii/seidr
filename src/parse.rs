@@ -107,6 +107,9 @@ impl Parser {
         let mut items = Vec::new();
         while let Some(item) = self.item()? {
             items.push(item);
+            if self.match_token(TT::Comma).is_none() {
+                break;
+            }
         }
         Ok(items)
     }
@@ -114,7 +117,10 @@ impl Parser {
         let comment = self.comment();
         Ok(Some(if let Some(expr) = self.op_expr()? {
             self.match_token(TT::Newline);
-            Item::Expr(ExprItem { expr, comment })
+            Item::Expr(ExprItem {
+                expr: expr.unparen(),
+                comment,
+            })
         } else if let Some(comment) = comment {
             self.match_token(TT::Newline);
             Item::Comment(comment)
@@ -134,59 +140,86 @@ impl Parser {
     fn comment(&mut self) -> Option<Comment> {
         self.match_to(comment).map(|comment| comment.data)
     }
-    fn exprs(&mut self) -> CompileResult<Vec<OpExpr>> {
-        let mut exprs = Vec::new();
-        while let Some(expr) = self.op_expr()? {
-            exprs.push(expr.unparen());
-        }
-        Ok(exprs)
-    }
     fn op_expr(&mut self) -> CompileResult<Option<OpExpr>> {
-        Ok(Some(if let Some(op) = self.mod_expr()? {
-            // Unary
-            let mut x = self
-                .expect_with(format!("{}'s x argument", op), Self::op_expr)?
-                .unparen();
-            // Replace sub number with negative number
-            if let OpExpr::Val(ValExpr::Num(n)) = &x {
-                if let ModExpr::Op(op) = &op {
-                    if let Op::Pervasive(Pervasive::Math(MathOp::Sub)) = **op {
-                        return Ok(Some(OpExpr::Val(ValExpr::Num(n.clone().map(|n| -n)))));
+        Ok(match self.mod_or_val_expr()? {
+            // val, bin, or fork
+            Some(ModOrValExpr::Val(w)) => {
+                // println!("first is val {:?}", w);
+                Some(match self.mod_expr()? {
+                    // bin or fork
+                    Some(op) => {
+                        // println!("second is op {:?}", op);
+                        let x = self
+                            .expect_with(
+                                format!("right tine or {}'s x argument", op),
+                                Self::op_expr,
+                            )?
+                            .unparen();
+                        match x {
+                            // fork
+                            OpExpr::Op(x) => {
+                                // println!("third is op {:?}", x);
+                                OpExpr::Fork(
+                                    ForkExpr {
+                                        left: ModOrValExpr::Val(w),
+                                        center: op,
+                                        right: x,
+                                    }
+                                    .into(),
+                                )
+                            }
+                            // bin
+                            x => {
+                                // println!("third is expr {:?}", x);
+                                OpExpr::Bin(BinOpExpr { op, w, x }.into())
+                            }
+                        }
                     }
-                }
+                    // val
+                    None => {
+                        // println!("no second");
+                        OpExpr::Val(w)
+                    }
+                })
             }
-            OpExpr::Un(UnOpExpr { op, x }.into())
-        } else if let Some(w) = self.val_expr()? {
-            // Binary or Val
-            if let Some(op) = self.mod_expr()? {
-                let x = self
-                    .expect_with(format!("{} x argument", op), Self::op_expr)?
-                    .unparen();
-                OpExpr::Bin(BinOpExpr { op, w, x }.into())
-            } else {
-                OpExpr::Val(w)
-            }
-        } else {
-            return Ok(None);
-        }))
+            // op, un, atop, or fork
+            Some(ModOrValExpr::Mod(op)) => Some(match self.op_expr()?.map(OpExpr::unparen) {
+                // atop
+                Some(OpExpr::Op(g)) => OpExpr::Atop(AtopExpr { f: op, g }.into()),
+                // fork
+                Some(OpExpr::Atop(atop)) => OpExpr::Fork(
+                    ForkExpr {
+                        left: ModOrValExpr::Mod(op),
+                        center: atop.f,
+                        right: atop.g,
+                    }
+                    .into(),
+                ),
+                // un
+                Some(x) => OpExpr::Un(UnOpExpr { op, x }.into()),
+                // op
+                None => OpExpr::Op(op),
+            }),
+            None => None,
+        })
     }
     fn mod_expr(&mut self) -> CompileResult<Option<ModExpr>> {
-        Ok(Some(if let Some(m) = self.match_to(un_mod) {
+        Ok(if let Some(m) = self.match_to(un_mod) {
             // Unary
-            let mut f = self.expect_with(format!("{} f argument", m), Self::mod_arg)?;
-            ModExpr::Un(
+            let mut f = self.expect_with(format!("{} f argument", m), Self::mod_or_val_expr)?;
+            Some(ModExpr::Un(
                 UnModExpr {
                     m: *m,
                     span: m.span,
                     f,
                 }
                 .into(),
-            )
+            ))
         } else if let Some(m) = self.match_to(bin_mod) {
             // Binary
-            let mut f = self.expect_with(format!("{}'s f argument", m), Self::mod_arg)?;
-            let mut g = self.expect_with(format!("{}'s g argument", m), Self::mod_arg)?;
-            ModExpr::Bin(
+            let mut f = self.expect_with(format!("{}'s f argument", m), Self::mod_or_val_expr)?;
+            let mut g = self.expect_with(format!("{}'s g argument", m), Self::mod_or_val_expr)?;
+            Some(ModExpr::Bin(
                 BinModExpr {
                     m: *m,
                     span: m.span,
@@ -194,18 +227,16 @@ impl Parser {
                     g,
                 }
                 .into(),
-            )
-        } else if let Some(op) = self.match_to(op) {
-            ModExpr::Op(op)
+            ))
         } else {
-            return Ok(None);
-        }))
+            self.match_to(op).map(ModExpr::Op)
+        })
     }
-    fn mod_arg(&mut self) -> CompileResult<Option<ModExpr>> {
+    fn mod_or_val_expr(&mut self) -> CompileResult<Option<ModOrValExpr>> {
         Ok(if let Some(expr) = self.mod_expr()? {
-            Some(expr)
+            Some(ModOrValExpr::Mod(expr))
         } else {
-            self.val_expr()?.map(ModExpr::Val)
+            self.val_expr()?.map(ModOrValExpr::Val)
         })
     }
     fn val_expr(&mut self) -> CompileResult<Option<ValExpr>> {
@@ -238,7 +269,7 @@ impl Parser {
         } else if let Some(s) = self.match_to(string) {
             ValExpr::String(s)
         } else if self.match_token(TT::OpenParen).is_some() {
-            let expr = self.expect_with("expression", Self::op_expr)?;
+            let expr = self.expect_with("expression", Self::op_expr)?.unparen();
             self.expect_token(TT::CloseParen)?;
             match expr {
                 OpExpr::Val(expr) => expr,

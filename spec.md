@@ -9,7 +9,7 @@
 
 | glyph | unary      | binary                    | escape character |
 | ----- | ---------- | ------------------------- | ---------------- |
-| +     | no-op      | add                       |                  |
+| +     | identity   | add                       |                  |
 | -     | negate     | subtract                  |                  |
 | ×     | sign       | multiply                  | x                |
 | ÷     | reciprocal | divide                    | /                |

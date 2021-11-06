@@ -1,0 +1,5 @@
+- Fix train parsing
+- Add function values
+- Implement rest of ops and modifiers
+- Add functions
+- Add variables
