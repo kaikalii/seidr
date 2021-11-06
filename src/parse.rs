@@ -150,96 +150,57 @@ impl Parser {
         self.match_to(comment).map(|comment| comment.data)
     }
     fn op_expr(&mut self) -> CompileResult<Option<OpExpr>> {
-        Ok(match self.mod_or_val_expr()? {
-            // val, bin, or fork
-            Some(ModOrValExpr::Val(w)) => {
-                // println!("first is val {:?}", w);
-                Some(match self.mod_expr()? {
-                    // bin or fork
-                    Some(op) => {
-                        // println!("second is op {:?}", op);
-                        let x = self
-                            .expect_with(
-                                format!("right tine or {}'s x argument", op),
-                                Self::op_expr,
-                            )?
-                            .unparen();
-                        match x {
-                            // fork
-                            OpExpr::Op(x) => {
-                                // println!("third is op {:?}", x);
-                                OpExpr::Fork(
-                                    ForkExpr {
-                                        left: ModOrValExpr::Val(w),
-                                        center: op,
-                                        right: x,
-                                    }
-                                    .into(),
-                                )
-                            }
-                            // bin
-                            x => {
-                                // println!("third is expr {:?}", x);
-                                OpExpr::Bin(BinOpExpr { op, w, x }.into())
-                            }
-                        }
-                    }
-                    // val
-                    None => {
-                        // println!("no second");
-                        OpExpr::Val(w)
-                    }
-                })
-            }
-            // op, un, atop, or fork
-            Some(ModOrValExpr::Mod(op)) => Some(match self.op_expr()?.map(OpExpr::unparen) {
-                // atop
-                Some(OpExpr::Op(g)) => OpExpr::Atop(AtopExpr { f: op, g }.into()),
-                // fork
-                Some(OpExpr::Atop(atop)) => OpExpr::Fork(
-                    ForkExpr {
-                        left: ModOrValExpr::Mod(op),
-                        center: atop.f,
-                        right: atop.g,
-                    }
-                    .into(),
-                ),
-                // un
-                Some(x) => OpExpr::Un(UnOpExpr { op, x }.into()),
-                // op
-                None => OpExpr::Op(op),
+        Ok(match self.val_expr()? {
+            // val or bin
+            Some(w) => Some(match self.mod_expr()? {
+                Some(op) => {
+                    let x = self.expect_with(format!("{}'s x argument", op), Self::op_expr)?;
+                    OpExpr::Bin(BinOpExpr { op, w, x }.into())
+                }
+                None => OpExpr::Val(w),
             }),
-            None => None,
+            // un or none
+            None => match self.mod_expr()? {
+                Some(op) => {
+                    let x = self.expect_with(format!("{}'s x argument", op), Self::op_expr)?;
+                    Some(OpExpr::Un(UnOpExpr { op, x }.into()))
+                }
+                None => None,
+            },
         })
     }
     fn mod_expr(&mut self) -> CompileResult<Option<ModExpr>> {
-        Ok(if let Some(m) = self.match_to(un_mod) {
-            // Unary
-            let mut f = self.expect_with(format!("{} f argument", m), Self::mod_or_val_expr)?;
-            Some(ModExpr::Un(
+        // Op
+        if let Some(op) = self.match_to(op) {
+            return Ok(Some(ModExpr::Op(op)));
+        }
+        // Un
+        if let Some(m) = self.match_to(un_mod) {
+            let f = self.expect_with(format!("{}'s f argument", m), Self::mod_or_val_expr)?;
+            return Ok(Some(ModExpr::Un(
                 UnModExpr {
                     m: *m,
-                    span: m.span,
                     f,
+                    span: m.span,
                 }
                 .into(),
-            ))
-        } else if let Some(m) = self.match_to(bin_mod) {
-            // Binary
-            let mut f = self.expect_with(format!("{}'s f argument", m), Self::mod_or_val_expr)?;
-            let mut g = self.expect_with(format!("{}'s g argument", m), Self::mod_or_val_expr)?;
-            Some(ModExpr::Bin(
+            )));
+        }
+        // Bin
+        if let Some(m) = self.match_to(bin_mod) {
+            let f = self.expect_with(format!("{}'s f argument", m), Self::mod_or_val_expr)?;
+            let g = self.expect_with(format!("{}'s g argument", m), Self::mod_or_val_expr)?;
+            return Ok(Some(ModExpr::Bin(
                 BinModExpr {
                     m: *m,
-                    span: m.span,
                     f,
                     g,
+                    span: m.span,
                 }
                 .into(),
-            ))
-        } else {
-            self.match_to(op).map(ModExpr::Op)
-        })
+            )));
+        }
+        Ok(None)
     }
     fn mod_or_val_expr(&mut self) -> CompileResult<Option<ModOrValExpr>> {
         Ok(if let Some(expr) = self.mod_expr()? {

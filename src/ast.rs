@@ -113,8 +113,6 @@ pub enum OpExpr {
     Val(ValExpr),
     Un(Box<UnOpExpr>),
     Bin(Box<BinOpExpr>),
-    Atop(Box<AtopExpr>),
-    Fork(Box<ForkExpr>),
 }
 
 impl OpExpr {
@@ -124,17 +122,11 @@ impl OpExpr {
             OpExpr::Op(expr) => expr.span(),
             OpExpr::Un(expr) => expr.op.span(),
             OpExpr::Bin(expr) => expr.op.span(),
-            OpExpr::Atop(expr) => expr.f.span(),
-            OpExpr::Fork(expr) => expr.center.span(),
         }
     }
     pub fn unparen(self) -> Self {
         match self {
-            OpExpr::Val(ValExpr::Parened(expr))
-                if !matches!(&*expr, OpExpr::Atop(_) | OpExpr::Fork(_)) =>
-            {
-                *expr
-            }
+            OpExpr::Val(ValExpr::Parened(expr)) => *expr,
             expr => expr,
         }
     }
@@ -147,8 +139,6 @@ impl fmt::Debug for OpExpr {
             OpExpr::Op(op) => op.fmt(f),
             OpExpr::Un(expr) => expr.fmt(f),
             OpExpr::Bin(expr) => expr.fmt(f),
-            OpExpr::Atop(expr) => expr.fmt(f),
-            OpExpr::Fork(expr) => expr.fmt(f),
         }
     }
 }
@@ -160,8 +150,6 @@ impl Format for OpExpr {
             OpExpr::Op(op) => op.format(f),
             OpExpr::Un(expr) => expr.format(f),
             OpExpr::Bin(expr) => expr.format(f),
-            OpExpr::Atop(expr) => expr.format(f),
-            OpExpr::Fork(expr) => expr.format(f),
         }
     }
 }
@@ -245,6 +233,50 @@ impl Format for ValExpr {
     }
 }
 
+pub enum ModExpr {
+    Op(Sp<Op>),
+    Un(Box<UnModExpr>),
+    Bin(Box<BinModExpr>),
+    Train(Box<TrainExpr>),
+}
+
+impl ModExpr {
+    pub fn span(&self) -> &Span {
+        match self {
+            ModExpr::Op(op) => &op.span,
+            ModExpr::Un(expr) => &expr.span,
+            ModExpr::Bin(expr) => &expr.span,
+            ModExpr::Train(expr) => expr.span(),
+        }
+    }
+}
+
+impl fmt::Debug for ModExpr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ModExpr::Op(op) => op.fmt(f),
+            ModExpr::Un(expr) => expr.fmt(f),
+            ModExpr::Bin(expr) => expr.fmt(f),
+            ModExpr::Train(expr) => expr.fmt(f),
+        }
+    }
+}
+
+impl Format for ModExpr {
+    fn format(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            ModExpr::Op(op) => op.format(f),
+            ModExpr::Un(expr) => expr.format(f),
+            ModExpr::Bin(expr) => expr.format(f),
+            ModExpr::Train(expr) => {
+                write!(f, "(")?;
+                expr.format(f)?;
+                write!(f, ")")
+            }
+        }
+    }
+}
+
 pub struct UnOpExpr {
     pub op: ModExpr,
     pub x: OpExpr,
@@ -285,6 +317,38 @@ impl Format for BinOpExpr {
         self.op.format(f)?;
         write!(f, " ")?;
         self.x.format(f)
+    }
+}
+
+pub enum TrainExpr {
+    Atop(AtopExpr),
+    Fork(ForkExpr),
+}
+
+impl TrainExpr {
+    pub fn span(&self) -> &Span {
+        match self {
+            TrainExpr::Atop(expr) => expr.f.span(),
+            TrainExpr::Fork(expr) => expr.center.span(),
+        }
+    }
+}
+
+impl fmt::Debug for TrainExpr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TrainExpr::Atop(expr) => expr.fmt(f),
+            TrainExpr::Fork(expr) => expr.fmt(f),
+        }
+    }
+}
+
+impl Format for TrainExpr {
+    fn format(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            TrainExpr::Atop(expr) => expr.format(f),
+            TrainExpr::Fork(expr) => expr.format(f),
+        }
     }
 }
 
@@ -354,50 +418,6 @@ impl Format for ModOrValExpr {
         match self {
             ModOrValExpr::Val(expr) => expr.format(f),
             ModOrValExpr::Mod(expr) => expr.format(f),
-        }
-    }
-}
-
-pub enum ModExpr {
-    Op(Sp<Op>),
-    Parened(Box<OpExpr>),
-    Un(Box<UnModExpr>),
-    Bin(Box<BinModExpr>),
-}
-
-impl ModExpr {
-    pub fn span(&self) -> &Span {
-        match self {
-            ModExpr::Op(op) => &op.span,
-            ModExpr::Parened(expr) => expr.span(),
-            ModExpr::Un(expr) => &expr.span,
-            ModExpr::Bin(expr) => &expr.span,
-        }
-    }
-}
-
-impl fmt::Debug for ModExpr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ModExpr::Op(op) => op.fmt(f),
-            ModExpr::Parened(expr) => expr.fmt(f),
-            ModExpr::Un(expr) => expr.fmt(f),
-            ModExpr::Bin(expr) => expr.fmt(f),
-        }
-    }
-}
-
-impl Format for ModExpr {
-    fn format(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            ModExpr::Op(op) => op.format(f),
-            ModExpr::Parened(expr) => {
-                write!(f, "(")?;
-                expr.format(f)?;
-                write!(f, ")")
-            }
-            ModExpr::Un(expr) => expr.format(f),
-            ModExpr::Bin(expr) => expr.format(f),
         }
     }
 }
