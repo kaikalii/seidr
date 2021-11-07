@@ -15,6 +15,8 @@ pub enum ValNode {
     Un(Rc<UnValNode>),
     Bin(Rc<BinValNode>),
     Array(Rc<[Self]>),
+    Atop(Box<Self>, Box<Self>),
+    Fork(Box<Self>, Box<Self>, Box<Self>),
 }
 
 pub struct UnValNode {
@@ -226,27 +228,16 @@ impl ToValNode for TrainExpr {
 
 impl ToValNode for AtopExpr {
     fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
-        ValNode::Un(
-            UnValNode {
-                op: self.f.to_val(builder),
-                x: self.g.to_val(builder),
-                span: self.f.span().clone(),
-            }
-            .into(),
-        )
+        ValNode::Atop(self.f.to_val(builder).into(), self.g.to_val(builder).into())
     }
 }
 
 impl ToValNode for ForkExpr {
     fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
-        ValNode::Bin(
-            BinValNode {
-                op: self.center.to_val(builder),
-                w: self.left.to_val(builder),
-                x: self.right.to_val(builder),
-                span: self.center.span().clone(),
-            }
-            .into(),
+        ValNode::Fork(
+            self.left.to_val(builder).into(),
+            self.center.to_val(builder).into(),
+            self.right.to_val(builder).into(),
         )
     }
 }

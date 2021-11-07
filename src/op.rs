@@ -1,5 +1,42 @@
 use std::fmt;
 
+macro_rules! op {
+    ($name:ident, $(($variant:ident, $glyph:literal)),* $(,)?) => {
+        #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+        pub enum $name {
+            $($variant),*
+        }
+
+        impl $name {
+            pub const fn glyph(&self) -> char {
+                match self {
+                    $($name::$variant => $glyph,)*
+                }
+            }
+            pub const fn from_glyph(glyph: char) -> Option<Self> {
+                match glyph {
+                    $($glyph => Some($name::$variant),)*
+                    _ => None,
+                }
+            }
+        }
+
+        impl fmt::Debug for $name {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                write!(f, "{}", self)
+            }
+        }
+
+        impl fmt::Display for $name {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                match self {
+                    $($name::$variant => $glyph.fmt(f),)*
+                }
+            }
+        }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Op {
     Pervasive(Pervasive),
@@ -11,6 +48,44 @@ pub enum Pervasive {
     Math(MathOp),
     Comparison(ComparisonOp),
 }
+
+op!(
+    MathOp,
+    (Add, '+'),
+    (Sub, '-'),
+    (Mul, '×'),
+    (Div, '÷'),
+    (Max, '⎡'),
+    (Min, '⎣'),
+    (Mod, 'ᛁ')
+);
+
+op!(
+    ComparisonOp,
+    (Equal, '='),
+    (NotEqual, '≠'),
+    (Less, '<'),
+    (LessOrEqual, '≤'),
+    (Greater, '>'),
+    (GreaterOrEqual, '≥'),
+);
+
+op!(
+    RuneOp,
+    (Fehu, 'ᚠ'),
+    (Uruz, 'ᚢ'),
+    (Ansuz, 'ᚨ'),
+    (Kaunan, 'ᚲ'),
+    (Gebo, 'ᚷ'),
+    (Naudiz, 'ᚾ'),
+    (Jera, 'ᛃ'),
+    (Iwaz, 'ᛇ'),
+    (Perth, 'ᛈ'),
+    (Algiz, 'ᛉ'),
+    (Sowilo, 'ᛊ'),
+    (Tiwaz, 'ᛏ'),
+    (Laguz, 'ᛚ'),
+);
 
 impl<P> From<P> for Op
 where
@@ -110,81 +185,6 @@ impl fmt::Display for Pervasive {
         }
     }
 }
-
-macro_rules! op {
-    ($name:ident, $(($variant:ident, $glyph:literal)),* $(,)?) => {
-        #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-        pub enum $name {
-            $($variant),*
-        }
-
-        impl $name {
-            pub const fn glyph(&self) -> char {
-                match self {
-                    $($name::$variant => $glyph,)*
-                }
-            }
-            pub const fn from_glyph(glyph: char) -> Option<Self> {
-                match glyph {
-                    $($glyph => Some($name::$variant),)*
-                    _ => None,
-                }
-            }
-        }
-
-        impl fmt::Debug for $name {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                write!(f, "{}", self)
-            }
-        }
-
-        impl fmt::Display for $name {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                match self {
-                    $($name::$variant => $glyph.fmt(f),)*
-                }
-            }
-        }
-    }
-}
-
-op!(
-    MathOp,
-    (Add, '+'),
-    (Sub, '-'),
-    (Mul, '×'),
-    (Div, '÷'),
-    (Max, '⎡'),
-    (Min, '⎣'),
-    (Mod, 'ᛁ')
-);
-
-op!(
-    ComparisonOp,
-    (Equal, '='),
-    (NotEqual, '≠'),
-    (Less, '<'),
-    (LessOrEqual, '≤'),
-    (Greater, '>'),
-    (GreaterOrEqual, '≥'),
-);
-
-op!(
-    RuneOp,
-    (Fehu, 'ᚠ'),
-    (Uruz, 'ᚢ'),
-    (Ansuz, 'ᚨ'),
-    (Kaunan, 'ᚲ'),
-    (Gebo, 'ᚷ'),
-    (Naudiz, 'ᚾ'),
-    (Jera, 'ᛃ'),
-    (Iwaz, 'ᛇ'),
-    (Perth, 'ᛈ'),
-    (Algiz, 'ᛉ'),
-    (Sowilo, 'ᛊ'),
-    (Tiwaz, 'ᛏ'),
-    (Laguz, 'ᛚ'),
-);
 
 op!(
     RuneUnMod,

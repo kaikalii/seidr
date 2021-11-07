@@ -14,6 +14,7 @@ mod ast;
 mod cwt;
 mod error;
 mod eval;
+mod function;
 mod lex;
 mod num;
 mod op;

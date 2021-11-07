@@ -4,6 +4,7 @@ use crate::{
     array::Array,
     cwt::{BinValNode, UnValNode, ValNode},
     error::{RuntimeError, RuntimeResult},
+    function::{Atop, Fork, Function},
     lex::Span,
     op::*,
     pervade::{bin_pervade_val, un_pervade_val},
@@ -39,6 +40,23 @@ impl Eval for ValNode {
                     .collect::<RuntimeResult<_>>()?;
                 Ok(Val::from_iter(vals))
             }
+            ValNode::Atop(f, g) => Ok(Function::Atop(
+                Atop {
+                    f: f.eval(rt)?,
+                    g: g.eval(rt)?,
+                }
+                .into(),
+            )
+            .into()),
+            ValNode::Fork(left, center, right) => Ok(Function::Fork(
+                Fork {
+                    left: left.eval(rt)?,
+                    center: center.eval(rt)?,
+                    right: right.eval(rt)?,
+                }
+                .into(),
+            )
+            .into()),
         }
     }
 }
@@ -48,8 +66,10 @@ impl Eval for UnValNode {
         let op = self.op.eval(rt)?;
         let x = self.x.eval(rt)?;
         match op {
-            Val::Atom(Atom::Op(Op::Pervasive(per))) => un_pervade_val(per, x, &self.span),
-            Val::Atom(Atom::Op(Op::Rune(rune))) => match rune {
+            Val::Atom(Atom::Function(Function::Op(Op::Pervasive(per)))) => {
+                un_pervade_val(per, x, &self.span)
+            }
+            Val::Atom(Atom::Function(Function::Op(Op::Rune(rune)))) => match rune {
                 RuneOp::Jera => Ok(reverse(x, &self.span)),
                 RuneOp::Algiz => range(x, &self.span).map(Val::Array),
                 rune => rt_error(format!("{} has no unary form", rune), &self.span),
@@ -65,8 +85,10 @@ impl Eval for BinValNode {
         let w = self.w.eval(rt)?;
         let x = self.x.eval(rt)?;
         match op {
-            Val::Atom(Atom::Op(Op::Pervasive(per))) => bin_pervade_val(per, w, x, &self.span),
-            Val::Atom(Atom::Op(Op::Rune(rune))) => match rune {
+            Val::Atom(Atom::Function(Function::Op(Op::Pervasive(per)))) => {
+                bin_pervade_val(per, w, x, &self.span)
+            }
+            Val::Atom(Atom::Function(Function::Op(Op::Rune(rune)))) => match rune {
                 RuneOp::Fehu => replicate(w, x, &self.span).map(Val::Array),
                 RuneOp::Jera => rotate(w, x, &self.span),
                 RuneOp::Laguz => {
