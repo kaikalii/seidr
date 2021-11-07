@@ -90,6 +90,7 @@ fn eval_un(op: Val, x: Val, span: &Span) -> RuntimeResult {
             }
             Function::UnMod(un_mod) => match un_mod.m {
                 RuneUnMod::Raido => fold(un_mod.f, None, x, span),
+                RuneUnMod::Othala => eval_bin(un_mod.f, x.clone(), x, span),
                 m => todo!("{:?}", m),
             },
             Function::BinMod(bin_mod) => match bin_mod.m {
@@ -134,6 +135,7 @@ fn eval_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult {
             }
             Function::UnMod(un_mod) => match un_mod.m {
                 RuneUnMod::Raido => fold(un_mod.f, Some(w), x, span),
+                RuneUnMod::Othala => eval_bin(un_mod.f, x, w, span),
                 m => todo!("{:?}", m),
             },
             Function::BinMod(bin_mod) => match bin_mod.m {
