@@ -120,7 +120,7 @@ pub fn eval_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult {
             Function::Op(Op::Rune(rune)) => match rune {
                 RuneOp::Fehu => replicate(w, x, span).map(Val::Array),
                 RuneOp::Jera => rotate(w, x, span),
-                RuneOp::Laguz => {
+                RuneOp::Iwaz => {
                     Ok(Array::JoinTo(w.into_array().into(), x.into_array().into()).into())
                 }
                 RuneOp::Naudiz => Ok(take(w, x, span)?.into()),

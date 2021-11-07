@@ -34,12 +34,12 @@
 | ᚾ     |                | take      | n                            | naudiz | need          |
 | ᛁ     | absolute value | modulus   | \| (vertical bar, unescaped) | isaz   | ice           |
 | ᛃ     | reverse        | rotate    | j                            | jera   | year/harvest  |
-| ᛇ     |                |           | A                            | iwaz   | yew-tree      |
+| ᛇ     | join           | join to   | A                            | iwaz   | yew-tree      |
 | ᛈ     | first          | index     | p                            | perth  | unknown       |
 | ᛉ     | range          | windows   | z                            | algiz  | elk           |
 | ᛊ     | grade          | select    | s                            | sowilo | sun           |
 | ᛏ     | sort           | classify  | t                            | tiwaz  | Týr           |
-| ᛚ     | join           | join to   | l                            | laguz  | water/lake    |
+| ᛚ     |                |           | l                            | laguz  | water/lake    |
 
 # Unary Modifiers
 
