@@ -1,12 +1,14 @@
 use std::fmt;
 
-use crate::{array::Array, num::Num, op::Op, pervade::PervadedArray};
+use crate::{array::Array, num::Num, op::*, pervade::PervadedArray};
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Atom {
     Num(Num),
     Char(char),
     Op(Op),
+    UnMod(RuneUnMod),
+    BinMod(RuneBinMod),
 }
 
 impl Atom {
@@ -14,7 +16,9 @@ impl Atom {
         match self {
             Atom::Num(_) => "number",
             Atom::Char(_) => "character",
-            Atom::Op(_) => "op",
+            Atom::Op(_) => "operator",
+            Atom::UnMod(_) => "unary modifier",
+            Atom::BinMod(_) => "binary modifier",
         }
     }
 }
@@ -46,13 +50,21 @@ impl From<Op> for Atom {
     }
 }
 
+impl From<RuneUnMod> for Atom {
+    fn from(m: RuneUnMod) -> Self {
+        Atom::UnMod(m)
+    }
+}
+
+impl From<RuneBinMod> for Atom {
+    fn from(m: RuneBinMod) -> Self {
+        Atom::BinMod(m)
+    }
+}
+
 impl fmt::Debug for Atom {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Atom::Num(num) => num.fmt(f),
-            Atom::Char(c) => c.fmt(f),
-            Atom::Op(op) => op.fmt(f),
-        }
+        write!(f, "{}", self)
     }
 }
 
@@ -62,6 +74,8 @@ impl fmt::Display for Atom {
             Atom::Num(num) => num.fmt(f),
             Atom::Char(c) => write!(f, "{:?}", c),
             Atom::Op(op) => op.fmt(f),
+            Atom::UnMod(m) => m.fmt(f),
+            Atom::BinMod(m) => m.fmt(f),
         }
     }
 }

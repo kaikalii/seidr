@@ -216,11 +216,11 @@ impl Parser {
         }
         Ok(None)
     }
-    fn mod_or_val_expr(&mut self) -> CompileResult<Option<ModOrValExpr>> {
+    fn mod_or_val_expr(&mut self) -> CompileResult<Option<ValExpr>> {
         Ok(if let Some(expr) = self.mod_expr()? {
-            Some(ModOrValExpr::Mod(expr))
+            Some(ValExpr::Mod(expr))
         } else {
-            self.val_expr()?.map(ModOrValExpr::Val)
+            self.val_expr()?
         })
     }
     fn val_expr(&mut self) -> CompileResult<Option<ValExpr>> {

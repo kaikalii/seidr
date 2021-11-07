@@ -156,6 +156,7 @@ pub enum ValExpr {
     String(Sp<Rc<str>>),
     Array(ArrayExpr),
     Parened(Box<OpExpr>),
+    Mod(ModExpr),
 }
 
 impl ValExpr {
@@ -166,6 +167,7 @@ impl ValExpr {
             ValExpr::String(string) => &string.span,
             ValExpr::Array(expr) => &expr.span,
             ValExpr::Parened(expr) => expr.span(),
+            ValExpr::Mod(expr) => expr.span(),
         }
     }
 }
@@ -178,6 +180,7 @@ impl fmt::Debug for ValExpr {
             ValExpr::String(string) => string.fmt(f),
             ValExpr::Array(expr) => expr.fmt(f),
             ValExpr::Parened(expr) => expr.fmt(f),
+            ValExpr::Mod(expr) => expr.fmt(f),
         }
     }
 }
@@ -194,6 +197,7 @@ impl Format for ValExpr {
                 expr.format(f)?;
                 write!(f, ")")
             }
+            ValExpr::Mod(expr) => expr.format(f),
         }
     }
 }
@@ -340,7 +344,7 @@ impl Format for AtopExpr {
 }
 
 pub struct ForkExpr {
-    pub left: ModOrValExpr,
+    pub left: ValExpr,
     pub center: ModExpr,
     pub right: TrainExpr,
 }
@@ -363,41 +367,9 @@ impl Format for ForkExpr {
     }
 }
 
-pub enum ModOrValExpr {
-    Val(ValExpr),
-    Mod(ModExpr),
-}
-
-impl ModOrValExpr {
-    pub fn span(&self) -> &Span {
-        match self {
-            ModOrValExpr::Val(expr) => expr.span(),
-            ModOrValExpr::Mod(expr) => expr.span(),
-        }
-    }
-}
-
-impl fmt::Debug for ModOrValExpr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ModOrValExpr::Val(expr) => expr.fmt(f),
-            ModOrValExpr::Mod(expr) => expr.fmt(f),
-        }
-    }
-}
-
-impl Format for ModOrValExpr {
-    fn format(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            ModOrValExpr::Val(expr) => expr.format(f),
-            ModOrValExpr::Mod(expr) => expr.format(f),
-        }
-    }
-}
-
 pub struct UnModExpr {
     pub m: RuneUnMod,
-    pub f: ModOrValExpr,
+    pub f: ValExpr,
     pub span: Span,
 }
 
@@ -416,8 +388,8 @@ impl Format for UnModExpr {
 
 pub struct BinModExpr {
     pub m: RuneBinMod,
-    pub f: ModOrValExpr,
-    pub g: ModOrValExpr,
+    pub f: ValExpr,
+    pub g: ValExpr,
     pub span: Span,
 }
 

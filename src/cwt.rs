@@ -19,15 +19,15 @@ pub enum ValNode {
 
 pub struct UnValNode {
     pub op: ValNode,
-    pub span: Span,
     pub x: ValNode,
+    pub span: Span,
 }
 
 pub struct BinValNode {
     pub op: ValNode,
-    pub span: Span,
     pub w: ValNode,
     pub x: ValNode,
+    pub span: Span,
 }
 
 impl From<UnValNode> for ValNode {
@@ -133,6 +133,7 @@ impl ToValNode for ValExpr {
             ValExpr::String(string) => string.chars().collect(),
             ValExpr::Array(expr) => expr.items.iter().map(|expr| expr.to_val(builder)).collect(),
             ValExpr::Parened(expr) => expr.to_val(builder),
+            ValExpr::Mod(expr) => expr.to_val(builder),
         }
     }
 }
@@ -179,8 +180,8 @@ impl ToValNode for ModExpr {
     fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
         match self {
             ModExpr::Op(op) => (**op).into(),
-            ModExpr::Un(expr) => todo!(),
-            ModExpr::Bin(expr) => todo!(),
+            ModExpr::Un(expr) => expr.to_val(builder),
+            ModExpr::Bin(expr) => expr.to_val(builder),
             ModExpr::Parened(expr) => expr.to_val(builder),
         }
     }
@@ -188,13 +189,28 @@ impl ToValNode for ModExpr {
 
 impl ToValNode for UnModExpr {
     fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
-        todo!("{:?}", self)
+        ValNode::Un(
+            UnValNode {
+                op: self.m.into(),
+                x: self.f.to_val(builder),
+                span: self.span.clone(),
+            }
+            .into(),
+        )
     }
 }
 
 impl ToValNode for BinModExpr {
     fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
-        todo!("{:?}", self)
+        ValNode::Bin(
+            BinValNode {
+                op: self.m.into(),
+                w: self.f.to_val(builder),
+                x: self.g.to_val(builder),
+                span: self.span.clone(),
+            }
+            .into(),
+        )
     }
 }
 
@@ -210,12 +226,27 @@ impl ToValNode for TrainExpr {
 
 impl ToValNode for AtopExpr {
     fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
-        todo!("{:?}", self)
+        ValNode::Un(
+            UnValNode {
+                op: self.f.to_val(builder),
+                x: self.g.to_val(builder),
+                span: self.f.span().clone(),
+            }
+            .into(),
+        )
     }
 }
 
 impl ToValNode for ForkExpr {
     fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
-        todo!("{:?}", self)
+        ValNode::Bin(
+            BinValNode {
+                op: self.center.to_val(builder),
+                w: self.left.to_val(builder),
+                x: self.right.to_val(builder),
+                span: self.center.span().clone(),
+            }
+            .into(),
+        )
     }
 }
