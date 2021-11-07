@@ -1,8 +1,11 @@
 use std::{
     borrow::Cow,
+    cell::RefCell,
     cmp::Ordering,
+    collections::HashMap,
     fmt,
     iter::{self, once},
+    rc::Rc,
 };
 
 use crate::{
@@ -20,6 +23,7 @@ type Items = RcView<Val>;
 #[derive(Clone)]
 pub enum Array {
     Concrete(Items),
+    Cached(Rc<CachedArray>),
     Rotate(Box<Self>, i64),
     Reverse(Box<Self>),
     Range(Num),
@@ -50,9 +54,16 @@ impl Array {
     {
         Array::Concrete(items.into_iter().map(Into::into).collect())
     }
+    pub fn cache(self) -> Self {
+        Array::Cached(Rc::new(CachedArray {
+            arr: self,
+            cache: Default::default(),
+        }))
+    }
     pub fn len(&self) -> Option<usize> {
         Some(match self {
             Array::Concrete(items) => items.len(),
+            Array::Cached(arr) => arr.len()?,
             Array::Rotate(arr, _) | Array::Reverse(arr) => arr.len()?,
             Array::Range(n) => {
                 if n.is_infinite() {
@@ -76,6 +87,7 @@ impl Array {
     pub fn get(&self, index: usize) -> RuntimeResult<Option<Cow<Val>>> {
         Ok(match self {
             Array::Concrete(items) => items.get(index).map(Cow::Borrowed),
+            Array::Cached(arr) => arr.get(index)?.map(Cow::Owned),
             Array::Rotate(arr, r) => {
                 if let Some(len) = arr.len() {
                     if index >= len {
@@ -367,5 +379,27 @@ impl ZipForm {
                 bin(w, x)?
             }
         }))
+    }
+}
+
+pub struct CachedArray {
+    arr: Array,
+    cache: RefCell<HashMap<usize, Val>>,
+}
+
+impl CachedArray {
+    pub fn len(&self) -> Option<usize> {
+        self.arr.len()
+    }
+    pub fn get(&self, index: usize) -> RuntimeResult<Option<Val>> {
+        Ok(if let Some(val) = self.cache.borrow().get(&index) {
+            Some(val.clone())
+        } else if let Some(val) = self.arr.get(index)? {
+            let val = val.into_owned();
+            self.cache.borrow_mut().insert(index, val.clone());
+            Some(val)
+        } else {
+            None
+        })
     }
 }
