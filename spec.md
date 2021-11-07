@@ -29,7 +29,7 @@
 | ᚠ     |                | replicate | f                            | fehu   | cattle/wealth |
 | ᚢ     |                |           | u                            | uruz   | strength      |
 | ᚨ     |                |           | a                            | ansuz  | god           |
-| ᚲ     | identity       | right     | k                            | kaunan | torch         |
+| ᚲ     | identity       | left      | k                            | kaunan | torch         |
 | ᚷ     |                | drop      | g                            | gebo   | gift          |
 | ᚾ     |                | take      | n                            | naudiz | need          |
 | ᛁ     | absolute value | modulus   | \| (vertical bar, unescaped) | isaz   | ice           |
@@ -39,7 +39,7 @@
 | ᛉ     | range          | windows   | z                            | algiz  | elk           |
 | ᛊ     | grade          | select    | s                            | sowilo | sun           |
 | ᛏ     | sort           | classify  | t                            | tiwaz  | Týr           |
-| ᛚ     |                |           | l                            | laguz  | water/lake    |
+| ᛚ     | identity       | right     | l                            | laguz  | water/lake    |
 
 # Unary Modifiers
 
@@ -77,6 +77,7 @@
 - Not
 - Depth
 - Throw
+- Transpose
 - Print?
 
 # Unassigned Binary Operators
