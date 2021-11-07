@@ -167,7 +167,9 @@ impl Parser {
                     if let ModExpr::Op(op) = &op {
                         if let Op::Pervasive(Pervasive::Math(MathOp::Sub)) = &**op {
                             if let OpExpr::Val(ValExpr::Num(n)) = &x {
-                                return Ok(Some(OpExpr::Val(ValExpr::Num(n.span.clone().sp(-**n)))));
+                                return Ok(Some(OpExpr::Val(ValExpr::Num(
+                                    n.span.clone().sp(-**n),
+                                ))));
                             }
                         }
                     }
@@ -294,7 +296,10 @@ impl Parser {
         }
         Ok(if let Some(train) = self.train()? {
             self.expect_token(TT::CloseParen)?;
-            Some(ModExpr::Parened(train.into()))
+            Some(match train {
+                TrainExpr::Single(expr) => expr,
+                train => ModExpr::Parened(train.into()),
+            })
         } else {
             self.curr = start;
             None
