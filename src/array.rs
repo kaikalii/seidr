@@ -31,6 +31,7 @@ pub enum Array {
     JoinTo(Box<Self>, Box<Self>),
     Pervaded(Box<PervadedArray>),
     Take(Box<Self>, i64),
+    Drop(Box<Self>, i64),
     Each(Box<ZipForm>, Box<Val>, Span),
 }
 
@@ -87,6 +88,15 @@ impl Array {
                 (None, true) => *n as usize,
                 (None, false) => 0,
             },
+            Array::Drop(arr, n) => {
+                if *n >= 0 {
+                    arr.len()?.saturating_sub(*n as usize)
+                } else if let Some(len) = arr.len() {
+                    len.saturating_sub(n.abs() as usize)
+                } else {
+                    return None;
+                }
+            }
             Array::Each(zip, ..) => zip.len()?,
         })
     }
@@ -170,6 +180,21 @@ impl Array {
                 } else if let Some(len) = arr.len() {
                     let n = n.abs() as usize;
                     arr.get(len - n + index)?
+                } else {
+                    None
+                }
+            }
+            Array::Drop(arr, n) => {
+                if *n >= 0 {
+                    let n = *n as usize;
+                    arr.get(index + n)?
+                } else if let Some(len) = arr.len() {
+                    let n = n.abs() as usize;
+                    if n >= len {
+                        None
+                    } else {
+                        arr.get(len + index - n)?
+                    }
                 } else {
                     None
                 }

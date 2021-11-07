@@ -125,6 +125,7 @@ pub fn eval_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult {
                     Ok(Array::JoinTo(w.into_array().into(), x.into_array().into()).into())
                 }
                 RuneOp::Naudiz => Ok(take(w, x, span)?.into()),
+                RuneOp::Gebo => Ok(drop(w, x, span)?.into()),
                 RuneOp::Kaunan => Ok(w),
                 RuneOp::Laguz => Ok(x),
                 rune => rt_error(format!("{} has no binary form", rune), span),
@@ -269,6 +270,20 @@ pub fn take(w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
         (w, x) => rt_error(
             format!(
                 "Attempted to take {} items from {}",
+                w.type_name(),
+                x.type_name()
+            ),
+            span,
+        ),
+    }
+}
+
+pub fn drop(w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
+    match (w, x) {
+        (Val::Atom(Atom::Num(n)), Val::Array(arr)) => Ok(Array::Drop(arr.into(), i64::from(n))),
+        (w, x) => rt_error(
+            format!(
+                "Attempted to drop {} items from {}",
                 w.type_name(),
                 x.type_name()
             ),
