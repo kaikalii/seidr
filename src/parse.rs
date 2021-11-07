@@ -293,6 +293,7 @@ impl Parser {
         })
     }
     fn train(&mut self) -> CompileResult<Option<TrainExpr>> {
+        let start = self.curr;
         Ok(if let Some(fork) = self.fork()? {
             Some(TrainExpr::Fork(fork.into()))
         } else if let Some(atop) = self.atop()? {
@@ -301,6 +302,23 @@ impl Parser {
             self.mod_expr()?.map(TrainExpr::Single)
         })
     }
+    fn fork_or_single(&mut self) -> CompileResult<Option<TrainExpr>> {
+        Ok(Some(if let Some(fork) = self.fork()? {
+            TrainExpr::Fork(fork.into())
+        } else {
+            let start = self.curr;
+            let single = if let Some(single) = self.mod_expr()? {
+                single
+            } else {
+                return Ok(None);
+            };
+            if self.mod_expr()?.is_some() {
+                self.curr = start;
+                return Ok(None);
+            }
+            TrainExpr::Single(single)
+        }))
+    }
     fn atop(&mut self) -> CompileResult<Option<AtopExpr>> {
         let start = self.curr;
         let f = if let Some(f) = self.mod_expr()? {
@@ -308,7 +326,7 @@ impl Parser {
         } else {
             return Ok(None);
         };
-        let g = if let Some(g) = self.train()? {
+        let g = if let Some(g) = self.fork_or_single()? {
             g
         } else {
             self.curr = start;
@@ -329,7 +347,7 @@ impl Parser {
             self.curr = start;
             return Ok(None);
         };
-        let right = if let Some(right) = self.train()? {
+        let right = if let Some(right) = self.fork_or_single()? {
             right
         } else {
             self.curr = start;
