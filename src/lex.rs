@@ -127,7 +127,7 @@ impl fmt::Display for Comment {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum TT {
     // Literals
     Num(Num, Rc<str>),
@@ -172,6 +172,15 @@ impl From<RuneUnMod> for TT {
 impl From<RuneBinMod> for TT {
     fn from(m: RuneBinMod) -> Self {
         TT::BinMod(m)
+    }
+}
+
+impl fmt::Debug for TT {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TT::Newline => write!(f, "\\n"),
+            tt => write!(f, "{}", tt),
+        }
     }
 }
 

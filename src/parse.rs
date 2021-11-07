@@ -91,7 +91,8 @@ impl Parser {
         op.ok_or_else(|| {
             let token = self.peek().or_else(|| self.tokens.last()).unwrap();
             let span = token.span.clone();
-            CompileError::ExpectedFound(expectation.to_string(), format!("`{}`", token.tt)).at(span)
+            CompileError::ExpectedFound(expectation.to_string(), format!("`{:?}`", token.tt))
+                .at(span)
         })
     }
     fn expect_with<S, F, T>(&mut self, expectation: S, f: F) -> CompileResult<T>
@@ -103,12 +104,15 @@ impl Parser {
         self.expect(expectation, val)
     }
     fn expect_token(&mut self, tt: TT) -> CompileResult<Token> {
-        let expectation = format!("`{}`", tt);
+        let expectation = format!("`{:?}`", tt);
         let token = self.match_token(tt);
         self.expect(&expectation, token)
     }
-    fn expect_token_or(&mut self, tt: TT, or: &str) -> CompileResult<Token> {
-        let expectation = format!("{} or `{}`", or, tt);
+    fn expect_token_or<S>(&mut self, tt: TT, or: S) -> CompileResult<Token>
+    where
+        S: Display,
+    {
+        let expectation = format!("{} or `{:?}`", or, tt);
         let token = self.match_token(tt);
         self.expect(&expectation, token)
     }
@@ -262,7 +266,7 @@ impl Parser {
                     break;
                 }
             }
-            let close = self.expect_token(TT::CloseAngle)?;
+            let close = self.expect_token_or(TT::CloseAngle, "array item")?;
             let span = open.span.join(&close.span);
             ValExpr::Array(ArrayExpr {
                 items,
