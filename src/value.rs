@@ -1,12 +1,20 @@
 use std::fmt;
 
-use crate::{array::Array, function::Function, num::Num, op::*, pervade::PervadedArray};
+use crate::{
+    array::Array,
+    function::{BinModded, Function, UnModded},
+    num::Num,
+    op::*,
+    pervade::PervadedArray,
+};
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Atom {
     Num(Num),
     Char(char),
     Function(Function),
+    UnMod(RuneUnMod),
+    BinMod(RuneBinMod),
 }
 
 impl Atom {
@@ -15,6 +23,8 @@ impl Atom {
             Atom::Num(_) => "number",
             Atom::Char(_) => "character",
             Atom::Function(f) => f.type_name(),
+            Atom::UnMod(_) => "unary modifier",
+            Atom::BinMod(_) => "binary modifier",
         }
     }
 }
@@ -48,13 +58,25 @@ impl From<Op> for Atom {
 
 impl From<RuneUnMod> for Atom {
     fn from(m: RuneUnMod) -> Self {
-        Function::UnMod(m).into()
+        Atom::UnMod(m)
     }
 }
 
 impl From<RuneBinMod> for Atom {
     fn from(m: RuneBinMod) -> Self {
-        Function::BinMod(m).into()
+        Atom::BinMod(m)
+    }
+}
+
+impl From<UnModded> for Atom {
+    fn from(m: UnModded) -> Self {
+        Function::from(m).into()
+    }
+}
+
+impl From<BinModded> for Atom {
+    fn from(m: BinModded) -> Self {
+        Function::from(m).into()
     }
 }
 
@@ -76,6 +98,8 @@ impl fmt::Display for Atom {
             Atom::Num(num) => num.fmt(f),
             Atom::Char(c) => write!(f, "{:?}", c),
             Atom::Function(fun) => fun.fmt(f),
+            Atom::UnMod(m) => m.fmt(f),
+            Atom::BinMod(m) => m.fmt(f),
         }
     }
 }

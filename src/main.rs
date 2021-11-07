@@ -1,5 +1,5 @@
-#![allow(unused)]
-#![warn(unused_imports, unused_must_use)]
+#![allow(unused, clippy::match_single_binding)]
+#![warn(unused_imports, unused_must_use, unreachable_patterns)]
 
 use std::fs::read_to_string;
 

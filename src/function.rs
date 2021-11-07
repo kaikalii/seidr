@@ -3,6 +3,43 @@ use std::fmt;
 use crate::{op::*, value::Val};
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct UnModded {
+    pub m: RuneUnMod,
+    pub f: Val,
+}
+
+impl fmt::Debug for UnModded {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+impl fmt::Display for UnModded {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}{}", self.m, self.f)
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct BinModded {
+    pub m: RuneBinMod,
+    pub f: Val,
+    pub g: Val,
+}
+
+impl fmt::Debug for BinModded {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+impl fmt::Display for BinModded {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}{}{}", self.m, self.f, self.g)
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Atop {
     pub f: Val,
     pub g: Val,
@@ -42,8 +79,8 @@ impl fmt::Display for Fork {
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Function {
     Op(Op),
-    UnMod(RuneUnMod),
-    BinMod(RuneBinMod),
+    UnMod(Box<UnModded>),
+    BinMod(Box<BinModded>),
     Atop(Box<Atop>),
     Fork(Box<Fork>),
 }
@@ -66,15 +103,15 @@ impl From<Op> for Function {
     }
 }
 
-impl From<RuneUnMod> for Function {
-    fn from(m: RuneUnMod) -> Self {
-        Function::UnMod(m)
+impl From<UnModded> for Function {
+    fn from(m: UnModded) -> Self {
+        Function::UnMod(m.into())
     }
 }
 
-impl From<RuneBinMod> for Function {
-    fn from(m: RuneBinMod) -> Self {
-        Function::BinMod(m)
+impl From<BinModded> for Function {
+    fn from(m: BinModded) -> Self {
+        Function::BinMod(m.into())
     }
 }
 

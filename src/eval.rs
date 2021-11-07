@@ -4,8 +4,9 @@ use crate::{
     array::Array,
     cwt::{BinValNode, UnValNode, ValNode},
     error::{RuntimeError, RuntimeResult},
-    function::{Atop, Fork, Function},
+    function::{Atop, BinModded, Fork, Function, UnModded},
     lex::Span,
+    num::Num,
     op::*,
     pervade::{bin_pervade_val, un_pervade_val},
     rcview::RcView,
@@ -87,8 +88,15 @@ fn eval_un(op: Val, x: Val, span: &Span) -> RuntimeResult {
                 let right = eval_un(fork.right, x, span)?;
                 eval_bin(fork.center, left, right, span)
             }
-            function => todo!("{:?}", function),
+            Function::UnMod(un_mod) => match un_mod.m {
+                RuneUnMod::Raido => fold(un_mod.f, None, x, span),
+                m => todo!("{:?}", m),
+            },
+            Function::BinMod(bin_mod) => match bin_mod.m {
+                m => todo!("{:?}", m),
+            },
         },
+        Val::Atom(Atom::UnMod(m)) => Ok(UnModded { m, f: x }.into()),
         val => Ok(val),
     }
 }
@@ -124,8 +132,15 @@ fn eval_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult {
                 let right = eval_bin(fork.right, w, x, span)?;
                 eval_bin(fork.center, left, right, span)
             }
-            function => todo!("{:?}", function),
+            Function::UnMod(un_mod) => match un_mod.m {
+                RuneUnMod::Raido => fold(un_mod.f, Some(w), x, span),
+                m => todo!("{:?}", m),
+            },
+            Function::BinMod(bin_mod) => match bin_mod.m {
+                m => todo!("{:?}", m),
+            },
         },
+        Val::Atom(Atom::BinMod(m)) => Ok(BinModded { m, f: w, g: x }.into()),
         val => Ok(val),
     }
 }
@@ -252,6 +267,44 @@ pub fn take(w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
             span,
         ),
     }
+}
+
+pub fn fold(op: Val, w: Option<Val>, x: Val, span: &Span) -> RuntimeResult {
+    match x {
+        Val::Array(arr) => {
+            if let Some(w) = w {
+                arr.into_iter()
+                    .fold(Ok(w), |acc, val| eval_bin(op.clone(), acc?, val?, span))
+            } else {
+                let val = arr
+                    .into_iter()
+                    .reduce(|acc, val| eval_bin(op.clone(), acc?, val?, span))
+                    .transpose()?;
+                if let Some(val) = val.or(w) {
+                    Ok(val)
+                } else {
+                    fold_identity(&op, span)
+                }
+            }
+        }
+        Val::Atom(atom) => rt_error(format!("Attempted to fold over {}", atom.type_name()), span),
+    }
+}
+
+pub fn fold_identity(op: &Val, span: &Span) -> RuntimeResult {
+    Ok(match op {
+        Val::Atom(Atom::Function(function)) => match function {
+            Function::Op(Op::Pervasive(Pervasive::Math(math))) => match math {
+                MathOp::Add | MathOp::Sub => 0i64.into(),
+                MathOp::Mul | MathOp::Div => 1i64.into(),
+                MathOp::Max => (-Num::INFINIFY).into(),
+                MathOp::Min => Num::INFINIFY.into(),
+                op => return rt_error(format!("{} has no fold identity", op), span),
+            },
+            function => return rt_error(format!("{} has no fold identity", function), span),
+        },
+        val => val.clone(),
+    })
 }
 
 pub fn rt_error<T>(message: impl Into<String>, span: &Span) -> RuntimeResult<T> {
