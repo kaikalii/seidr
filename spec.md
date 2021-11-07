@@ -14,7 +14,7 @@
 | ×     | sign       | multiply                  | x                |
 | ÷     | reciprocal | divide                    | /                |
 | =     | length     | equals                    |                  |
-| ≠     |            | does not equal            | =                |
+| ≠     | not        | does not equal            | =                |
 | <     |            | less than                 |                  |
 | ≤     |            | less than or equal to     | <                |
 | >     |            | greater than              |                  |
@@ -74,7 +74,6 @@
 | ᛥ     | catch      | S                | stan   | stone   |
 
 # Unassigned Unary Operators
-- Not
 - Depth
 - Throw
 - Transpose
@@ -82,3 +81,6 @@
 
 # Unassigned Binary Operators
 - Match
+
+# Unassign Binary Modifiers
+- Repeat

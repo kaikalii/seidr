@@ -120,9 +120,6 @@ impl Parser {
         let mut items = Vec::new();
         while let Some(item) = self.item()? {
             items.push(item);
-            if self.match_token(TT::Comma).is_none() {
-                break;
-            }
         }
         Ok(items)
     }
