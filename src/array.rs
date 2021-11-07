@@ -194,7 +194,17 @@ impl Array {
 
 impl PartialEq for Array {
     fn eq(&self, other: &Self) -> bool {
-        todo!()
+        if self.len().is_none() || other.len().is_none() || self.len() != other.len() {
+            false
+        } else {
+            self.iter().zip(other.iter()).all(|(a, b)| {
+                if let (Ok(a), Ok(b)) = (a, b) {
+                    a == b
+                } else {
+                    false
+                }
+            })
+        }
     }
 }
 
@@ -208,7 +218,35 @@ impl PartialOrd for Array {
 
 impl Ord for Array {
     fn cmp(&self, other: &Self) -> Ordering {
-        todo!()
+        if self.len().is_none() {
+            if other.len().is_none() {
+                Ordering::Equal
+            } else {
+                Ordering::Less
+            }
+        } else if other.len().is_none() {
+            Ordering::Greater
+        } else {
+            let mut a = self.iter();
+            let mut b = other.iter();
+            loop {
+                match (a.next(), b.next()) {
+                    (Some(a), Some(b)) => {
+                        let ordering = if let (Ok(a), Ok(b)) = (a, b) {
+                            a.cmp(&b)
+                        } else {
+                            Ordering::Equal
+                        };
+                        if ordering != Ordering::Equal {
+                            break ordering;
+                        }
+                    }
+                    (Some(_), None) => break Ordering::Greater,
+                    (None, Some(_)) => break Ordering::Less,
+                    (None, None) => break Ordering::Equal,
+                }
+            }
+        }
     }
 }
 
