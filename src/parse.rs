@@ -163,6 +163,14 @@ impl Parser {
             None => match self.mod_expr()? {
                 Some(op) => {
                     let x = self.expect_with(format!("{}'s x argument", op), Self::op_expr)?;
+                    // Simplify negative number
+                    if let ModExpr::Op(op) = &op {
+                        if let Op::Pervasive(Pervasive::Math(MathOp::Sub)) = &**op {
+                            if let OpExpr::Val(ValExpr::Num(n)) = &x {
+                                return Ok(Some(OpExpr::Val(ValExpr::Num(n.span.clone().sp(-**n)))));
+                            }
+                        }
+                    }
                     Some(OpExpr::Un(UnOpExpr { op, x }.into()))
                 }
                 None => None,

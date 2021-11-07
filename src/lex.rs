@@ -447,7 +447,7 @@ impl Lexer {
                 '‾' => self.negative_number()?,
                 MULTI_LINE_COMMENT_OPEN => self.comment(MULTI_LINE_COMMENT_CLOSE, true),
                 SINGLE_LINE_COMMENT_CHAR => self.comment('\n', false),
-                c if c.is_digit(10) => self.number(c, false)?,
+                c if digit_or_inf(c) => self.number(c, false)?,
                 c if ident_head_char(c) => {
                     let mut ident = String::from(c);
                     while let Some(c) = self.next_if(ident_body_char) {
@@ -546,13 +546,18 @@ impl Lexer {
         Ok(())
     }
     fn negative_number(&mut self) -> CompileResult {
-        if let Some(c) = self.next_if(|c| c.is_digit(10)) {
+        if let Some(c) = self.next_if(digit_or_inf) {
             self.number(c, true)
         } else {
             self.error(CompileError::Expected("digit".into()))
         }
     }
     fn number(&mut self, first: char, neg: bool) -> CompileResult {
+        let neg = Num::from(if neg { -1i64 } else { 1 });
+        if first == '∞' {
+            self.token(TT::Num(Num::INFINIFY * neg, "‾∞".into()));
+            return Ok(());
+        }
         let mut s = String::from(first);
         while let Some(c) = self.next_if(|c| c.is_digit(10) || c == '_') {
             s.push(c);
@@ -580,8 +585,7 @@ impl Lexer {
         }
         let normalized = s.replace('_', "").replace('‾', "-");
         match normalized.parse::<Num>() {
-            Ok(num) if neg => self.token(TT::Num(-num, s.into())),
-            Ok(num) => self.token(TT::Num(num, s.into())),
+            Ok(num) => self.token(TT::Num(num * neg, s.into())),
             Err(_) => return self.error(CompileError::InvalidNumber(s)),
         }
         Ok(())
@@ -649,6 +653,10 @@ fn ident_body_char(c: char) -> bool {
 
 fn is_runic(c: char) -> bool {
     ('ᚠ'..='ᛪ').contains(&c)
+}
+
+fn digit_or_inf(c: char) -> bool {
+    c.is_digit(10) || c == '∞'
 }
 
 #[derive(Clone)]
