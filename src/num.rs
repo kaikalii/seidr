@@ -127,14 +127,15 @@ impl Num {
             if n < Num::Int(0) {
                 s.push('‾');
             }
-            let n = n.abs().to_string();
-            let mut parts = n.split('.');
+            let n_string = n.abs().to_string();
+            let mut parts = n_string.split('.');
             let left = parts.next().unwrap();
             let right = parts.next();
+            let underscores = n.abs() >= 10000;
             for (i, c) in left.chars().enumerate() {
                 let i = left.len() - i - 1;
                 s.push(c);
-                if i > 0 && i % 3 == 0 {
+                if underscores && i > 0 && i % 3 == 0 {
                     s.push('_');
                 }
             }
