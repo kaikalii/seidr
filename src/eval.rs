@@ -1,7 +1,7 @@
 use std::iter::repeat;
 
 use crate::{
-    array::Array,
+    array::{Array, ZipForm},
     cwt::{BinValNode, UnValNode, ValNode},
     error::{RuntimeError, RuntimeResult},
     function::{Atop, BinModded, Fork, Function, UnModded},
@@ -70,7 +70,7 @@ impl Eval for UnValNode {
     }
 }
 
-fn eval_un(op: Val, x: Val, span: &Span) -> RuntimeResult {
+pub fn eval_un(op: Val, x: Val, span: &Span) -> RuntimeResult {
     match op {
         Val::Atom(Atom::Function(function)) => match function {
             Function::Op(Op::Pervasive(per)) => un_pervade_val(per, x, span),
@@ -91,6 +91,7 @@ fn eval_un(op: Val, x: Val, span: &Span) -> RuntimeResult {
             Function::UnMod(un_mod) => match un_mod.m {
                 RuneUnMod::Raido => fold(un_mod.f, None, x, span),
                 RuneUnMod::Othala => eval_bin(un_mod.f, x.clone(), x, span),
+                RuneUnMod::Berkanan => each_un(un_mod.f, x, span).map(Into::into),
                 m => todo!("{:?}", m),
             },
             Function::BinMod(bin_mod) => match bin_mod.m {
@@ -111,7 +112,7 @@ impl Eval for BinValNode {
     }
 }
 
-fn eval_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult {
+pub fn eval_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult {
     match op {
         Val::Atom(Atom::Function(function)) => match function {
             Function::Op(Op::Pervasive(per)) => bin_pervade_val(per, w, x, span),
@@ -136,6 +137,7 @@ fn eval_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult {
             Function::UnMod(un_mod) => match un_mod.m {
                 RuneUnMod::Raido => fold(un_mod.f, Some(w), x, span),
                 RuneUnMod::Othala => eval_bin(un_mod.f, x, w, span),
+                RuneUnMod::Berkanan => each_bin(un_mod.f, w, x, span).map(Into::into),
                 m => todo!("{:?}", m),
             },
             Function::BinMod(bin_mod) => match bin_mod.m {
@@ -307,6 +309,31 @@ pub fn fold_identity(op: &Val, span: &Span) -> RuntimeResult {
         },
         val => val.clone(),
     })
+}
+
+pub fn each_un(op: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
+    match x {
+        Val::Array(arr) => Ok(Array::Each(
+            ZipForm::Un(arr).into(),
+            op.into(),
+            span.clone(),
+        )),
+        Val::Atom(atom) => rt_error(format!("Each cannot be used on {}", atom.type_name()), span),
+    }
+}
+
+pub fn each_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
+    match ZipForm::bin(w, x) {
+        Ok(zip) => Ok(Array::Each(zip.into(), op.into(), span.clone())),
+        Err((w, x)) => rt_error(
+            format!(
+                "Each cannot be used on {} and {}",
+                w.type_name(),
+                x.type_name()
+            ),
+            span,
+        ),
+    }
 }
 
 pub fn rt_error<T>(message: impl Into<String>, span: &Span) -> RuntimeResult<T> {

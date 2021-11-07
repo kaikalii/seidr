@@ -7,6 +7,8 @@ use std::{
 
 use crate::{
     error::RuntimeResult,
+    eval::{eval_bin, eval_un},
+    lex::Span,
     num::{modulus, Num},
     pervade::PervadedArray,
     rcview::{RcView, RcViewIntoIter},
@@ -25,6 +27,7 @@ pub enum Array {
     JoinTo(Box<Self>, Box<Self>),
     Pervaded(Box<PervadedArray>),
     Take(Box<Self>, i64),
+    Each(Box<ZipForm>, Box<Val>, Span),
 }
 
 impl Array {
@@ -67,6 +70,7 @@ impl Array {
                 (None, true) => *n as usize,
                 (None, false) => 0,
             },
+            Array::Each(zip, ..) => zip.len()?,
         })
     }
     pub fn get(&self, index: usize) -> RuntimeResult<Option<Cow<Val>>> {
@@ -152,6 +156,13 @@ impl Array {
                     None
                 }
             }
+            Array::Each(zip, f, span) => zip
+                .index_apply(
+                    index,
+                    |x| eval_un(Val::clone(f), x, span),
+                    |w, x| eval_bin(Val::clone(f), w, x, span),
+                )?
+                .map(Cow::Owned),
         })
     }
     pub fn iter(&self) -> impl Iterator<Item = RuntimeResult<Cow<Val>>> {
@@ -281,5 +292,80 @@ impl Iterator for ArrayIntoIter {
             }
             ArrayIntoIter::JoinTo(a, b) => a.next().or_else(|| b.next()),
         }
+    }
+}
+
+#[derive(Clone)]
+pub enum ZipForm {
+    Un(Array),
+    BinLeft(Val, Array),
+    BinRight(Array, Val),
+    Bin(Array, Array),
+}
+
+impl ZipForm {
+    pub fn bin(w: Val, x: Val) -> Result<Self, (Atom, Atom)> {
+        match (w, x) {
+            (Val::Array(w), Val::Array(x)) => Ok(ZipForm::Bin(w, x)),
+            (w, Val::Array(x)) => Ok(ZipForm::BinLeft(w, x)),
+            (Val::Array(w), x) => Ok(ZipForm::BinRight(w, x)),
+            (Val::Atom(w), Val::Atom(x)) => Err((w, x)),
+        }
+    }
+    pub fn len(&self) -> Option<usize> {
+        match self {
+            ZipForm::Un(arr) | ZipForm::BinLeft(_, arr) | ZipForm::BinRight(arr, _) => arr.len(),
+            ZipForm::Bin(a, b) => Some(match (a.len(), b.len()) {
+                (Some(a), Some(b)) => a.min(b),
+                (Some(a), None) => a,
+                (None, Some(b)) => b,
+                (None, None) => return None,
+            }),
+        }
+    }
+    pub fn index_apply<U, B>(&self, index: usize, un: U, bin: B) -> RuntimeResult<Option<Val>>
+    where
+        U: FnOnce(Val) -> RuntimeResult,
+        B: FnOnce(Val, Val) -> RuntimeResult,
+    {
+        Ok(Some(match self {
+            ZipForm::Un(arr) => {
+                let x = if let Some(x) = arr.get(index)? {
+                    x.into_owned()
+                } else {
+                    return Ok(None);
+                };
+                un(x)?
+            }
+            ZipForm::BinLeft(w, arr) => {
+                let x = if let Some(x) = arr.get(index)? {
+                    x.into_owned()
+                } else {
+                    return Ok(None);
+                };
+                bin(w.clone(), x)?
+            }
+            ZipForm::BinRight(arr, x) => {
+                let w = if let Some(w) = arr.get(index)? {
+                    w.into_owned()
+                } else {
+                    return Ok(None);
+                };
+                bin(w, x.clone())?
+            }
+            ZipForm::Bin(w, x) => {
+                let w = if let Some(w) = w.get(index)? {
+                    w.into_owned()
+                } else {
+                    return Ok(None);
+                };
+                let x = if let Some(x) = x.get(index)? {
+                    x.into_owned()
+                } else {
+                    return Ok(None);
+                };
+                bin(w, x)?
+            }
+        }))
     }
 }

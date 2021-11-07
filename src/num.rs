@@ -28,6 +28,7 @@ impl Default for Num {
 
 impl Num {
     pub const INFINIFY: Self = Num::Float(f64::INFINITY);
+    pub const NAN: Self = Num::Float(f64::NAN);
     pub fn is_infinite(&self) -> bool {
         match self {
             Num::Int(_) => false,
@@ -257,6 +258,7 @@ impl Div for Num {
     type Output = Self;
     fn div(self, other: Self) -> Self::Output {
         let (a, b) = match (self, other) {
+            (_, b) if b == 0 => return Num::NAN,
             (Num::Int(a), Num::Int(b)) if a % b == 0 => return Num::Int(a / b),
             (Num::Int(a), Num::Int(b)) => (a as f64, b as f64),
             (Num::Int(a), Num::Float(b)) => (a as f64, b),
