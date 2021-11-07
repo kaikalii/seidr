@@ -75,10 +75,11 @@ pub fn eval_un(op: Val, x: Val, span: &Span) -> RuntimeResult {
         Val::Atom(Atom::Function(function)) => match function {
             Function::Op(Op::Pervasive(per)) => un_pervade_val(per, x, span),
             Function::Op(Op::Rune(rune)) => match rune {
+                RuneOp::Kaunan | RuneOp::Laguz => Ok(x),
                 RuneOp::Jera => Ok(reverse(x, span)),
                 RuneOp::Algiz => range(x, span).map(Val::Array),
                 RuneOp::Tiwaz => sort(x, span).map(Val::Array),
-                RuneOp::Kaunan | RuneOp::Laguz => Ok(x),
+                RuneOp::Sowilo => grade(x, span).map(Val::Array),
                 rune => rt_error(format!("{} has no unary form", rune), span),
             },
             Function::Atop(atop) => {
@@ -119,6 +120,8 @@ pub fn eval_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult {
         Val::Atom(Atom::Function(function)) => match function {
             Function::Op(Op::Pervasive(per)) => bin_pervade_val(per, w, x, span),
             Function::Op(Op::Rune(rune)) => match rune {
+                RuneOp::Kaunan => Ok(w),
+                RuneOp::Laguz => Ok(x),
                 RuneOp::Fehu => replicate(w, x, span).map(Val::Array),
                 RuneOp::Jera => rotate(w, x, span),
                 RuneOp::Iwaz => {
@@ -126,8 +129,6 @@ pub fn eval_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult {
                 }
                 RuneOp::Naudiz => Ok(take(w, x, span)?.into()),
                 RuneOp::Gebo => Ok(drop(w, x, span)?.into()),
-                RuneOp::Kaunan => Ok(w),
-                RuneOp::Laguz => Ok(x),
                 rune => rt_error(format!("{} has no binary form", rune), span),
             },
             Function::Atop(atop) => {
@@ -363,6 +364,17 @@ pub fn sort(x: Val, span: &Span) -> RuntimeResult<Array> {
             Ok(Array::concrete(items))
         }
         Val::Atom(atom) => rt_error(format!("{} cannot be sorted", atom.type_name()), span),
+    }
+}
+
+pub fn grade(x: Val, span: &Span) -> RuntimeResult<Array> {
+    match x {
+        Val::Array(arr) => {
+            let mut items: Vec<(usize, Val)> = arr.into_vec()?.into_iter().enumerate().collect();
+            items.sort_unstable_by(|(_, a), (_, b)| a.cmp(b));
+            Ok(Array::concrete(items.into_iter().map(|(i, _)| i)))
+        }
+        Val::Atom(atom) => rt_error(format!("{} cannot be graded", atom.type_name()), span),
     }
 }
 
