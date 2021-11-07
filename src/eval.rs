@@ -65,17 +65,31 @@ impl Eval for UnValNode {
     fn eval(&self, rt: &mut Runtime) -> RuntimeResult {
         let op = self.op.eval(rt)?;
         let x = self.x.eval(rt)?;
-        match op {
-            Val::Atom(Atom::Function(Function::Op(Op::Pervasive(per)))) => {
-                un_pervade_val(per, x, &self.span)
-            }
-            Val::Atom(Atom::Function(Function::Op(Op::Rune(rune)))) => match rune {
-                RuneOp::Jera => Ok(reverse(x, &self.span)),
-                RuneOp::Algiz => range(x, &self.span).map(Val::Array),
-                rune => rt_error(format!("{} has no unary form", rune), &self.span),
+        eval_un(op, x, &self.span)
+    }
+}
+
+fn eval_un(op: Val, x: Val, span: &Span) -> RuntimeResult {
+    match op {
+        Val::Atom(Atom::Function(function)) => match function {
+            Function::Op(Op::Pervasive(per)) => un_pervade_val(per, x, span),
+            Function::Op(Op::Rune(rune)) => match rune {
+                RuneOp::Jera => Ok(reverse(x, span)),
+                RuneOp::Algiz => range(x, span).map(Val::Array),
+                rune => rt_error(format!("{} has no unary form", rune), span),
             },
-            val => Ok(val),
-        }
+            Function::Atop(atop) => {
+                let lower = eval_un(atop.g, x, span)?;
+                eval_un(atop.f, lower, span)
+            }
+            Function::Fork(fork) => {
+                let left = eval_un(fork.left, x.clone(), span)?;
+                let right = eval_un(fork.right, x, span)?;
+                eval_bin(fork.center, left, right, span)
+            }
+            function => todo!("{:?}", function),
+        },
+        val => Ok(val),
     }
 }
 
@@ -84,21 +98,35 @@ impl Eval for BinValNode {
         let op = self.op.eval(rt)?;
         let w = self.w.eval(rt)?;
         let x = self.x.eval(rt)?;
-        match op {
-            Val::Atom(Atom::Function(Function::Op(Op::Pervasive(per)))) => {
-                bin_pervade_val(per, w, x, &self.span)
-            }
-            Val::Atom(Atom::Function(Function::Op(Op::Rune(rune)))) => match rune {
-                RuneOp::Fehu => replicate(w, x, &self.span).map(Val::Array),
-                RuneOp::Jera => rotate(w, x, &self.span),
+        eval_bin(op, w, x, &self.span)
+    }
+}
+
+fn eval_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult {
+    match op {
+        Val::Atom(Atom::Function(function)) => match function {
+            Function::Op(Op::Pervasive(per)) => bin_pervade_val(per, w, x, span),
+            Function::Op(Op::Rune(rune)) => match rune {
+                RuneOp::Fehu => replicate(w, x, span).map(Val::Array),
+                RuneOp::Jera => rotate(w, x, span),
                 RuneOp::Laguz => {
                     Ok(Array::JoinTo(w.into_array().into(), x.into_array().into()).into())
                 }
-                RuneOp::Naudiz => Ok(take(w, x, &self.span)?.into()),
-                rune => rt_error(format!("{} has no binary form", rune), &self.span),
+                RuneOp::Naudiz => Ok(take(w, x, span)?.into()),
+                rune => rt_error(format!("{} has no binary form", rune), span),
             },
-            val => Ok(val),
-        }
+            Function::Atop(atop) => {
+                let lower = eval_bin(atop.g, w, x, span)?;
+                eval_un(atop.f, lower, span)
+            }
+            Function::Fork(fork) => {
+                let left = eval_bin(fork.left, w.clone(), x.clone(), span)?;
+                let right = eval_bin(fork.right, w, x, span)?;
+                eval_bin(fork.center, left, right, span)
+            }
+            function => todo!("{:?}", function),
+        },
+        val => Ok(val),
     }
 }
 
