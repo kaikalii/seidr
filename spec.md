@@ -64,14 +64,14 @@
 
 # Rune Binary Modifiers
 
-| glyph | meaing     | escape character | name   | meaning |
-| ----- | ---------- | ---------------- | ------ | ------- |
-| ᚻ     | atop       | H                | haegl  | hail    |
-| ᚺ     | over       | h                | haglaz | hail    |
-| ᛖ     | right then | e                | ehwaz  | horse   |
-| ᛗ     | left then  | m                | mannaz | man     |
-| ᛞ     | choose     | d                | dagaz  | day     |
-| ᛥ     | catch      | S                | stan   | stone   |
+| glyph | meaing | escape character | name   | meaning |
+| ----- | ------ | ---------------- | ------ | ------- |
+| ᚻ     |        | H                | haegl  | hail    |
+| ᚺ     | over   | h                | haglaz | hail    |
+| ᛖ     | beside | e                | ehwaz  | horse   |
+| ᛗ     |        | m                | mannaz | man     |
+| ᛞ     | choose | d                | dagaz  | day     |
+| ᛥ     | catch  | S                | stan   | stone   |
 
 # Unassigned Unary Operators
 - Depth
