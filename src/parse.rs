@@ -154,7 +154,20 @@ impl Parser {
         self.match_to(comment).map(|comment| comment.data)
     }
     fn op_expr(&mut self) -> CompileResult<Option<OpExpr>> {
-        Ok(match self.val_expr()? {
+        Ok(match self.mod_or_val_expr()? {
+            // un
+            Some(ValExpr::Mod(op)) => {
+                let x = self.expect_with(format!("{}'s x argument", op), Self::op_expr)?;
+                // Simplify negative number
+                if let ModExpr::Op(op) = &op {
+                    if let Op::Pervasive(Pervasive::Math(MathOp::Sub)) = &**op {
+                        if let OpExpr::Val(ValExpr::Num(n)) = &x {
+                            return Ok(Some(OpExpr::Val(ValExpr::Num(n.span.clone().sp(-**n)))));
+                        }
+                    }
+                }
+                Some(OpExpr::Un(UnOpExpr { op, x }.into()))
+            }
             // val or bin
             Some(w) => Some(match self.mod_expr()? {
                 Some(op) => {
@@ -163,24 +176,7 @@ impl Parser {
                 }
                 None => OpExpr::Val(w),
             }),
-            // un or none
-            None => match self.mod_expr()? {
-                Some(op) => {
-                    let x = self.expect_with(format!("{}'s x argument", op), Self::op_expr)?;
-                    // Simplify negative number
-                    if let ModExpr::Op(op) = &op {
-                        if let Op::Pervasive(Pervasive::Math(MathOp::Sub)) = &**op {
-                            if let OpExpr::Val(ValExpr::Num(n)) = &x {
-                                return Ok(Some(OpExpr::Val(ValExpr::Num(
-                                    n.span.clone().sp(-**n),
-                                ))));
-                            }
-                        }
-                    }
-                    Some(OpExpr::Un(UnOpExpr { op, x }.into()))
-                }
-                None => None,
-            },
+            None => None,
         })
     }
     fn mod_expr(&mut self) -> CompileResult<Option<ModExpr>> {
