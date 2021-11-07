@@ -78,6 +78,7 @@ pub fn eval_un(op: Val, x: Val, span: &Span) -> RuntimeResult {
                 RuneOp::Jera => Ok(reverse(x, span)),
                 RuneOp::Algiz => range(x, span).map(Val::Array),
                 RuneOp::Tiwaz => sort(x, span).map(Val::Array),
+                RuneOp::Kaunan | RuneOp::Laguz => Ok(x),
                 rune => rt_error(format!("{} has no unary form", rune), span),
             },
             Function::Atop(atop) => {
@@ -124,6 +125,8 @@ pub fn eval_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult {
                     Ok(Array::JoinTo(w.into_array().into(), x.into_array().into()).into())
                 }
                 RuneOp::Naudiz => Ok(take(w, x, span)?.into()),
+                RuneOp::Kaunan => Ok(w),
+                RuneOp::Laguz => Ok(x),
                 rune => rt_error(format!("{} has no binary form", rune), span),
             },
             Function::Atop(atop) => {
