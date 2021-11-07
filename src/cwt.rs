@@ -141,7 +141,6 @@ impl ToValNode for OpExpr {
     fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
         match self {
             OpExpr::Val(expr) => expr.to_val(builder),
-            OpExpr::Op(op) => todo!("{:?}", op),
             OpExpr::Un(expr) => expr.to_val(builder),
             OpExpr::Bin(expr) => expr.to_val(builder),
         }
@@ -179,10 +178,10 @@ impl ToValNode for BinOpExpr {
 impl ToValNode for ModExpr {
     fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
         match self {
-            ModExpr::Op(op) => ValNode::Val(op.data.into()),
+            ModExpr::Op(op) => (**op).into(),
             ModExpr::Un(expr) => todo!(),
             ModExpr::Bin(expr) => todo!(),
-            ModExpr::Train(expr) => expr.to_val(builder),
+            ModExpr::Parened(expr) => expr.to_val(builder),
         }
     }
 }
@@ -202,6 +201,7 @@ impl ToValNode for BinModExpr {
 impl ToValNode for TrainExpr {
     fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
         match self {
+            TrainExpr::Single(expr) => expr.to_val(builder),
             TrainExpr::Atop(expr) => expr.to_val(builder),
             TrainExpr::Fork(expr) => expr.to_val(builder),
         }

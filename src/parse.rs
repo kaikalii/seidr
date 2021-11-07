@@ -170,6 +170,10 @@ impl Parser {
         })
     }
     fn mod_expr(&mut self) -> CompileResult<Option<ModExpr>> {
+        // Parened
+        if let Some(expr) = self.parened_mod_expr()? {
+            return Ok(Some(expr));
+        }
         // Op
         if let Some(op) = self.match_to(op) {
             return Ok(Some(ModExpr::Op(op)));
@@ -238,13 +242,8 @@ impl Parser {
             ValExpr::Char(c)
         } else if let Some(s) = self.match_to(string) {
             ValExpr::String(s)
-        } else if self.match_token(TT::OpenParen).is_some() {
-            let expr = self.expect_with("expression", Self::op_expr)?.unparen();
-            self.expect_token(TT::CloseParen)?;
-            match expr {
-                OpExpr::Val(expr) => expr,
-                expr => ValExpr::Parened(expr.into()),
-            }
+        } else if let Some(val) = self.parened_op_expr()? {
+            val
         } else if let Some(open) = self.match_token(TT::OpenAngle) {
             let mut items = Vec::new();
             while let Some(item) = self.op_expr()? {
@@ -262,6 +261,84 @@ impl Parser {
             })
         } else {
             return Ok(None);
+        }))
+    }
+    fn parened_op_expr(&mut self) -> CompileResult<Option<ValExpr>> {
+        let start = self.curr;
+        if self.match_token(TT::OpenParen).is_none() {
+            return Ok(None);
+        }
+        Ok(if let Some(expr) = self.op_expr()? {
+            self.expect_token(TT::CloseParen)?;
+            Some(match expr {
+                OpExpr::Val(expr) => expr,
+                expr => ValExpr::Parened(expr.into()),
+            })
+        } else {
+            self.curr = start;
+            None
+        })
+    }
+    fn parened_mod_expr(&mut self) -> CompileResult<Option<ModExpr>> {
+        let start = self.curr;
+        if self.match_token(TT::OpenParen).is_none() {
+            return Ok(None);
+        }
+        Ok(if let Some(train) = self.train()? {
+            self.expect_token(TT::CloseParen)?;
+            Some(ModExpr::Parened(train.into()))
+        } else {
+            self.curr = start;
+            None
+        })
+    }
+    fn train(&mut self) -> CompileResult<Option<TrainExpr>> {
+        Ok(if let Some(fork) = self.fork()? {
+            Some(TrainExpr::Fork(fork.into()))
+        } else if let Some(atop) = self.atop()? {
+            Some(TrainExpr::Atop(atop.into()))
+        } else {
+            self.mod_expr()?.map(TrainExpr::Single)
+        })
+    }
+    fn atop(&mut self) -> CompileResult<Option<AtopExpr>> {
+        let start = self.curr;
+        let f = if let Some(f) = self.mod_expr()? {
+            f
+        } else {
+            return Ok(None);
+        };
+        let g = if let Some(g) = self.train()? {
+            g
+        } else {
+            self.curr = start;
+            return Ok(None);
+        };
+        Ok(Some(AtopExpr { f, g }))
+    }
+    fn fork(&mut self) -> CompileResult<Option<ForkExpr>> {
+        let start = self.curr;
+        let left = if let Some(left) = self.mod_or_val_expr()? {
+            left
+        } else {
+            return Ok(None);
+        };
+        let center = if let Some(center) = self.mod_expr()? {
+            center
+        } else {
+            self.curr = start;
+            return Ok(None);
+        };
+        let right = if let Some(right) = self.train()? {
+            right
+        } else {
+            self.curr = start;
+            return Ok(None);
+        };
+        Ok(Some(ForkExpr {
+            left,
+            center,
+            right,
         }))
     }
 }
