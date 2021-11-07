@@ -178,33 +178,7 @@ impl From<RuneBinMod> for TT {
 impl fmt::Display for TT {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TT::Num(n, s) => {
-                if s.contains('e') || s.contains('E') {
-                    dbg!(s.replace('-', "‾")).fmt(f)
-                } else {
-                    let n = n.to_string();
-                    let mut parts = n.split('.');
-                    let left = parts.next().unwrap();
-                    let right = parts.next();
-                    for (i, c) in left.chars().enumerate() {
-                        let i = left.len() - i - 1;
-                        write!(f, "{}", c)?;
-                        if i > 0 && i % 3 == 0 {
-                            write!(f, "_")?;
-                        }
-                    }
-                    if let Some(right) = right {
-                        write!(f, ".")?;
-                        for (i, c) in right.chars().enumerate() {
-                            write!(f, "{}", c)?;
-                            if i > 0 && i % 3 == 2 {
-                                write!(f, "_")?;
-                            }
-                        }
-                    }
-                    Ok(())
-                }
-            }
+            TT::Num(n, s) => n.string_format(s).fmt(f),
             TT::Ident(ident) => ident.fmt(f),
             TT::Char(c) => write!(f, "{:?}", c),
             TT::String(s) => write!(f, "{:?}", s),

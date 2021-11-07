@@ -118,6 +118,38 @@ impl Num {
             (Num::Float(a), Num::Float(b)) => float(a, b),
         }
     }
+    pub fn string_format(&self, string: &str) -> String {
+        if string.contains('e') || string.contains('E') {
+            string.replace('-', "‾")
+        } else {
+            let mut s = String::new();
+            let n = *self;
+            if n < Num::Int(0) {
+                s.push('‾');
+            }
+            let n = n.abs().to_string();
+            let mut parts = n.split('.');
+            let left = parts.next().unwrap();
+            let right = parts.next();
+            for (i, c) in left.chars().enumerate() {
+                let i = left.len() - i - 1;
+                s.push(c);
+                if i > 0 && i % 3 == 0 {
+                    s.push('_');
+                }
+            }
+            if let Some(right) = right {
+                s.push('.');
+                for (i, c) in right.chars().enumerate() {
+                    s.push(c);
+                    if i > 0 && i % 3 == 2 {
+                        s.push('_');
+                    }
+                }
+            }
+            s
+        }
+    }
 }
 
 impl From<u8> for Num {

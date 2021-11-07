@@ -185,38 +185,7 @@ impl fmt::Debug for ValExpr {
 impl Format for ValExpr {
     fn format(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            ValExpr::Num(n) => {
-                let s = n.span.as_string();
-                if s.contains('e') || s.contains('E') {
-                    write!(f, "{}", s.replace('-', "‾"))
-                } else {
-                    let n = **n;
-                    if n < Num::Int(0) {
-                        write!(f, "‾")?;
-                    }
-                    let n = n.abs().to_string();
-                    let mut parts = n.split('.');
-                    let left = parts.next().unwrap();
-                    let right = parts.next();
-                    for (i, c) in left.chars().enumerate() {
-                        let i = left.len() - i - 1;
-                        write!(f, "{}", c)?;
-                        if i > 0 && i % 3 == 0 {
-                            write!(f, "_")?;
-                        }
-                    }
-                    if let Some(right) = right {
-                        write!(f, ".")?;
-                        for (i, c) in right.chars().enumerate() {
-                            write!(f, "{}", c)?;
-                            if i > 0 && i % 3 == 2 {
-                                write!(f, "_")?;
-                            }
-                        }
-                    }
-                    Ok(())
-                }
-            }
+            ValExpr::Num(n) => write!(f, "{}", n.string_format(&n.span.as_string())),
             ValExpr::Char(c) => write!(f, "{:?}", c),
             ValExpr::String(string) => write!(f, "{:?}", string),
             ValExpr::Array(expr) => expr.format(f),
