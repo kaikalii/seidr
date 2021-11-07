@@ -10,7 +10,7 @@ use std::{
 
 use crate::{
     error::RuntimeResult,
-    eval::{eval_bin, eval_un},
+    eval::{eval_bin, eval_un, index_array},
     lex::Span,
     num::{modulus, Num},
     pervade::PervadedArray,
@@ -33,6 +33,16 @@ pub enum Array {
     Take(Box<Self>, i64),
     Drop(Box<Self>, i64),
     Each(Box<ZipForm>, Box<Val>, Span),
+    Select(Box<Self>, Box<Self>, Span),
+}
+
+fn min_len(a: Option<usize>, b: Option<usize>) -> Option<usize> {
+    Some(match (a, b) {
+        (Some(a), Some(b)) => a.min(b),
+        (Some(a), None) => a,
+        (None, Some(b)) => b,
+        (None, None) => return None,
+    })
 }
 
 impl Array {
@@ -98,6 +108,7 @@ impl Array {
                 }
             }
             Array::Each(zip, ..) => zip.len()?,
+            Array::Select(a, b, _) => min_len(a.len(), b.len())?,
         })
     }
     pub fn get(&self, index: usize) -> RuntimeResult<Option<Cow<Val>>> {
@@ -206,6 +217,14 @@ impl Array {
                     |w, x| eval_bin(Val::clone(f), w, x, span),
                 )?
                 .map(Cow::Owned),
+            Array::Select(w, x, span) => {
+                let w = if let Some(w) = w.get(index)? {
+                    w.into_owned()
+                } else {
+                    return Ok(None);
+                };
+                Some(Cow::Owned(index_array(w, x, span)?))
+            }
         })
     }
     pub fn iter(&self) -> impl Iterator<Item = RuntimeResult<Cow<Val>>> {
@@ -312,7 +331,7 @@ impl fmt::Display for Array {
                 }
                 match val {
                     Ok(val) => val.fmt(f)?,
-                    Err(_) => write!(f, "<error>")?,
+                    Err(e) => write!(f, "<error: {}>", e.message)?,
                 }
             }
             if self.len().is_none() {
@@ -396,12 +415,7 @@ impl ZipForm {
     pub fn len(&self) -> Option<usize> {
         match self {
             ZipForm::Un(arr) | ZipForm::BinLeft(_, arr) | ZipForm::BinRight(arr, _) => arr.len(),
-            ZipForm::Bin(a, b) => Some(match (a.len(), b.len()) {
-                (Some(a), Some(b)) => a.min(b),
-                (Some(a), None) => a,
-                (None, Some(b)) => b,
-                (None, None) => return None,
-            }),
+            ZipForm::Bin(a, b) => min_len(a.len(), b.len()),
         }
     }
     pub fn index_apply<U, B>(&self, index: usize, un: U, bin: B) -> RuntimeResult<Option<Val>>

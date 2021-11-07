@@ -28,7 +28,7 @@
 | ----- | -------------- | --------- | ---------------------------- | ------ | ------------- |
 | ᚠ     |                | replicate | f                            | fehu   | cattle/wealth |
 | ᚢ     |                |           | u                            | uruz   | strength      |
-| ᚨ     |                |           | a                            | ansuz  | god           |
+| ᚨ     |                | select    | a                            | ansuz  | god           |
 | ᚲ     | identity       | left      | k                            | kaunan | torch         |
 | ᚷ     |                | drop      | g                            | gebo   | gift          |
 | ᚾ     |                | take      | n                            | naudiz | need          |
@@ -37,8 +37,8 @@
 | ᛇ     | join           | join to   | A                            | iwaz   | yew-tree      |
 | ᛈ     | first          | index     | p                            | perth  | unknown       |
 | ᛉ     | range          | windows   | z                            | algiz  | elk           |
-| ᛊ     | grade          | select    | s                            | sowilo | sun           |
-| ᛏ     | sort           | classify  | t                            | tiwaz  | Týr           |
+| ᛊ     | grade          | classify  | s                            | sowilo | sun           |
+| ᛏ     | sort           |           | t                            | tiwaz  | Týr           |
 | ᛚ     | identity       | right     | l                            | laguz  | water/lake    |
 
 # Unary Modifiers

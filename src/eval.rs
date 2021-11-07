@@ -127,8 +127,10 @@ pub fn eval_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult {
                 RuneOp::Iwaz => {
                     Ok(Array::JoinTo(w.into_array().into(), x.into_array().into()).into())
                 }
-                RuneOp::Naudiz => Ok(take(w, x, span)?.into()),
-                RuneOp::Gebo => Ok(drop(w, x, span)?.into()),
+                RuneOp::Naudiz => take(w, x, span).map(Into::into),
+                RuneOp::Gebo => drop(w, x, span).map(Into::into),
+                RuneOp::Perth => index(w, x, span),
+                RuneOp::Ansuz => select(w, x, span),
                 rune => rt_error(format!("{} has no binary form", rune), span),
             },
             Function::Atop(atop) => {
@@ -375,6 +377,78 @@ pub fn grade(x: Val, span: &Span) -> RuntimeResult<Array> {
             Ok(Array::concrete(items.into_iter().map(|(i, _)| i)))
         }
         Val::Atom(atom) => rt_error(format!("{} cannot be graded", atom.type_name()), span),
+    }
+}
+
+pub fn index(w: Val, x: Val, span: &Span) -> RuntimeResult {
+    match x {
+        Val::Array(arr) => index_array(w, &arr, span),
+        Val::Atom(atom) => rt_error(format!("{} cannot be indexed", atom.type_name()), span),
+    }
+}
+
+pub fn index_array(w: Val, x: &Array, span: &Span) -> RuntimeResult {
+    match w {
+        Val::Atom(Atom::Num(i)) => {
+            let i = i64::from(i);
+            let val = if i >= 0 {
+                x.get(i as usize)?
+            } else if let Some(len) = x.len() {
+                let i = i.abs() as usize;
+                if i <= len {
+                    x.get(len - i)?
+                } else {
+                    None
+                }
+            } else {
+                return rt_error(
+                    "Attempted to index unbounded array with a negative index",
+                    span,
+                );
+            };
+            if let Some(val) = val {
+                Ok(val.into_owned())
+            } else {
+                rt_error(
+                    format!(
+                        "Index {} is out of bounds of array length {}",
+                        i,
+                        x.len().unwrap_or(0)
+                    ),
+                    span,
+                )
+            }
+        }
+        Val::Atom(atom) => rt_error(
+            format!("{} cannot be used as an index", atom.type_name()),
+            span,
+        ),
+        Val::Array(indices) => {
+            let mut indices = indices.into_iter();
+            Ok(if let Some(i) = indices.next().transpose()? {
+                let mut item = index_array(i, x, span)?;
+                for i in indices {
+                    let i = i?;
+                    item = index(i, item, span)?
+                }
+                item
+            } else {
+                x.clone().into()
+            })
+        }
+    }
+}
+
+pub fn select(w: Val, x: Val, span: &Span) -> RuntimeResult {
+    match w {
+        w @ Val::Atom(_) => index(w, x, span),
+        Val::Array(w) => match x {
+            Val::Array(x) => Ok(Array::Select(w.into(), x.into(), span.clone()).into()),
+            Val::Atom(atom) => rt_error(
+                format!("{} cannot be selected from", atom.type_name()),
+                span,
+            ),
+        },
     }
 }
 
