@@ -54,6 +54,12 @@ impl Array {
     {
         Array::Concrete(items.into_iter().map(Into::into).collect())
     }
+    pub fn into_vec(self) -> RuntimeResult<Vec<Val>> {
+        match self {
+            Array::Concrete(items) => Ok(items.into_iter().collect()),
+            arr => arr.into_iter().collect(),
+        }
+    }
     pub fn cache(self) -> Self {
         Array::Cached(Rc::new(CachedArray {
             arr: self,

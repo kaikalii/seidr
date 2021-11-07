@@ -77,6 +77,7 @@ pub fn eval_un(op: Val, x: Val, span: &Span) -> RuntimeResult {
             Function::Op(Op::Rune(rune)) => match rune {
                 RuneOp::Jera => Ok(reverse(x, span)),
                 RuneOp::Algiz => range(x, span).map(Val::Array),
+                RuneOp::Tiwaz => sort(x, span).map(Val::Array),
                 rune => rt_error(format!("{} has no unary form", rune), span),
             },
             Function::Atop(atop) => {
@@ -333,6 +334,17 @@ pub fn each_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
             ),
             span,
         ),
+    }
+}
+
+pub fn sort(x: Val, span: &Span) -> RuntimeResult<Array> {
+    match x {
+        Val::Array(arr) => {
+            let mut items = arr.into_vec()?;
+            items.sort_unstable();
+            Ok(Array::concrete(items))
+        }
+        Val::Atom(atom) => rt_error(format!("{} cannot be sorted", atom.type_name()), span),
     }
 }
 
