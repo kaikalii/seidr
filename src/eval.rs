@@ -137,14 +137,15 @@ pub fn eval_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult {
                 RuneOp::Iwaz => {
                     Ok(Array::JoinTo(w.into_array().into(), x.into_array().into()).into())
                 }
-                RuneOp::Naudiz => take(w, x, span).map(Into::into),
-                RuneOp::Gebo => drop(w, x, span).map(Into::into),
+                RuneOp::Naudiz => take(w, x, span).map(Val::from),
+                RuneOp::Gebo => drop(w, x, span).map(Val::from),
                 RuneOp::Perth => index(w, x, span),
                 RuneOp::Ansuz => select(w, x, span),
+                RuneOp::Tiwaz => windows(w, x, span).map(Val::from),
                 rune => rt_error(format!("{} has no binary form", rune), span),
             },
             Function::Op(Op::Other(other)) => match other {
-                OtherOp::Match => w.matches(&x).map(Into::into),
+                OtherOp::Match => w.matches(&x).map(Val::from),
                 OtherOp::DoNotMatch => w.matches(&x).map(|matches| (!matches).into()),
             },
             Function::Atop(atop) => {
@@ -550,6 +551,27 @@ pub fn undo_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult {
             ),
         },
         _ => Ok(x),
+    }
+}
+
+pub fn windows(w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
+    match (w, x) {
+        (Val::Atom(Atom::Num(n)), Val::Array(arr)) => {
+            let n = i64::from(n);
+            if n < 0 {
+                rt_error("Windows size cannot be negative", span)
+            } else {
+                Ok(Array::Windows(arr.into(), n as usize))
+            }
+        }
+        (w, Val::Array(_)) => rt_error(
+            format!(
+                "Windows size must be non-zero number, but it is {}",
+                w.type_name()
+            ),
+            span,
+        ),
+        (_, x) => rt_error(format!("Cannot get windows from {}", x.type_name()), span),
     }
 }
 
