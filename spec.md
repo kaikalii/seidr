@@ -30,7 +30,7 @@
 | glyph | unary          | binary    | escape character             | name   | meaning       |
 | ----- | -------------- | --------- | ---------------------------- | ------ | ------------- |
 | ᚠ     |                | replicate | f                            | fehu   | cattle/wealth |
-| ᚢ     |                |           | u                            | uruz   | strength      |
+| ᚢ     | transpose      | chunks    | u                            | uruz   | strength      |
 | ᚨ     |                | select    | a                            | ansuz  | god           |
 | ᚲ     | identity       | left      | k                            | kaunan | torch         |
 | ᚷ     |                | drop      | g                            | gebo   | gift          |
@@ -78,11 +78,9 @@
 
 # Unassigned Unary Operators
 - Throw
-- Transpose
 - Print?
 
 # Unassigned Binary Operators
-- Chunks
 
 # Unassign Binary Modifiers
 - Repeat

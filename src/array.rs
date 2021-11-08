@@ -35,6 +35,7 @@ pub enum Array {
     Each(Box<EachArray>),
     Select(Box<SelectArray>),
     Windows(Box<Self>, usize),
+    Chunks(Box<Self>, usize),
 }
 
 fn min_len(a: Option<usize>, b: Option<usize>) -> Option<usize> {
@@ -111,6 +112,14 @@ impl Array {
             Array::Each(each, ..) => each.zip.len()?,
             Array::Select(sel) => min_len(sel.indices.len(), sel.array.len())?,
             Array::Windows(arr, size) => arr.len()?.saturating_sub(size.saturating_sub(1)).max(1),
+            Array::Chunks(arr, size) => {
+                let len = arr.len()?;
+                if len % *size == 0 {
+                    len / *size
+                } else {
+                    len / *size + 1
+                }
+            }
         })
     }
     pub fn get(&self, index: usize) -> RuntimeResult<Option<Cow<Val>>> {
@@ -236,6 +245,20 @@ impl Array {
                 }
                 Some(Cow::Owned(
                     Array::Take(Array::Drop(arr.clone(), index as i64).into(), *size as i64).into(),
+                ))
+            }
+            Array::Chunks(arr, size) => {
+                if let Some(len) = self.len() {
+                    if index >= len {
+                        return Ok(None);
+                    }
+                }
+                Some(Cow::Owned(
+                    Array::Take(
+                        Array::Drop(arr.clone(), (index * *size) as i64).into(),
+                        *size as i64,
+                    )
+                    .into(),
                 ))
             }
         })
