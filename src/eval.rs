@@ -521,30 +521,61 @@ pub fn select(w: Val, x: Val, span: &Span) -> RuntimeResult {
 }
 
 pub fn undo_un(op: Val, x: Val, span: &Span) -> RuntimeResult {
-    match &op {
-        Val::Atom(Atom::Function(function)) => match function {
-            Function::Op(Op::Pervasive(
-                per @ Pervasive::Math(MathOp::Add | MathOp::Sub | MathOp::Div),
-            )) => un_pervade_val(*per, x, span),
-            Function::Op(Op::Pervasive(Pervasive::Math(MathOp::Pow))) => {
-                un_pervade_val(Pervasive::Math(MathOp::Log), x, span)
-            }
-            Function::Op(Op::Pervasive(Pervasive::Math(MathOp::Log))) => {
-                un_pervade_val(Pervasive::Math(MathOp::Pow), x, span)
-            }
-            Function::UnMod(un_mod) => match un_mod.m {
-                RuneUnMod::Ing => eval_un(op, x, span),
-                m => rt_error(
+    match op {
+        Val::Atom(Atom::Function(function)) => undo_un_function(function, x, span),
+        _ => Ok(x),
+    }
+}
+
+pub fn undo_un_function(function: Function, x: Val, span: &Span) -> RuntimeResult {
+    match &function {
+        Function::Op(Op::Pervasive(
+            per @ Pervasive::Math(MathOp::Add | MathOp::Sub | MathOp::Div),
+        )) => un_pervade_val(*per, x, span),
+        Function::Op(Op::Pervasive(Pervasive::Math(MathOp::Pow))) => {
+            un_pervade_val(Pervasive::Math(MathOp::Log), x, span)
+        }
+        Function::Op(Op::Pervasive(Pervasive::Math(MathOp::Log))) => {
+            un_pervade_val(Pervasive::Math(MathOp::Pow), x, span)
+        }
+        Function::UnMod(un_mod) => {
+            if let Val::Atom(Atom::Function(f)) = &un_mod.f {
+                match (un_mod.m, f) {
+                    (RuneUnMod::Ing, f) => eval_un_function(f.clone(), x, span),
+                    (
+                        RuneUnMod::Othala,
+                        Function::Op(Op::Pervasive(Pervasive::Math(MathOp::Add))),
+                    ) => eval_bin(
+                        Function::from(MathOp::Div).into(),
+                        x,
+                        Num::Int(2).into(),
+                        span,
+                    ),
+                    (
+                        RuneUnMod::Othala,
+                        Function::Op(Op::Pervasive(Pervasive::Math(MathOp::Mul))),
+                    ) => eval_bin(
+                        Function::from(MathOp::Pow).into(),
+                        x,
+                        Num::Float(0.5).into(),
+                        span,
+                    ),
+                    (m, f) => rt_error(
+                        format!("Undoing unary {} is not supported", f.as_string()?),
+                        span,
+                    ),
+                }
+            } else {
+                rt_error(
                     format!("Undoing unary {} is not supported", function.as_string()?),
                     span,
-                ),
-            },
-            function => rt_error(
-                format!("Undoing unary {} is not supported", function.as_string()?),
-                span,
-            ),
-        },
-        _ => Ok(x),
+                )
+            }
+        }
+        function => rt_error(
+            format!("Undoing unary {} is not supported", function.as_string()?),
+            span,
+        ),
     }
 }
 

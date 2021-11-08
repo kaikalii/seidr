@@ -112,9 +112,12 @@ impl Function {
     }
 }
 
-impl From<Op> for Function {
-    fn from(op: Op) -> Self {
-        Function::Op(op)
+impl<O> From<O> for Function
+where
+    O: Into<Op>,
+{
+    fn from(op: O) -> Self {
+        Function::Op(op.into())
     }
 }
 

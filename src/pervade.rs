@@ -188,7 +188,7 @@ pub fn bin_pervade_atom(per: Pervasive, w: Atom, x: Atom, span: &Span) -> Runtim
                 MathOp::Mod => x.modulus(w),
                 MathOp::Max => w.max(x),
                 MathOp::Min => w.min(x),
-                MathOp::Pow => x.pow(w),
+                MathOp::Pow => w.pow(x),
                 MathOp::Log => w.log(x),
             })
             .into()),
