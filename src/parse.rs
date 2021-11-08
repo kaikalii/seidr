@@ -1,4 +1,4 @@
-use std::{fmt::Display, fs, path::Path, rc::Rc};
+use std::{fmt::Display, fs, iter::once, path::Path, rc::Rc};
 
 use crate::{
     ast::*,
@@ -240,7 +240,9 @@ impl Parser {
         } else {
             let span = items[0].span().join(items.last().unwrap().span());
             ValExpr::Array(ArrayExpr {
-                items,
+                items: once(ArrayItemExpr::Val(OpExpr::Val(first)))
+                    .chain(items)
+                    .collect(),
                 tied: true,
                 span,
             })
