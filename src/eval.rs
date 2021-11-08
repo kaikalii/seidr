@@ -89,9 +89,10 @@ fn eval_un_function(function: Function, x: Val, span: &Span) -> RuntimeResult {
         Function::Op(Op::Rune(rune)) => match rune {
             RuneOp::Kaunan | RuneOp::Laguz => Ok(x),
             RuneOp::Jera => reverse(x, span),
-            RuneOp::Algiz => range(x, span).map(Val::Array),
-            RuneOp::Tiwaz => sort(x, span).map(Val::Array),
-            RuneOp::Sowilo => grade(x, span).map(Val::Array),
+            RuneOp::Algiz => range(x, span).map(Val::from),
+            RuneOp::Tiwaz => sort(x, span).map(Val::from),
+            RuneOp::Sowilo => grade(x, span).map(Val::from),
+            RuneOp::Perth => first(x, span),
             rune => rt_error(format!("{} has no unary form", rune), span),
         },
         Function::Op(Op::Other(other)) => match other {
@@ -155,7 +156,7 @@ fn eval_bin_function(function: Function, w: Val, x: Val, span: &Span) -> Runtime
         Function::Op(Op::Rune(rune)) => match rune {
             RuneOp::Kaunan => Ok(w),
             RuneOp::Laguz => Ok(x),
-            RuneOp::Fehu => replicate(w, x, span).map(Val::Array),
+            RuneOp::Fehu => replicate(w, x, span).map(Val::from),
             RuneOp::Jera => rotate(w, x, span),
             RuneOp::Iwaz => Ok(Array::JoinTo(w.into_array().into(), x.into_array().into()).into()),
             RuneOp::Naudiz => take(w, x, span).map(Val::from),
@@ -458,6 +459,19 @@ pub fn grade(x: Val, span: &Span) -> RuntimeResult<Array> {
         }
         Val::Atom(atom) => rt_error(format!("{} cannot be graded", atom.type_name()), span),
     }
+}
+
+pub fn first(x: Val, span: &Span) -> RuntimeResult {
+    Ok(match x {
+        x @ Val::Atom(_) => x,
+        Val::Array(x) => {
+            if let Some(val) = x.get(0)? {
+                val.into_owned()
+            } else {
+                return rt_error("Array has no first element", span);
+            }
+        }
+    })
 }
 
 pub fn index(w: Val, x: Val, span: &Span) -> RuntimeResult {
