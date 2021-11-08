@@ -14,6 +14,7 @@ where
 {
     let tokens = lex(input, &file)?;
     let mut parser = Parser { tokens, curr: 0 };
+    parser.skip_whitespace();
     let items = parser.items()?;
     if let Some(token) = parser.next() {
         return Err(
@@ -42,14 +43,17 @@ struct Parser {
 }
 
 impl Parser {
-    fn increment(&mut self) {
-        self.curr += 1;
+    fn skip_whitespace(&mut self) {
         while let Some(Token {
             tt: TT::Whitespace, ..
         }) = self.peek()
         {
             self.curr += 1;
         }
+    }
+    fn increment(&mut self) {
+        self.curr += 1;
+        self.skip_whitespace();
     }
     fn match_to<F, T>(&mut self, f: F) -> Option<Sp<T>>
     where

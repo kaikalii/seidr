@@ -383,7 +383,7 @@ impl fmt::Display for Array {
                 }
             }
             if self.len().is_none() {
-                write!(f, "...")?;
+                write!(f, " ...")?;
             }
             write!(f, "⟩")
         }
