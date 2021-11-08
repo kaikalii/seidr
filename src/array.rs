@@ -37,6 +37,7 @@ pub enum Array {
     Windows(Box<Self>, usize),
     Chunks(Box<Self>, usize),
     Replicate(Rc<ReplicateArray>),
+    Scan(Rc<ScanArray>),
 }
 
 fn min_len(a: Option<usize>, b: Option<usize>) -> Option<usize> {
@@ -122,6 +123,7 @@ impl Array {
                 }
             }
             Array::Replicate(_) => return None,
+            Array::Scan(scan) => scan.len()?,
         })
     }
     pub fn get(&self, index: usize) -> RuntimeResult<Option<Cow<Val>>> {
@@ -264,6 +266,7 @@ impl Array {
                 ))
             }
             Array::Replicate(rep) => rep.get(index)?,
+            Array::Scan(scan) => scan.get(index)?.map(Cow::Owned),
         })
     }
     pub fn iter(&self) -> impl Iterator<Item = RuntimeResult<Cow<Val>>> {
@@ -630,5 +633,75 @@ impl ReplicateArray {
             }
             ReplicateArray::Int { n, array } => array.get(index / *n)?,
         })
+    }
+}
+
+#[derive(Debug)]
+pub struct ScanArray {
+    f: Val,
+    array: Array,
+    init: Option<Val>,
+    cache: RefCell<Vec<Val>>,
+    span: Span,
+}
+
+impl PartialEq for ScanArray {
+    fn eq(&self, other: &Self) -> bool {
+        self.f == other.f && self.array == other.array && self.init == other.init
+    }
+}
+
+impl Eq for ScanArray {}
+
+impl ScanArray {
+    pub fn new(f: Val, array: Array, init: Option<Val>, span: Span) -> Self {
+        ScanArray {
+            f,
+            array,
+            init,
+            cache: Default::default(),
+            span,
+        }
+    }
+    pub fn len(&self) -> Option<usize> {
+        self.array.len()
+    }
+    pub fn get(&self, index: usize) -> RuntimeResult<Option<Val>> {
+        let mut cache = self.cache.borrow_mut();
+        while cache.len() <= index {
+            let i = cache.len();
+            if i == 0 {
+                if let Some(init) = &self.init {
+                    if let Some(val) = self.array.get(i)? {
+                        cache.push(eval_bin(
+                            self.f.clone(),
+                            init.clone(),
+                            val.into_owned(),
+                            &self.span,
+                        )?);
+                    } else {
+                        break;
+                    }
+                } else if let Some(val) = self.array.get(i)? {
+                    cache.push(val.into_owned())
+                } else {
+                    break;
+                }
+            } else {
+                let w = self.array.get(i - 1)?.unwrap();
+                let x = self.array.get(i)?;
+                if let Some(x) = self.array.get(i)? {
+                    cache.push(eval_bin(
+                        self.f.clone(),
+                        w.into_owned(),
+                        x.into_owned(),
+                        &self.span,
+                    )?);
+                } else {
+                    break;
+                }
+            }
+        }
+        Ok(cache.get(index).cloned())
     }
 }

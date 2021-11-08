@@ -1,7 +1,7 @@
 use std::iter::repeat;
 
 use crate::{
-    array::{Array, EachArray, ReplicateArray, SelectArray, ZipForm},
+    array::{Array, EachArray, ReplicateArray, ScanArray, SelectArray, ZipForm},
     ast::Format,
     cwt::{BinValNode, UnValNode, ValNode},
     error::{RuntimeError, RuntimeResult},
@@ -110,6 +110,7 @@ fn eval_un_function(function: Function, x: Val, span: &Span) -> RuntimeResult {
         Function::UnMod(un_mod) => match un_mod.m {
             RuneUnMod::Ingwaz => eval_un(un_mod.f, x, span),
             RuneUnMod::Raido => fold(un_mod.f, None, x, span),
+            RuneUnMod::Thurisaz => scan(un_mod.f, None, x, span).map(Val::from),
             RuneUnMod::Othala => eval_bin(un_mod.f, x.clone(), x, span),
             RuneUnMod::Berkanan => each_un(un_mod.f, x, span).map(Into::into),
             RuneUnMod::Ing => undo_un(un_mod.f, x, span),
@@ -182,8 +183,9 @@ fn eval_bin_function(function: Function, w: Val, x: Val, span: &Span) -> Runtime
         Function::UnMod(un_mod) => match un_mod.m {
             RuneUnMod::Ingwaz => eval_bin(un_mod.f, w, x, span),
             RuneUnMod::Raido => fold(un_mod.f, Some(w), x, span),
+            RuneUnMod::Thurisaz => scan(un_mod.f, Some(w), x, span).map(Val::from),
             RuneUnMod::Othala => eval_bin(un_mod.f, x, w, span),
-            RuneUnMod::Berkanan => each_bin(un_mod.f, w, x, span).map(Into::into),
+            RuneUnMod::Berkanan => each_bin(un_mod.f, w, x, span).map(Val::from),
             RuneUnMod::Ing => undo_bin(un_mod.f, w, x, span),
             m => todo!("{:?}", m),
         },
@@ -337,6 +339,13 @@ pub fn drop(w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
             ),
             span,
         ),
+    }
+}
+
+pub fn scan(op: Val, w: Option<Val>, x: Val, span: &Span) -> RuntimeResult<Array> {
+    match x {
+        Val::Array(arr) => Ok(Array::Scan(ScanArray::new(op, arr, w, span.clone()).into())),
+        Val::Atom(atom) => rt_error(format!("Attempted to scan over {}", atom.type_name()), span),
     }
 }
 
