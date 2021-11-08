@@ -102,6 +102,7 @@ pub fn eval_un(op: Val, x: Val, span: &Span) -> RuntimeResult {
                     let right = eval_un(bin_mod.g, x.clone(), span)?;
                     eval_bin(bin_mod.f, x, right, span)
                 }
+                RuneBinMod::Haglaz => eval_un(bin_mod.f, eval_un(bin_mod.g, x, span)?, span),
                 m => todo!("{:?}", m),
             },
         },
@@ -156,6 +157,11 @@ pub fn eval_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult {
                 RuneBinMod::Ehwaz => {
                     let right = eval_un(bin_mod.g, x, span)?;
                     eval_bin(bin_mod.f, w, right, span)
+                }
+                RuneBinMod::Haglaz => {
+                    let w = eval_un(bin_mod.g.clone(), w, span)?;
+                    let x = eval_un(bin_mod.g, x, span)?;
+                    eval_bin(bin_mod.f, w, x, span)
                 }
                 m => todo!("{:?}", m),
             },

@@ -66,8 +66,7 @@
 
 | glyph | meaing | escape character | name   | meaning |
 | ----- | ------ | ---------------- | ------ | ------- |
-| ᚻ     |        | H                | haegl  | hail    |
-| ᚺ     | over   | h                | haglaz | hail    |
+| ᚻ     | over   | h                | haglaz | hail    |
 | ᛖ     | beside | e                | ehwaz  | horse   |
 | ᛗ     |        | m                | mannaz | man     |
 | ᛞ     | choose | d                | dagaz  | day     |

@@ -198,8 +198,7 @@ op!(
 
 op!(
     RuneBinMod,
-    (Haegl, 'ᚻ'),
-    (Haglaz, 'ᚺ'),
+    (Haglaz, 'ᚻ'),
     (Ehwaz, 'ᛖ'),
     (Mannaz, 'ᛗ'),
     (Dagaz, 'ᛞ'),

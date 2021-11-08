@@ -532,7 +532,6 @@ impl Lexer {
             'k' => RuneOp::Kaunan.into(),
             'g' => RuneOp::Gebo.into(),
             'w' => RuneUnMod::Wunjo.into(),
-            'H' => RuneBinMod::Haegl.into(),
             'h' => RuneBinMod::Haglaz.into(),
             'n' => RuneOp::Naudiz.into(),
             'j' => RuneOp::Jera.into(),
