@@ -99,8 +99,8 @@ pub fn eval_un(op: Val, x: Val, span: &Span) -> RuntimeResult {
             },
             Function::BinMod(bin_mod) => match bin_mod.m {
                 RuneBinMod::Ehwaz => {
-                    let right = eval_un(bin_mod.g, x, span)?;
-                    eval_bin(bin_mod.f, right.clone(), right, span)
+                    let right = eval_un(bin_mod.g, x.clone(), span)?;
+                    eval_bin(bin_mod.f, x, right, span)
                 }
                 m => todo!("{:?}", m),
             },

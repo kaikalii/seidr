@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::{
-    lex::{Comment, Sp, Span},
+    lex::{self, digit_or_inf, Comment, Sp, Span},
     num::Num,
     op::*,
 };
@@ -14,16 +14,25 @@ use crate::{
 pub struct Formatter<'w> {
     depth: usize,
     writer: &'w mut dyn Write,
+    prev_alphanum: bool,
 }
 
 impl<'w> Formatter<'w> {
     pub fn new<W: Write>(writer: &'w mut W) -> Self {
-        Formatter { depth: 0, writer }
+        Formatter {
+            depth: 0,
+            writer,
+            prev_alphanum: false,
+        }
     }
 }
 
 impl<'w> Write for Formatter<'w> {
     fn write_str(&mut self, s: &str) -> fmt::Result {
+        if self.prev_alphanum && s.starts_with(|c| lex::ident_head_char(c) || digit_or_inf(c)) {
+            self.writer.write_char(' ')?;
+        }
+        self.prev_alphanum = s.ends_with(|c| lex::ident_body_char(c) || digit_or_inf(c));
         self.writer.write_str(s)
     }
 }
@@ -308,7 +317,7 @@ impl TrainExpr {
 impl fmt::Debug for TrainExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TrainExpr::Single(expr) => expr.fmt(f),
+            TrainExpr::Single(expr) => write!(f, "(single {:?})", expr),
             TrainExpr::Atop(expr) => expr.fmt(f),
             TrainExpr::Fork(expr) => expr.fmt(f),
         }

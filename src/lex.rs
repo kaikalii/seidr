@@ -652,11 +652,11 @@ impl BoolTake for bool {
     }
 }
 
-fn ident_head_char(c: char) -> bool {
-    !c.is_digit(10) && ident_body_char(c)
+pub fn ident_head_char(c: char) -> bool {
+    !digit_or_inf(c) && ident_body_char(c)
 }
 
-fn ident_body_char(c: char) -> bool {
+pub fn ident_body_char(c: char) -> bool {
     c.is_alphanumeric() && !is_runic(c) || c == '_'
 }
 
@@ -664,7 +664,7 @@ fn is_runic(c: char) -> bool {
     ('ᚠ'..='ᛪ').contains(&c)
 }
 
-fn digit_or_inf(c: char) -> bool {
+pub fn digit_or_inf(c: char) -> bool {
     c.is_digit(10) || c == '∞'
 }
 

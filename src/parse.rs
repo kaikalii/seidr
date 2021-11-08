@@ -291,7 +291,7 @@ impl Parser {
         if self.match_token(TT::OpenParen).is_none() {
             return Ok(None);
         }
-        Ok(if let Some(train) = self.train()? {
+        Ok(if let Some(train) = dbg!(self.train()?) {
             self.expect_token(TT::CloseParen)?;
             Some(match train {
                 TrainExpr::Single(expr) => expr,
@@ -304,12 +304,10 @@ impl Parser {
     }
     fn train(&mut self) -> CompileResult<Option<TrainExpr>> {
         let start = self.curr;
-        Ok(if let Some(fork) = self.fork()? {
-            Some(TrainExpr::Fork(fork.into()))
-        } else if let Some(atop) = self.atop()? {
-            Some(TrainExpr::Atop(atop.into()))
+        Ok(if let Some(train) = self.fork_or_single()? {
+            Some(train)
         } else {
-            self.mod_expr()?.map(TrainExpr::Single)
+            self.atop()?.map(Into::into).map(TrainExpr::Atop)
         })
     }
     fn fork_or_single(&mut self) -> CompileResult<Option<TrainExpr>> {
@@ -322,7 +320,7 @@ impl Parser {
             } else {
                 return Ok(None);
             };
-            if self.mod_expr()?.is_some() {
+            if self.mod_expr()?.is_some() || self.op_expr()?.is_some() {
                 self.curr = start;
                 return Ok(None);
             }
