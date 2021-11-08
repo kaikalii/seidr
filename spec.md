@@ -80,7 +80,6 @@
 - Throw
 - Transpose
 - Print?
-- Flatten
 
 # Unassigned Binary Operators
 - Chunks

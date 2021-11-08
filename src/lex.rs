@@ -512,6 +512,10 @@ impl Lexer {
             c => {
                 if let Some(op) = Op::from_escape(c) {
                     self.token(op);
+                } else if let Some(m) = RuneUnMod::from_escape(c) {
+                    self.token(m)
+                } else if let Some(m) = RuneBinMod::from_escape(c) {
+                    self.token(m)
                 } else {
                     return self.error(CompileError::InvalidEscape(c.into()));
                 }
