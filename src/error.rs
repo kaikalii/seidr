@@ -153,7 +153,7 @@ impl Problem {
 pub struct RuntimeError {
     pub message: String,
     pub span: Option<Span>,
-    pub trace: Vec<String>,
+    pub trace: Vec<Span>,
 }
 
 impl From<fmt::Error> for RuntimeError {
@@ -176,6 +176,10 @@ impl RuntimeError {
             trace: Vec::new(),
         }
     }
+    pub fn trace_span(mut self, span: &Span) -> Self {
+        self.trace.push(span.clone());
+        self
+    }
 }
 
 impl fmt::Display for RuntimeError {
@@ -191,8 +195,8 @@ impl fmt::Display for RuntimeError {
         }
         if !self.trace.is_empty() {
             writeln!(f)?;
-            for item in &self.trace {
-                write!(f, "\n{}", item)?;
+            for span in &self.trace {
+                span.format_error(f, Color::BrightRed)?;
             }
         }
         Ok(())

@@ -73,58 +73,62 @@ impl Eval for UnValNode {
 
 pub fn eval_un(op: Val, x: Val, span: &Span) -> RuntimeResult {
     match op {
-        Val::Atom(Atom::Function(function)) => match function {
-            Function::Op(Op::Pervasive(Pervasive::Comparison(ComparisonOp::Equal))) => match x {
-                Val::Array(arr) => Ok(arr.len().map(Num::from).unwrap_or(Num::INFINIFY).into()),
-                Val::Atom(_) => Ok(1i64.into()),
-            },
-            Function::Op(Op::Pervasive(per)) => un_pervade_val(per, x, span),
-            Function::Op(Op::Rune(rune)) => match rune {
-                RuneOp::Kaunan | RuneOp::Laguz => Ok(x),
-                RuneOp::Jera => Ok(reverse(x, span)),
-                RuneOp::Algiz => range(x, span).map(Val::Array),
-                RuneOp::Tiwaz => sort(x, span).map(Val::Array),
-                RuneOp::Sowilo => grade(x, span).map(Val::Array),
-                rune => rt_error(format!("{} has no unary form", rune), span),
-            },
-            Function::Op(Op::Other(other)) => match other {
-                OtherOp::Match => x.depth().map(Into::into),
-                other => todo!("{:?}", other),
-            },
-            Function::Atop(atop) => {
-                let lower = eval_un(atop.g, x, span)?;
-                eval_un(atop.f, lower, span)
-            }
-            Function::Fork(fork) => {
-                let left = eval_un(fork.left, x.clone(), span)?;
-                let right = eval_un(fork.right, x, span)?;
-                eval_bin(fork.center, left, right, span)
-            }
-            Function::UnMod(un_mod) => match un_mod.m {
-                RuneUnMod::Ingwaz => eval_un(un_mod.f, x, span),
-                RuneUnMod::Raido => fold(un_mod.f, None, x, span),
-                RuneUnMod::Othala => eval_bin(un_mod.f, x.clone(), x, span),
-                RuneUnMod::Berkanan => each_un(un_mod.f, x, span).map(Into::into),
-                RuneUnMod::Ing => undo_un(un_mod.f, x, span),
-                m => todo!("{:?}", m),
-            },
-            Function::BinMod(bin_mod) => match bin_mod.m {
-                RuneBinMod::Ehwaz => {
-                    let right = eval_un(bin_mod.g, x.clone(), span)?;
-                    eval_bin(bin_mod.f, x, right, span)
-                }
-                RuneBinMod::Haglaz => eval_un(bin_mod.f, eval_un(bin_mod.g, x, span)?, span),
-                RuneBinMod::Dagaz => {
-                    let condition = eval_un(bin_mod.f, x.clone(), span)?;
-                    let branches = eval_un(bin_mod.g, x.clone(), span)?;
-                    let chosen = index(condition, branches, span)?;
-                    eval_un(chosen, x, span)
-                }
-                m => todo!("{:?}", m),
-            },
-        },
+        Val::Atom(Atom::Function(function)) => eval_un_function(function, x, span),
         Val::Atom(Atom::UnMod(m)) => Ok(UnModded { m, f: x }.into()),
         val => Ok(val),
+    }
+}
+
+fn eval_un_function(function: Function, x: Val, span: &Span) -> RuntimeResult {
+    match function {
+        Function::Op(Op::Pervasive(Pervasive::Comparison(ComparisonOp::Equal))) => match x {
+            Val::Array(arr) => Ok(arr.len().map(Num::from).unwrap_or(Num::INFINIFY).into()),
+            Val::Atom(_) => Ok(1i64.into()),
+        },
+        Function::Op(Op::Pervasive(per)) => un_pervade_val(per, x, span),
+        Function::Op(Op::Rune(rune)) => match rune {
+            RuneOp::Kaunan | RuneOp::Laguz => Ok(x),
+            RuneOp::Jera => Ok(reverse(x, span)),
+            RuneOp::Algiz => range(x, span).map(Val::Array),
+            RuneOp::Tiwaz => sort(x, span).map(Val::Array),
+            RuneOp::Sowilo => grade(x, span).map(Val::Array),
+            rune => rt_error(format!("{} has no unary form", rune), span),
+        },
+        Function::Op(Op::Other(other)) => match other {
+            OtherOp::Match => x.depth().map(Into::into),
+            other => todo!("{:?}", other),
+        },
+        Function::Atop(atop) => {
+            let lower = eval_un(atop.g, x, span)?;
+            eval_un(atop.f, lower, span)
+        }
+        Function::Fork(fork) => {
+            let left = eval_un(fork.left, x.clone(), span)?;
+            let right = eval_un(fork.right, x, span)?;
+            eval_bin(fork.center, left, right, span)
+        }
+        Function::UnMod(un_mod) => match un_mod.m {
+            RuneUnMod::Ingwaz => eval_un(un_mod.f, x, span),
+            RuneUnMod::Raido => fold(un_mod.f, None, x, span),
+            RuneUnMod::Othala => eval_bin(un_mod.f, x.clone(), x, span),
+            RuneUnMod::Berkanan => each_un(un_mod.f, x, span).map(Into::into),
+            RuneUnMod::Ing => undo_un(un_mod.f, x, span),
+            m => todo!("{:?}", m),
+        },
+        Function::BinMod(bin_mod) => match bin_mod.m {
+            RuneBinMod::Ehwaz => {
+                let right = eval_un(bin_mod.g, x.clone(), span)?;
+                eval_bin(bin_mod.f, x, right, span)
+            }
+            RuneBinMod::Haglaz => eval_un(bin_mod.f, eval_un(bin_mod.g, x, span)?, span),
+            RuneBinMod::Dagaz => {
+                let condition = eval_un(bin_mod.f, x.clone(), span)?;
+                let branches = eval_un(bin_mod.g, x.clone(), span)?;
+                let chosen = index(condition, branches, span)?;
+                eval_un(chosen, x, span)
+            }
+            m => todo!("{:?}", m),
+        },
     }
 }
 
@@ -139,66 +143,68 @@ impl Eval for BinValNode {
 
 pub fn eval_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult {
     match op {
-        Val::Atom(Atom::Function(function)) => match function {
-            Function::Op(Op::Pervasive(per)) => bin_pervade_val(per, w, x, span),
-            Function::Op(Op::Rune(rune)) => match rune {
-                RuneOp::Kaunan => Ok(w),
-                RuneOp::Laguz => Ok(x),
-                RuneOp::Fehu => replicate(w, x, span).map(Val::Array),
-                RuneOp::Jera => rotate(w, x, span),
-                RuneOp::Iwaz => {
-                    Ok(Array::JoinTo(w.into_array().into(), x.into_array().into()).into())
-                }
-                RuneOp::Naudiz => take(w, x, span).map(Val::from),
-                RuneOp::Gebo => drop(w, x, span).map(Val::from),
-                RuneOp::Perth => index(w, x, span),
-                RuneOp::Ansuz => select(w, x, span),
-                RuneOp::Algiz => windows(w, x, span).map(Val::from),
-                RuneOp::Uruz => chunks(w, x, span).map(Val::from),
-                rune => rt_error(format!("{} has no binary form", rune), span),
-            },
-            Function::Op(Op::Other(other)) => match other {
-                OtherOp::Match => w.matches(&x).map(Val::from),
-                OtherOp::DoNotMatch => w.matches(&x).map(|matches| (!matches).into()),
-            },
-            Function::Atop(atop) => {
-                let lower = eval_bin(atop.g, w, x, span)?;
-                eval_un(atop.f, lower, span)
-            }
-            Function::Fork(fork) => {
-                let left = eval_bin(fork.left, w.clone(), x.clone(), span)?;
-                let right = eval_bin(fork.right, w, x, span)?;
-                eval_bin(fork.center, left, right, span)
-            }
-            Function::UnMod(un_mod) => match un_mod.m {
-                RuneUnMod::Ingwaz => eval_bin(un_mod.f, w, x, span),
-                RuneUnMod::Raido => fold(un_mod.f, Some(w), x, span),
-                RuneUnMod::Othala => eval_bin(un_mod.f, x, w, span),
-                RuneUnMod::Berkanan => each_bin(un_mod.f, w, x, span).map(Into::into),
-                RuneUnMod::Ing => undo_bin(un_mod.f, w, x, span),
-                m => todo!("{:?}", m),
-            },
-            Function::BinMod(bin_mod) => match bin_mod.m {
-                RuneBinMod::Ehwaz => {
-                    let right = eval_un(bin_mod.g, x, span)?;
-                    eval_bin(bin_mod.f, w, right, span)
-                }
-                RuneBinMod::Haglaz => {
-                    let w = eval_un(bin_mod.g.clone(), w, span)?;
-                    let x = eval_un(bin_mod.g, x, span)?;
-                    eval_bin(bin_mod.f, w, x, span)
-                }
-                RuneBinMod::Dagaz => {
-                    let condition = eval_bin(bin_mod.f, w.clone(), x.clone(), span)?;
-                    let branches = eval_bin(bin_mod.g, w.clone(), x.clone(), span)?;
-                    let chosen = index(condition, branches, span)?;
-                    eval_bin(chosen, w, x, span)
-                }
-                m => todo!("{:?}", m),
-            },
-        },
+        Val::Atom(Atom::Function(function)) => eval_bin_function(function, w, x, span),
         Val::Atom(Atom::BinMod(m)) => Ok(BinModded { m, f: w, g: x }.into()),
         val => Ok(val),
+    }
+}
+
+fn eval_bin_function(function: Function, w: Val, x: Val, span: &Span) -> RuntimeResult {
+    match function {
+        Function::Op(Op::Pervasive(per)) => bin_pervade_val(per, w, x, span),
+        Function::Op(Op::Rune(rune)) => match rune {
+            RuneOp::Kaunan => Ok(w),
+            RuneOp::Laguz => Ok(x),
+            RuneOp::Fehu => replicate(w, x, span).map(Val::Array),
+            RuneOp::Jera => rotate(w, x, span),
+            RuneOp::Iwaz => Ok(Array::JoinTo(w.into_array().into(), x.into_array().into()).into()),
+            RuneOp::Naudiz => take(w, x, span).map(Val::from),
+            RuneOp::Gebo => drop(w, x, span).map(Val::from),
+            RuneOp::Perth => index(w, x, span),
+            RuneOp::Ansuz => select(w, x, span),
+            RuneOp::Algiz => windows(w, x, span).map(Val::from),
+            RuneOp::Uruz => chunks(w, x, span).map(Val::from),
+            rune => rt_error(format!("{} has no binary form", rune), span),
+        },
+        Function::Op(Op::Other(other)) => match other {
+            OtherOp::Match => w.matches(&x).map(Val::from),
+            OtherOp::DoNotMatch => w.matches(&x).map(|matches| (!matches).into()),
+        },
+        Function::Atop(atop) => {
+            let lower = eval_bin(atop.g, w, x, span)?;
+            eval_un(atop.f, lower, span)
+        }
+        Function::Fork(fork) => {
+            let left = eval_bin(fork.left, w.clone(), x.clone(), span)?;
+            let right = eval_bin(fork.right, w, x, span)?;
+            eval_bin(fork.center, left, right, span)
+        }
+        Function::UnMod(un_mod) => match un_mod.m {
+            RuneUnMod::Ingwaz => eval_bin(un_mod.f, w, x, span),
+            RuneUnMod::Raido => fold(un_mod.f, Some(w), x, span),
+            RuneUnMod::Othala => eval_bin(un_mod.f, x, w, span),
+            RuneUnMod::Berkanan => each_bin(un_mod.f, w, x, span).map(Into::into),
+            RuneUnMod::Ing => undo_bin(un_mod.f, w, x, span),
+            m => todo!("{:?}", m),
+        },
+        Function::BinMod(bin_mod) => match bin_mod.m {
+            RuneBinMod::Ehwaz => {
+                let right = eval_un(bin_mod.g, x, span)?;
+                eval_bin(bin_mod.f, w, right, span)
+            }
+            RuneBinMod::Haglaz => {
+                let w = eval_un(bin_mod.g.clone(), w, span)?;
+                let x = eval_un(bin_mod.g, x, span)?;
+                eval_bin(bin_mod.f, w, x, span)
+            }
+            RuneBinMod::Dagaz => {
+                let condition = eval_bin(bin_mod.f, w.clone(), x.clone(), span)?;
+                let branches = eval_bin(bin_mod.g, w.clone(), x.clone(), span)?;
+                let chosen = index(condition, branches, span)?;
+                eval_bin(chosen, w, x, span)
+            }
+            m => todo!("{:?}", m),
+        },
     }
 }
 
