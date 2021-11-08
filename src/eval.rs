@@ -1,7 +1,7 @@
 use std::iter::repeat;
 
 use crate::{
-    array::{Array, EachArray, SelectArray, ZipForm},
+    array::{Array, EachArray, ReplicateArray, SelectArray, ZipForm},
     ast::Format,
     cwt::{BinValNode, UnValNode, ValNode},
     error::{RuntimeError, RuntimeResult},
@@ -255,48 +255,42 @@ fn range(x: Val, span: &Span) -> RuntimeResult<Array> {
     }
 }
 
+pub fn replicator_int(n: Val, span: &Span) -> RuntimeResult<usize> {
+    match n {
+        Val::Atom(Atom::Num(n)) if n >= 0 => Ok(i64::from(n) as usize),
+        Val::Atom(Atom::Num(_)) => rt_error("Replicator cannot be negative", span),
+        val => rt_error(
+            format!("{} cannot be used to replicate", val.type_name()),
+            span,
+        ),
+    }
+}
+
 fn replicate(w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
     match (w, x) {
-        (Val::Atom(Atom::Num(w)), Val::Atom(x)) => {
-            let n = i64::from(w);
-            if n < 0 {
-                rt_error("Replicator must be natural numbers", span)
-            } else {
-                let n = n as usize;
-                Ok(Array::concrete(repeat(x).take(n)))
-            }
-        }
-        (w @ Val::Atom(Atom::Num(_)), Val::Array(x)) => {
-            let arrays: Vec<Array> = x
+        (Val::Array(w), Val::Array(x)) => Ok(if w.len().is_some() && x.len().is_some() {
+            let arrays: Vec<Array> = w
                 .into_iter()
-                .map(|x| x.and_then(|x| replicate(w.clone(), x, span)))
+                .zip(x)
+                .map(|(w, x)| w.and_then(|w| x.and_then(|x| replicate(w, x, span))))
                 .collect::<RuntimeResult<_>>()?;
-            Ok(Array::Concrete(
-                arrays.into_iter().flatten().collect::<RuntimeResult<_>>()?,
-            ))
+            Array::Concrete(arrays.into_iter().flatten().collect::<RuntimeResult<_>>()?)
+        } else {
+            Array::Replicate(ReplicateArray::counts(w, x, span.clone()).into())
+        }),
+        (w, x) => {
+            let n = replicator_int(w, span)?;
+            Ok(match x {
+                Val::Atom(x) => Array::concrete(repeat(x).take(n)),
+                Val::Array(x) => {
+                    let arrays: Vec<Array> = x
+                        .into_iter()
+                        .map(|x| x.and_then(|x| replicate(n.into(), x, span)))
+                        .collect::<RuntimeResult<_>>()?;
+                    Array::Concrete(arrays.into_iter().flatten().collect::<RuntimeResult<_>>()?)
+                }
+            })
         }
-        (Val::Array(w), Val::Array(x)) => {
-            if w.len() == x.len() {
-                let arrays: Vec<Array> = w
-                    .into_iter()
-                    .zip(x)
-                    .map(|(w, x)| w.and_then(|w| x.and_then(|x| replicate(w, x, span))))
-                    .collect::<RuntimeResult<_>>()?;
-                Ok(Array::Concrete(
-                    arrays.into_iter().flatten().collect::<RuntimeResult<_>>()?,
-                ))
-            } else {
-                rt_error("Arrays must have matching lengths", span)
-            }
-        }
-        (Val::Array(_), Val::Atom(x)) => rt_error(
-            format!("{} cannot be replicated with array", x.type_name()),
-            span,
-        ),
-        (Val::Atom(w), x) => rt_error(
-            format!("{} cannot be used to replicate", w.type_name()),
-            span,
-        ),
     }
 }
 

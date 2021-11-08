@@ -10,7 +10,7 @@ use std::{
 use crate::{
     ast::{Format, Formatter},
     error::RuntimeResult,
-    eval::{eval_bin, eval_un, index_array},
+    eval::{eval_bin, eval_un, index_array, replicator_int},
     lex::Span,
     num::{modulus, Num},
     pervade::PervadedArray,
@@ -36,6 +36,7 @@ pub enum Array {
     Select(Box<SelectArray>),
     Windows(Box<Self>, usize),
     Chunks(Box<Self>, usize),
+    Replicate(Rc<ReplicateArray>),
 }
 
 fn min_len(a: Option<usize>, b: Option<usize>) -> Option<usize> {
@@ -120,6 +121,7 @@ impl Array {
                     len / *size + 1
                 }
             }
+            Array::Replicate(_) => return None,
         })
     }
     pub fn get(&self, index: usize) -> RuntimeResult<Option<Cow<Val>>> {
@@ -261,6 +263,7 @@ impl Array {
                     .into(),
                 ))
             }
+            Array::Replicate(rep) => rep.get(index)?,
         })
     }
     pub fn iter(&self) -> impl Iterator<Item = RuntimeResult<Cow<Val>>> {
@@ -415,6 +418,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub enum ArrayIntoIter {
     RcView(RcViewIntoIter<Val>),
     Get { index: usize, array: Array },
@@ -506,10 +510,12 @@ impl ZipForm {
     }
 }
 
+type ArrayCache = RefCell<HashMap<usize, Val>>;
+
 #[derive(Debug)]
 pub struct CachedArray {
     arr: Array,
-    cache: RefCell<HashMap<usize, Val>>,
+    cache: ArrayCache,
 }
 
 impl CachedArray {
@@ -566,3 +572,63 @@ impl PartialEq for SelectArray {
 }
 
 impl Eq for SelectArray {}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum ReplicateArray {
+    Int { n: usize, array: Array },
+    Counts(Box<CountsReplicateArray>),
+}
+
+#[derive(Debug)]
+pub struct CountsReplicateArray {
+    counts: RefCell<ArrayIntoIter>,
+    array: RefCell<ArrayIntoIter>,
+    cache: RefCell<Vec<Val>>,
+    span: Span,
+}
+
+impl PartialEq for CountsReplicateArray {
+    fn eq(&self, _: &Self) -> bool {
+        false
+    }
+}
+
+impl Eq for CountsReplicateArray {}
+
+impl ReplicateArray {
+    pub fn int(n: usize, array: Array) -> Self {
+        ReplicateArray::Int { n, array }
+    }
+    pub fn counts(counts: Array, array: Array, span: Span) -> Self {
+        ReplicateArray::Counts(
+            CountsReplicateArray {
+                counts: counts.into_iter().into(),
+                array: array.into_iter().into(),
+                cache: Vec::new().into(),
+                span,
+            }
+            .into(),
+        )
+    }
+    pub fn get(&self, index: usize) -> RuntimeResult<Option<Cow<Val>>> {
+        Ok(match self {
+            ReplicateArray::Counts(cra) => {
+                let mut cache = cra.cache.borrow_mut();
+                while cache.len() <= index {
+                    let count = cra.counts.borrow_mut().next().transpose()?;
+                    let val = cra.array.borrow_mut().next().transpose()?;
+                    if let Some((count, val)) = count.zip(val) {
+                        let n = replicator_int(count, &cra.span)?;
+                        for _ in 0..n {
+                            cache.push(val.clone());
+                        }
+                    } else {
+                        break;
+                    }
+                }
+                cache.get(index).cloned().map(Cow::Owned)
+            }
+            ReplicateArray::Int { n, array } => array.get(index / *n)?,
+        })
+    }
+}

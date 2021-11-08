@@ -122,6 +122,15 @@ where
     },
 }
 
+impl<T> fmt::Debug for RcViewIntoIter<T>
+where
+    T: Clone,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "iter")
+    }
+}
+
 impl<T> Iterator for RcViewIntoIter<T>
 where
     T: Clone,
