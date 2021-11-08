@@ -38,6 +38,7 @@ pub enum Array {
     Chunks(Box<Self>, usize),
     Replicate(Rc<ReplicateArray>),
     Scan(Rc<ScanArray>),
+    Table(Rc<TableArray>),
 }
 
 fn min_len(a: Option<usize>, b: Option<usize>) -> Option<usize> {
@@ -124,6 +125,7 @@ impl Array {
             }
             Array::Replicate(_) => return None,
             Array::Scan(scan) => scan.len()?,
+            Array::Table(table) => table.len()?,
         })
     }
     pub fn get(&self, index: usize) -> RuntimeResult<Option<Cow<Val>>> {
@@ -267,6 +269,7 @@ impl Array {
             }
             Array::Replicate(rep) => rep.get(index)?,
             Array::Scan(scan) => scan.get(index)?.map(Cow::Owned),
+            Array::Table(table) => table.get(index)?.map(Cow::Owned),
         })
     }
     pub fn iter(&self) -> impl Iterator<Item = RuntimeResult<Cow<Val>>> {
@@ -703,5 +706,45 @@ impl ScanArray {
             }
         }
         Ok(cache.get(index).cloned())
+    }
+}
+
+#[derive(Debug)]
+pub struct TableArray {
+    f: Val,
+    w: Array,
+    x: Array,
+    span: Span,
+}
+
+impl PartialEq for TableArray {
+    fn eq(&self, other: &Self) -> bool {
+        self.f == other.f && self.w == other.w && self.x == other.x
+    }
+}
+
+impl Eq for TableArray {}
+
+impl TableArray {
+    pub fn new(f: Val, w: Array, x: Array, span: Span) -> Self {
+        TableArray { f, w, x, span }
+    }
+    pub fn len(&self) -> Option<usize> {
+        self.w.len()
+    }
+    pub fn get(&self, index: usize) -> RuntimeResult<Option<Val>> {
+        let val = if let Some(val) = self.w.get(index)? {
+            val.into_owned()
+        } else {
+            return Ok(None);
+        };
+        Ok(Some(Val::Array(Array::Each(
+            EachArray {
+                zip: ZipForm::BinLeft(val, self.x.clone()),
+                f: self.f.clone(),
+                span: self.span.clone(),
+            }
+            .into(),
+        ))))
     }
 }

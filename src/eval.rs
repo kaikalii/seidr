@@ -1,7 +1,7 @@
 use std::iter::repeat;
 
 use crate::{
-    array::{Array, EachArray, ReplicateArray, ScanArray, SelectArray, ZipForm},
+    array::{Array, EachArray, ReplicateArray, ScanArray, SelectArray, TableArray, ZipForm},
     ast::Format,
     cwt::{BinValNode, UnValNode, ValNode},
     error::{RuntimeError, RuntimeResult},
@@ -112,9 +112,8 @@ fn eval_un_function(function: Function, x: Val, span: &Span) -> RuntimeResult {
             RuneUnMod::Raido => fold(un_mod.f, None, x, span),
             RuneUnMod::Thurisaz => scan(un_mod.f, None, x, span).map(Val::from),
             RuneUnMod::Othala => eval_bin(un_mod.f, x.clone(), x, span),
-            RuneUnMod::Berkanan => each_un(un_mod.f, x, span).map(Into::into),
+            RuneUnMod::Berkanan | RuneUnMod::Wunjo => each_un(un_mod.f, x, span).map(Val::from),
             RuneUnMod::Ing => undo_un(un_mod.f, x, span),
-            m => todo!("{:?}", m),
         },
         Function::BinMod(bin_mod) => match bin_mod.m {
             RuneBinMod::Ehwaz => {
@@ -187,7 +186,7 @@ fn eval_bin_function(function: Function, w: Val, x: Val, span: &Span) -> Runtime
             RuneUnMod::Othala => eval_bin(un_mod.f, x, w, span),
             RuneUnMod::Berkanan => each_bin(un_mod.f, w, x, span).map(Val::from),
             RuneUnMod::Ing => undo_bin(un_mod.f, w, x, span),
-            m => todo!("{:?}", m),
+            RuneUnMod::Wunjo => table(un_mod.f, w, x, span).map(Val::from),
         },
         Function::BinMod(bin_mod) => match bin_mod.m {
             RuneBinMod::Ehwaz => {
@@ -664,6 +663,15 @@ pub fn chunks(w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
             span,
         ),
         (_, x) => rt_error(format!("Cannot get chunks from {}", x.type_name()), span),
+    }
+}
+
+pub fn table(f: Val, w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
+    match (w, x) {
+        (Val::Array(w), Val::Array(x)) => {
+            Ok(Array::Table(TableArray::new(f, w, x, span.clone()).into()))
+        }
+        (w, x) => each_bin(f, w, x, span),
     }
 }
 
