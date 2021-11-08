@@ -4,7 +4,7 @@ use std::{fmt, rc::Rc};
 
 use crate::{
     error::RuntimeResult,
-    lex::{Comment, Sp, Span},
+    lex::{digit_or_inf, ident_body_char, ident_head_char, Comment, Sp, Span},
     num::Num,
     op::*,
 };
@@ -23,17 +23,26 @@ impl<'w> Formatter<'w> {
             prev_alphanum: false,
         }
     }
+    fn write_str(&mut self, s: &str) {
+        if self.prev_alphanum && s.starts_with(|c| ident_head_char(c) || digit_or_inf(c)) {
+            write!(self.writer, " ").unwrap_or_else(|e| panic!("{}", e));
+        }
+
+        self.prev_alphanum = s.ends_with(|c| ident_body_char(c) || digit_or_inf(c));
+
+        write!(self.writer, "{}", s).unwrap_or_else(|e| panic!("{}", e));
+    }
     pub fn display<T>(&mut self, val: T)
     where
         T: fmt::Display,
     {
-        write!(self.writer, "{}", val).unwrap_or_else(|e| panic!("{}", e));
+        self.write_str(&val.to_string());
     }
     pub fn debug<T>(&mut self, val: T)
     where
         T: fmt::Debug,
     {
-        write!(self.writer, "{:?}", val).unwrap_or_else(|e| panic!("{}", e));
+        self.write_str(&format!("{:?}", val));
     }
     pub fn newline(&mut self) {
         self.display('\n')
