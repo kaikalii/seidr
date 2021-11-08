@@ -68,6 +68,7 @@ format_display!(ValExpr);
 format_display!(UnOpExpr);
 format_display!(BinOpExpr);
 format_display!(ArrayExpr);
+format_display!(TrainExpr);
 
 #[derive(Debug)]
 pub enum Item {
@@ -405,7 +406,7 @@ impl Format for BinModExpr {
 }
 
 pub struct ArrayExpr {
-    pub items: Vec<OpExpr>,
+    pub items: Vec<ArrayItemExpr>,
     pub tied: bool,
     pub span: Span,
 }
@@ -435,5 +436,37 @@ impl Format for ArrayExpr {
             f.display('⟩');
         }
         Ok(())
+    }
+}
+
+pub enum ArrayItemExpr {
+    Val(OpExpr),
+    Function(TrainExpr),
+}
+
+impl ArrayItemExpr {
+    pub fn span(&self) -> &Span {
+        match self {
+            ArrayItemExpr::Val(expr) => expr.span(),
+            ArrayItemExpr::Function(expr) => expr.span(),
+        }
+    }
+}
+
+impl fmt::Debug for ArrayItemExpr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ArrayItemExpr::Val(expr) => expr.fmt(f),
+            ArrayItemExpr::Function(expr) => expr.fmt(f),
+        }
+    }
+}
+
+impl Format for ArrayItemExpr {
+    fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
+        match self {
+            ArrayItemExpr::Val(expr) => expr.format(f),
+            ArrayItemExpr::Function(expr) => expr.format(f),
+        }
     }
 }

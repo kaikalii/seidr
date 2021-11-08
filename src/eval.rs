@@ -114,6 +114,12 @@ pub fn eval_un(op: Val, x: Val, span: &Span) -> RuntimeResult {
                     eval_bin(bin_mod.f, x, right, span)
                 }
                 RuneBinMod::Haglaz => eval_un(bin_mod.f, eval_un(bin_mod.g, x, span)?, span),
+                RuneBinMod::Dagaz => {
+                    let condition = eval_un(bin_mod.f, x.clone(), span)?;
+                    let branches = eval_un(bin_mod.g, x.clone(), span)?;
+                    let chosen = index(condition, branches, span)?;
+                    eval_un(chosen, x, span)
+                }
                 m => todo!("{:?}", m),
             },
         },
@@ -181,6 +187,12 @@ pub fn eval_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult {
                     let w = eval_un(bin_mod.g.clone(), w, span)?;
                     let x = eval_un(bin_mod.g, x, span)?;
                     eval_bin(bin_mod.f, w, x, span)
+                }
+                RuneBinMod::Dagaz => {
+                    let condition = eval_bin(bin_mod.f, w.clone(), x.clone(), span)?;
+                    let branches = eval_bin(bin_mod.g, w.clone(), x.clone(), span)?;
+                    let chosen = index(condition, branches, span)?;
+                    eval_bin(chosen, w, x, span)
                 }
                 m => todo!("{:?}", m),
             },

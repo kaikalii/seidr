@@ -133,7 +133,14 @@ impl ToValNode for ValExpr {
             ValExpr::Num(num) => (**num).into(),
             ValExpr::Char(c) => (**c).into(),
             ValExpr::String(string) => string.chars().collect(),
-            ValExpr::Array(expr) => expr.items.iter().map(|expr| expr.to_val(builder)).collect(),
+            ValExpr::Array(expr) => expr
+                .items
+                .iter()
+                .map(|expr| match expr {
+                    ArrayItemExpr::Val(expr) => expr.to_val(builder),
+                    ArrayItemExpr::Function(expr) => expr.to_val(builder),
+                })
+                .collect(),
             ValExpr::Parened(expr) => expr.to_val(builder),
             ValExpr::Mod(expr) => expr.to_val(builder),
         }

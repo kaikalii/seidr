@@ -230,17 +230,17 @@ impl Parser {
         } else {
             return Ok(None);
         };
-        let mut items = vec![first];
+        let mut items = Vec::new();
         while self.match_token(TT::Undertie).is_some() {
-            let item = self.expect_with("array item", Self::single_val_expr)?;
+            let item = self.expect_with("array item", Self::tied_array_item)?;
             items.push(item);
         }
-        Ok(Some(if items.len() == 1 {
-            items.swap_remove(0)
+        Ok(Some(if items.is_empty() {
+            first
         } else {
             let span = items[0].span().join(items.last().unwrap().span());
             ValExpr::Array(ArrayExpr {
-                items: items.into_iter().map(OpExpr::Val).collect(),
+                items,
                 tied: true,
                 span,
             })
@@ -257,12 +257,13 @@ impl Parser {
             val
         } else if let Some(open) = self.match_token(TT::OpenAngle) {
             let mut items = Vec::new();
-            while let Some(item) = self.op_expr()? {
+            while let Some(item) = self.bracketed_array_item()? {
                 items.push(item);
                 if self.match_token(TT::Comma).is_none() {
                     break;
                 }
             }
+            self.match_token(TT::Comma);
             let close = self.expect_token_or(TT::CloseAngle, "array item")?;
             let span = open.span.join(&close.span);
             ValExpr::Array(ArrayExpr {
@@ -273,6 +274,21 @@ impl Parser {
         } else {
             return Ok(None);
         }))
+    }
+    fn bracketed_array_item(&mut self) -> CompileResult<Option<ArrayItemExpr>> {
+        Ok(if let Some(expr) = self.train()? {
+            Some(ArrayItemExpr::Function(expr))
+        } else {
+            self.op_expr()?.map(ArrayItemExpr::Val)
+        })
+    }
+    fn tied_array_item(&mut self) -> CompileResult<Option<ArrayItemExpr>> {
+        Ok(if let Some(expr) = self.train()? {
+            Some(ArrayItemExpr::Function(expr))
+        } else {
+            self.single_val_expr()?
+                .map(|expr| ArrayItemExpr::Val(OpExpr::Val(expr)))
+        })
     }
     fn parened_op_expr(&mut self) -> CompileResult<Option<ValExpr>> {
         let start = self.curr;
