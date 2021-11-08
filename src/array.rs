@@ -10,7 +10,7 @@ use std::{
 use crate::{
     ast::{Format, Formatter},
     error::RuntimeResult,
-    eval::{eval_bin, eval_un, index_array, replicator_int},
+    eval::{eval_bin, eval_un, index_array, replicator_int, rt_error},
     lex::Span,
     num::{modulus, Num},
     pervade::PervadedArray,
@@ -300,13 +300,16 @@ impl Array {
             false
         })
     }
-    pub fn depth(&self) -> RuntimeResult<usize> {
+    pub fn depth(&self, span: &Span) -> RuntimeResult<usize> {
         let of_items = match self {
             Array::Range(_) => 0,
+            arr if arr.len().is_none() => {
+                return rt_error("Unbounded arrays do not have a depth", span)
+            }
             arr => arr
                 .iter()
                 .fold(Ok(0), |acc, item| -> RuntimeResult<usize> {
-                    Ok(acc?.max(item?.depth()?))
+                    Ok(acc?.max(item?.depth(span)?))
                 })?,
         };
         Ok(1 + of_items)

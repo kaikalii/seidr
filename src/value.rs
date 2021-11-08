@@ -5,6 +5,7 @@ use crate::{
     ast::{Format, Formatter},
     error::RuntimeResult,
     function::{BinModded, Function, UnModded},
+    lex::Span,
     num::Num,
     op::*,
     pervade::PervadedArray,
@@ -139,10 +140,10 @@ impl Val {
             _ => Ok(false),
         }
     }
-    pub fn depth(&self) -> RuntimeResult<usize> {
+    pub fn depth(&self, span: &Span) -> RuntimeResult<usize> {
         match self {
             Val::Atom(_) => Ok(0),
-            Val::Array(arr) => arr.depth(),
+            Val::Array(arr) => arr.depth(span),
         }
     }
 }

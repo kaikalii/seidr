@@ -88,14 +88,14 @@ fn eval_un_function(function: Function, x: Val, span: &Span) -> RuntimeResult {
         Function::Op(Op::Pervasive(per)) => un_pervade_val(per, x, span),
         Function::Op(Op::Rune(rune)) => match rune {
             RuneOp::Kaunan | RuneOp::Laguz => Ok(x),
-            RuneOp::Jera => Ok(reverse(x, span)),
+            RuneOp::Jera => reverse(x, span),
             RuneOp::Algiz => range(x, span).map(Val::Array),
             RuneOp::Tiwaz => sort(x, span).map(Val::Array),
             RuneOp::Sowilo => grade(x, span).map(Val::Array),
             rune => rt_error(format!("{} has no unary form", rune), span),
         },
         Function::Op(Op::Other(other)) => match other {
-            OtherOp::Match => x.depth().map(Into::into),
+            OtherOp::Match => x.depth(span).map(Into::into),
             other => todo!("{:?}", other),
         },
         Function::Atop(atop) => {
@@ -239,10 +239,13 @@ fn rotate(w: Val, x: Val, span: &Span) -> RuntimeResult {
     }
 }
 
-fn reverse(x: Val, span: &Span) -> Val {
+fn reverse(x: Val, span: &Span) -> RuntimeResult<Val> {
     match x {
-        Val::Atom(_) => x,
-        Val::Array(arr) => Array::Reverse(arr.into()).into(),
+        Val::Atom(_) => Ok(x),
+        Val::Array(arr) if arr.len().is_none() => {
+            rt_error("Unbounded arrays cannot be reversed", span)
+        }
+        Val::Array(arr) => Ok(Array::Reverse(arr.into()).into()),
     }
 }
 
@@ -429,9 +432,13 @@ pub fn each_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
 pub fn sort(x: Val, span: &Span) -> RuntimeResult<Array> {
     match x {
         Val::Array(arr) => {
-            let mut items = arr.into_vec()?;
-            items.sort_unstable();
-            Ok(Array::concrete(items))
+            if arr.len().is_some() {
+                let mut items = arr.into_vec()?;
+                items.sort_unstable();
+                Ok(Array::concrete(items))
+            } else {
+                rt_error("Unbounded arrays cannot be sorted", span)
+            }
         }
         Val::Atom(atom) => rt_error(format!("{} cannot be sorted", atom.type_name()), span),
     }
@@ -440,9 +447,14 @@ pub fn sort(x: Val, span: &Span) -> RuntimeResult<Array> {
 pub fn grade(x: Val, span: &Span) -> RuntimeResult<Array> {
     match x {
         Val::Array(arr) => {
-            let mut items: Vec<(usize, Val)> = arr.into_vec()?.into_iter().enumerate().collect();
-            items.sort_unstable_by(|(_, a), (_, b)| a.cmp(b));
-            Ok(Array::concrete(items.into_iter().map(|(i, _)| i)))
+            if arr.len().is_some() {
+                let mut items: Vec<(usize, Val)> =
+                    arr.into_vec()?.into_iter().enumerate().collect();
+                items.sort_unstable_by(|(_, a), (_, b)| a.cmp(b));
+                Ok(Array::concrete(items.into_iter().map(|(i, _)| i)))
+            } else {
+                rt_error("Unbounded arrays cannot be graded", span)
+            }
         }
         Val::Atom(atom) => rt_error(format!("{} cannot be graded", atom.type_name()), span),
     }
