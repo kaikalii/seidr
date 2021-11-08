@@ -15,6 +15,8 @@
 | ÷     | reciprocal | divide                    | /                |
 | =     | length     | equals                    |                  |
 | ≠     | not        | does not equal            | =                |
+| ≡     |            | matches                   | :                |
+| ≢     |            | does not match            | ;                |
 | <     |            | less than                 |                  |
 | ≤     |            | less than or equal to     | <                |
 | >     |            | greater than              |                  |
@@ -27,7 +29,7 @@
 | glyph | unary          | binary    | escape character             | name   | meaning       |
 | ----- | -------------- | --------- | ---------------------------- | ------ | ------------- |
 | ᚠ     |                | replicate | f                            | fehu   | cattle/wealth |
-| ᚢ     |                |           | u                            | uruz   | strength      |
+| ᚢ     |                | power     | u                            | uruz   | strength      |
 | ᚨ     |                | select    | a                            | ansuz  | god           |
 | ᚲ     | identity       | left      | k                            | kaunan | torch         |
 | ᚷ     |                | drop      | g                            | gebo   | gift          |

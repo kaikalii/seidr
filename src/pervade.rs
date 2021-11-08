@@ -21,7 +21,7 @@ struct PervadedArrayOp {
     pub span: Span,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum PervadedArrayForm {
     Un(Array),
     BinLeft(Atom, Array),
@@ -228,3 +228,11 @@ pub fn bin_pervade_atom(per: Pervasive, w: Atom, x: Atom, span: &Span) -> Runtim
         .into()),
     }
 }
+
+impl PartialEq for PervadedArray {
+    fn eq(&self, other: &Self) -> bool {
+        self.op.per == other.op.per && self.form == other.form
+    }
+}
+
+impl Eq for PervadedArray {}

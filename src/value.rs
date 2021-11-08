@@ -2,6 +2,7 @@ use std::fmt;
 
 use crate::{
     array::Array,
+    error::RuntimeResult,
     function::{BinModded, Function, UnModded},
     num::Num,
     op::*,
@@ -121,6 +122,13 @@ impl Val {
         match self {
             Val::Array(arr) => arr,
             Val::Atom(_) => Array::concrete(Some(self)),
+        }
+    }
+    pub fn matches(&self, other: &Self) -> RuntimeResult<bool> {
+        match (self, other) {
+            (Val::Atom(a), Val::Atom(b)) => Ok(a == b),
+            (Val::Array(a), Val::Array(b)) => a.matches(b),
+            _ => Ok(false),
         }
     }
 }

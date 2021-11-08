@@ -20,7 +20,7 @@ use crate::{
 
 type Items = RcView<Val>;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum Array {
     Concrete(Items),
     Cached(Rc<CachedArray>),
@@ -32,8 +32,8 @@ pub enum Array {
     Pervaded(Box<PervadedArray>),
     Take(Box<Self>, i64),
     Drop(Box<Self>, i64),
-    Each(Box<ZipForm>, Box<Val>, Span),
-    Select(Box<Self>, Box<Self>, Span),
+    Each(Box<EachArray>),
+    Select(Box<SelectArray>),
 }
 
 fn min_len(a: Option<usize>, b: Option<usize>) -> Option<usize> {
@@ -107,8 +107,8 @@ impl Array {
                     return None;
                 }
             }
-            Array::Each(zip, ..) => zip.len()?,
-            Array::Select(a, b, _) => min_len(a.len(), b.len())?,
+            Array::Each(each, ..) => each.zip.len()?,
+            Array::Select(sel) => min_len(sel.indices.len(), sel.array.len())?,
         })
     }
     pub fn get(&self, index: usize) -> RuntimeResult<Option<Cow<Val>>> {
@@ -210,20 +210,21 @@ impl Array {
                     None
                 }
             }
-            Array::Each(zip, f, span) => zip
+            Array::Each(each) => each
+                .zip
                 .index_apply(
                     index,
-                    |x| eval_un(Val::clone(f), x, span),
-                    |w, x| eval_bin(Val::clone(f), w, x, span),
+                    |x| eval_un(each.f.clone(), x, &each.span),
+                    |w, x| eval_bin(each.f.clone(), w, x, &each.span),
                 )?
                 .map(Cow::Owned),
-            Array::Select(w, x, span) => {
-                let w = if let Some(w) = w.get(index)? {
+            Array::Select(sel) => {
+                let w = if let Some(w) = sel.indices.get(index)? {
                     w.into_owned()
                 } else {
                     return Ok(None);
                 };
-                Some(Cow::Owned(index_array(w, x, span)?))
+                Some(Cow::Owned(index_array(w, &sel.array, &sel.span)?))
             }
         })
     }
@@ -234,25 +235,28 @@ impl Array {
             self.get(i - 1).transpose()
         })
     }
-}
-
-impl PartialEq for Array {
-    fn eq(&self, other: &Self) -> bool {
-        if self.len().is_none() || other.len().is_none() || self.len() != other.len() {
-            false
-        } else {
-            self.iter().zip(other.iter()).all(|(a, b)| {
-                if let (Ok(a), Ok(b)) = (a, b) {
-                    a == b
+    pub fn matches(&self, other: &Self) -> RuntimeResult<bool> {
+        let len = self.len();
+        Ok(if len == other.len() {
+            if len.is_some() {
+                if self == other {
+                    true
                 } else {
-                    false
+                    for (a, b) in self.iter().zip(other.iter()) {
+                        if !a?.matches(b?.as_ref())? {
+                            return Ok(false);
+                        }
+                    }
+                    true
                 }
-            })
-        }
+            } else {
+                self == other
+            }
+        } else {
+            false
+        })
     }
 }
-
-impl Eq for Array {}
 
 impl PartialOrd for Array {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -395,7 +399,7 @@ impl Iterator for ArrayIntoIter {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum ZipForm {
     Un(Array),
     BinLeft(Val, Array),
@@ -486,3 +490,41 @@ impl CachedArray {
         })
     }
 }
+
+impl PartialEq for CachedArray {
+    fn eq(&self, other: &Self) -> bool {
+        self.arr == other.arr
+    }
+}
+
+impl Eq for CachedArray {}
+
+#[derive(Clone)]
+pub struct EachArray {
+    pub zip: ZipForm,
+    pub f: Val,
+    pub span: Span,
+}
+
+impl PartialEq for EachArray {
+    fn eq(&self, other: &Self) -> bool {
+        self.f == other.f && self.zip == other.zip
+    }
+}
+
+impl Eq for EachArray {}
+
+#[derive(Clone)]
+pub struct SelectArray {
+    pub indices: Array,
+    pub array: Array,
+    pub span: Span,
+}
+
+impl PartialEq for SelectArray {
+    fn eq(&self, other: &Self) -> bool {
+        self.indices == other.indices && self.array == other.array
+    }
+}
+
+impl Eq for SelectArray {}

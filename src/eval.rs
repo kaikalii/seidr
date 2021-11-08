@@ -1,7 +1,7 @@
 use std::iter::repeat;
 
 use crate::{
-    array::{Array, ZipForm},
+    array::{Array, EachArray, SelectArray, ZipForm},
     cwt::{BinValNode, UnValNode, ValNode},
     error::{RuntimeError, RuntimeResult},
     function::{Atop, BinModded, Fork, Function, UnModded},
@@ -82,6 +82,9 @@ pub fn eval_un(op: Val, x: Val, span: &Span) -> RuntimeResult {
                 RuneOp::Sowilo => grade(x, span).map(Val::Array),
                 rune => rt_error(format!("{} has no unary form", rune), span),
             },
+            Function::Op(Op::Other(other)) => match other {
+                other => todo!("{:?}", other),
+            },
             Function::Atop(atop) => {
                 let lower = eval_un(atop.g, x, span)?;
                 eval_un(atop.f, lower, span)
@@ -137,6 +140,10 @@ pub fn eval_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult {
                 RuneOp::Perth => index(w, x, span),
                 RuneOp::Ansuz => select(w, x, span),
                 rune => rt_error(format!("{} has no binary form", rune), span),
+            },
+            Function::Op(Op::Other(other)) => match other {
+                OtherOp::Match => w.matches(&x).map(Into::into),
+                OtherOp::DoNotMatch => w.matches(&x).map(|matches| (!matches).into()),
             },
             Function::Atop(atop) => {
                 let lower = eval_bin(atop.g, w, x, span)?;
@@ -350,9 +357,12 @@ pub fn fold_identity(op: &Val, span: &Span) -> RuntimeResult {
 pub fn each_un(op: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
     match x {
         Val::Array(arr) => Ok(Array::Each(
-            ZipForm::Un(arr).into(),
-            op.into(),
-            span.clone(),
+            EachArray {
+                zip: ZipForm::Un(arr),
+                f: op,
+                span: span.clone(),
+            }
+            .into(),
         )),
         Val::Atom(atom) => rt_error(format!("Each cannot be used on {}", atom.type_name()), span),
     }
@@ -360,7 +370,14 @@ pub fn each_un(op: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
 
 pub fn each_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
     match ZipForm::bin(w, x) {
-        Ok(zip) => Ok(Array::Each(zip.into(), op.into(), span.clone())),
+        Ok(zip) => Ok(Array::Each(
+            EachArray {
+                zip,
+                f: op,
+                span: span.clone(),
+            }
+            .into(),
+        )),
         Err((w, x)) => rt_error(
             format!(
                 "Each cannot be used on {} and {}",
@@ -457,7 +474,15 @@ pub fn select(w: Val, x: Val, span: &Span) -> RuntimeResult {
     match w {
         w @ Val::Atom(_) => index(w, x, span),
         Val::Array(w) => match x {
-            Val::Array(x) => Ok(Array::Select(w.into(), x.into(), span.clone()).into()),
+            Val::Array(x) => Ok(Array::Select(
+                SelectArray {
+                    indices: w,
+                    array: x,
+                    span: span.clone(),
+                }
+                .into(),
+            )
+            .into()),
             Val::Atom(atom) => rt_error(
                 format!("{} cannot be selected from", atom.type_name()),
                 span,

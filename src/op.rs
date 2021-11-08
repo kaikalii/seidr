@@ -41,6 +41,7 @@ macro_rules! op {
 pub enum Op {
     Pervasive(Pervasive),
     Rune(RuneOp),
+    Other(OtherOp),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -87,6 +88,8 @@ op!(
     (Laguz, 'ᛚ'),
 );
 
+op!(OtherOp, (Match, '≡'), (DoNotMatch, '≢'));
+
 impl<P> From<P> for Op
 where
     P: Into<Pervasive>,
@@ -99,6 +102,12 @@ where
 impl From<RuneOp> for Op {
     fn from(r: RuneOp) -> Self {
         Op::Rune(r)
+    }
+}
+
+impl From<OtherOp> for Op {
+    fn from(o: OtherOp) -> Self {
+        Op::Other(o)
     }
 }
 
@@ -119,6 +128,7 @@ impl Op {
         match self {
             Op::Pervasive(p) => p.glyph(),
             Op::Rune(r) => r.glyph(),
+            Op::Other(o) => o.glyph(),
         }
     }
     pub const fn from_glyph(glyph: char) -> Option<Self> {
@@ -126,6 +136,8 @@ impl Op {
             Some(Op::Pervasive(p))
         } else if let Some(r) = RuneOp::from_glyph(glyph) {
             Some(Op::Rune(r))
+        } else if let Some(o) = OtherOp::from_glyph(glyph) {
+            Some(Op::Other(o))
         } else {
             None
         }
@@ -155,6 +167,7 @@ impl fmt::Debug for Op {
         match self {
             Op::Pervasive(p) => p.fmt(f),
             Op::Rune(r) => r.fmt(f),
+            Op::Other(o) => o.fmt(f),
         }
     }
 }
@@ -164,6 +177,7 @@ impl fmt::Display for Op {
         match self {
             Op::Pervasive(p) => p.fmt(f),
             Op::Rune(r) => r.fmt(f),
+            Op::Other(o) => o.fmt(f),
         }
     }
 }

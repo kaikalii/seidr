@@ -161,6 +161,17 @@ where
     }
 }
 
+impl<T> PartialEq for RcView<T>
+where
+    T: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.as_ref() == other.as_ref()
+    }
+}
+
+impl<T> Eq for RcView<T> where T: Eq {}
+
 #[test]
 fn rc_view_into_iter() {
     let items = RcView::new(0..10);

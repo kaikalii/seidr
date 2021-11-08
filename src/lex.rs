@@ -522,6 +522,8 @@ impl Lexer {
             '<' => ComparisonOp::LessOrEqual.into(),
             '>' => ComparisonOp::GreaterOrEqual.into(),
             '=' => ComparisonOp::NotEqual.into(),
+            ':' => OtherOp::Match.into(),
+            ';' => OtherOp::DoNotMatch.into(),
             'f' => RuneOp::Fehu.into(),
             'u' => RuneOp::Uruz.into(),
             'T' => RuneUnMod::Thurisaz.into(),
