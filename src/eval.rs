@@ -500,6 +500,12 @@ pub fn undo_un(op: Val, x: Val, span: &Span) -> RuntimeResult {
             Function::Op(Op::Pervasive(
                 per @ Pervasive::Math(MathOp::Add | MathOp::Sub | MathOp::Div),
             )) => un_pervade_val(*per, x, span),
+            Function::Op(Op::Pervasive(Pervasive::Math(MathOp::Pow))) => {
+                un_pervade_val(Pervasive::Math(MathOp::Log), x, span)
+            }
+            Function::Op(Op::Pervasive(Pervasive::Math(MathOp::Log))) => {
+                un_pervade_val(Pervasive::Math(MathOp::Pow), x, span)
+            }
             Function::UnMod(un_mod) => match un_mod.m {
                 RuneUnMod::Ing => eval_un(op, x, span),
                 m => rt_error(format!("Undoing unary {} is not supported", function), span),
