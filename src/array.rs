@@ -256,6 +256,15 @@ impl Array {
             false
         })
     }
+    pub fn depth(&self) -> RuntimeResult<usize> {
+        let of_items = match self {
+            Array::Range(_) => 0,
+            arr => arr
+                .iter()
+                .fold(Ok(0), |acc, item| Ok(acc?.max(item?.depth()?)))?,
+        };
+        Ok(1 + of_items)
+    }
 }
 
 impl PartialOrd for Array {

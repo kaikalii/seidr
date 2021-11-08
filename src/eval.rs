@@ -83,6 +83,7 @@ pub fn eval_un(op: Val, x: Val, span: &Span) -> RuntimeResult {
                 rune => rt_error(format!("{} has no unary form", rune), span),
             },
             Function::Op(Op::Other(other)) => match other {
+                OtherOp::Match => x.depth().map(Into::into),
                 other => todo!("{:?}", other),
             },
             Function::Atop(atop) => {

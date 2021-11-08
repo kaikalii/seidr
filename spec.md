@@ -15,7 +15,7 @@
 | ÷     | reciprocal | divide                    | /                |
 | =     | length     | equals                    |                  |
 | ≠     | not        | does not equal            | =                |
-| ≡     |            | matches                   | :                |
+| ≡     | depth      | matches                   | :                |
 | ≢     |            | does not match            | ;                |
 | <     |            | less than                 |                  |
 | ≤     |            | less than or equal to     | <                |

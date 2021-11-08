@@ -131,6 +131,12 @@ impl Val {
             _ => Ok(false),
         }
     }
+    pub fn depth(&self) -> RuntimeResult<usize> {
+        match self {
+            Val::Atom(_) => Ok(0),
+            Val::Array(arr) => arr.depth(),
+        }
+    }
 }
 
 impl<A> From<A> for Val
