@@ -23,6 +23,7 @@ type Items = RcView<Val>;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Array {
     Concrete(Items),
+    AsciiString(Rc<str>),
     Cached(Rc<CachedArray>),
     Rotate(Box<Self>, i64),
     Reverse(Box<Self>),
@@ -51,6 +52,17 @@ fn min_len(a: Option<usize>, b: Option<usize>) -> Option<usize> {
 }
 
 impl Array {
+    pub fn string<S>(s: S) -> Self
+    where
+        S: Into<Rc<str>>,
+    {
+        let s = s.into();
+        if s.is_ascii() {
+            Array::AsciiString(s)
+        } else {
+            Array::concrete(s.chars())
+        }
+    }
     pub fn try_concrete<I>(items: I) -> RuntimeResult<Array>
     where
         I: IntoIterator,
@@ -85,6 +97,7 @@ impl Array {
     pub fn len(&self) -> Option<usize> {
         Some(match self {
             Array::Concrete(items) => items.len(),
+            Array::AsciiString(s) => s.len(),
             Array::Cached(arr) => arr.len()?,
             Array::Rotate(arr, _) | Array::Reverse(arr) => arr.len()?,
             Array::Range(n) => {
@@ -131,6 +144,12 @@ impl Array {
     pub fn get(&self, index: usize) -> RuntimeResult<Option<Cow<Val>>> {
         Ok(match self {
             Array::Concrete(items) => items.get(index).map(Cow::Borrowed),
+            Array::AsciiString(s) => s
+                .as_bytes()
+                .get(index)
+                .copied()
+                .map(Val::from)
+                .map(Cow::Owned),
             Array::Cached(arr) => arr.get(index)?.map(Cow::Owned),
             Array::Rotate(arr, r) => {
                 if let Some(len) = arr.len() {

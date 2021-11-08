@@ -3,6 +3,7 @@
 use std::rc::Rc;
 
 use crate::{
+    array::Array,
     ast::*,
     error::{Problem, SpannedCompileWarning},
     lex::Span,
@@ -132,7 +133,7 @@ impl ToValNode for ValExpr {
         match self {
             ValExpr::Num(num) => (**num).into(),
             ValExpr::Char(c) => (**c).into(),
-            ValExpr::String(string) => string.chars().collect(),
+            ValExpr::String(string) => Array::string(string.data.clone()).into(),
             ValExpr::Array(expr) => expr
                 .items
                 .iter()
