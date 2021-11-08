@@ -7,29 +7,30 @@
 
 # Operators
 
-| glyph | unary      | binary                    | escape character |
-| ----- | ---------- | ------------------------- | ---------------- |
-| +     | identity   | add                       |                  |
-| -     | negate     | subtract                  |                  |
-| ×     | sign       | multiply                  | x                |
-| ÷     | reciprocal | divide                    | /                |
-| =     | length     | equals                    |                  |
-| ≠     | not        | does not equal            | =                |
-| ≡     | depth      | matches                   | :                |
-| ≢     |            | does not match            | ;                |
-| <     |            | less than                 |                  |
-| ≤     |            | less than or equal to     | <                |
-| >     |            | greater than              |                  |
-| ≥     |            | greater than  or equal to | >                |
-| ⎡     | ceiling    | max                       | ^                |
-| ⎣     | floor      | min                       | _                |
+| glyph | unary       | binary                    | escape character |
+| ----- | ----------- | ------------------------- | ---------------- |
+| +     | identity    | add                       |                  |
+| -     | negate      | subtract                  |                  |
+| ×     | sign        | multiply                  | x                |
+| ÷     | reciprocal  | divide                    | /                |
+| *     | exponential | power                     |                  |
+| =     | length      | equals                    |                  |
+| ≠     | not         | does not equal            | =                |
+| ≡     | depth       | matches                   | :                |
+| ≢     |             | does not match            | ;                |
+| <     |             | less than                 |                  |
+| ≤     |             | less than or equal to     | <                |
+| >     |             | greater than              |                  |
+| ≥     |             | greater than  or equal to | >                |
+| ⎡     | ceiling     | max                       | ^                |
+| ⎣     | floor       | min                       | _                |
 
 # Rune Operators
 
 | glyph | unary          | binary    | escape character             | name   | meaning       |
 | ----- | -------------- | --------- | ---------------------------- | ------ | ------------- |
 | ᚠ     |                | replicate | f                            | fehu   | cattle/wealth |
-| ᚢ     |                | power     | u                            | uruz   | strength      |
+| ᚢ     |                |           | u                            | uruz   | strength      |
 | ᚨ     |                | select    | a                            | ansuz  | god           |
 | ᚲ     | identity       | left      | k                            | kaunan | torch         |
 | ᚷ     |                | drop      | g                            | gebo   | gift          |

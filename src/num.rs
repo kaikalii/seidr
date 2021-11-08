@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, fmt, num::ParseFloatError, ops::*, str::FromStr};
+use std::{cmp::Ordering, f64, fmt, num::ParseFloatError, ops::*, str::FromStr};
 
 pub fn modulus<T>(a: T, b: T) -> T
 where
@@ -29,6 +29,8 @@ impl Default for Num {
 impl Num {
     pub const INFINIFY: Self = Num::Float(f64::INFINITY);
     pub const NAN: Self = Num::Float(f64::NAN);
+    pub const PI: Self = Num::Float(f64::consts::PI);
+    pub const E: Self = Num::Float(f64::consts::E);
     pub fn is_infinite(&self) -> bool {
         match self {
             Num::Int(_) => false,
@@ -87,6 +89,9 @@ impl Num {
             (Num::Float(a), Num::Int(b)) => Num::Float(a.powf(b as f64)),
             (Num::Float(a), Num::Float(b)) => Num::Float(a.powf(b)),
         }
+    }
+    pub fn log(self, base: Num) -> Self {
+        f64::from(self).log(base.into()).into()
     }
     /// Get the true modulus of the number with some radix
     pub fn modulus(self, radix: Num) -> Self {

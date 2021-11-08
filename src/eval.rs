@@ -495,11 +495,15 @@ pub fn select(w: Val, x: Val, span: &Span) -> RuntimeResult {
 }
 
 pub fn undo_un(op: Val, x: Val, span: &Span) -> RuntimeResult {
-    match op {
+    match &op {
         Val::Atom(Atom::Function(function)) => match function {
             Function::Op(Op::Pervasive(
                 per @ Pervasive::Math(MathOp::Add | MathOp::Sub | MathOp::Div),
-            )) => un_pervade_val(per, x, span),
+            )) => un_pervade_val(*per, x, span),
+            Function::UnMod(un_mod) => match un_mod.m {
+                RuneUnMod::Ing => eval_un(op, x, span),
+                m => rt_error(format!("Undoing unary {} is not supported", function), span),
+            },
             function => rt_error(format!("Undoing unary {} is not supported", function), span),
         },
         _ => Ok(x),
@@ -507,7 +511,7 @@ pub fn undo_un(op: Val, x: Val, span: &Span) -> RuntimeResult {
 }
 
 pub fn undo_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult {
-    match op {
+    match &op {
         Val::Atom(Atom::Function(function)) => match function {
             Function::Op(Op::Pervasive(Pervasive::Math(MathOp::Add))) => {
                 bin_pervade_val(Pervasive::Math(MathOp::Sub), x, w, span)
@@ -521,6 +525,19 @@ pub fn undo_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult {
             Function::Op(Op::Pervasive(Pervasive::Math(MathOp::Div))) => {
                 bin_pervade_val(Pervasive::Math(MathOp::Mul), x, w, span)
             }
+            Function::Op(Op::Pervasive(Pervasive::Math(MathOp::Pow))) => {
+                bin_pervade_val(Pervasive::Math(MathOp::Log), x, w, span)
+            }
+            Function::Op(Op::Pervasive(Pervasive::Math(MathOp::Log))) => {
+                bin_pervade_val(Pervasive::Math(MathOp::Pow), x, w, span)
+            }
+            Function::UnMod(un_mod) => match un_mod.m {
+                RuneUnMod::Ing => eval_bin(op, w, x, span),
+                m => rt_error(
+                    format!("Undoing binary {} is not supported", function),
+                    span,
+                ),
+            },
             function => rt_error(
                 format!("Undoing binary {} is not supported", function),
                 span,

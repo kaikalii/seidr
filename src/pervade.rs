@@ -164,6 +164,8 @@ pub fn un_pervade_atom(per: Pervasive, x: Atom, span: &Span) -> RuntimeResult {
         }
         (Pervasive::Math(MathOp::Mul), Atom::Num(n)) => Ok(n.sign().into()),
         (Pervasive::Math(MathOp::Div), Atom::Num(n)) => Ok((Num::Int(1) / n).into()),
+        (Pervasive::Math(MathOp::Pow), Atom::Num(n)) => Ok(Num::E.pow(n).into()),
+        (Pervasive::Math(MathOp::Log), Atom::Num(n)) => Ok(n.log(Num::E).into()),
         (Pervasive::Math(MathOp::Mod), Atom::Num(n)) => Ok(n.abs().into()),
         (Pervasive::Math(MathOp::Max), Atom::Num(n)) => Ok(n.ceil().into()),
         (Pervasive::Math(MathOp::Min), Atom::Num(n)) => Ok(n.floor().into()),
@@ -185,6 +187,8 @@ pub fn bin_pervade_atom(per: Pervasive, w: Atom, x: Atom, span: &Span) -> Runtim
                 MathOp::Mod => x.modulus(w),
                 MathOp::Max => w.max(x),
                 MathOp::Min => w.min(x),
+                MathOp::Pow => x.pow(w),
+                MathOp::Log => w.log(x),
             })
             .into()),
             (Atom::Char(wc), Atom::Num(xn)) => {

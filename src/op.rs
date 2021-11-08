@@ -1,18 +1,14 @@
 use std::fmt;
 
 macro_rules! op {
-    ($name:ident, $(($variant:ident, $glyph:literal)),* $(,)?) => {
+    ($name:ident, $(($variant:ident, $glyph:literal)),* $(,$no_glyph:ident)* $(,)?) => {
         #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
         pub enum $name {
-            $($variant),*
+            $($variant,)*
+            $($no_glyph,)*
         }
 
         impl $name {
-            pub const fn glyph(&self) -> char {
-                match self {
-                    $($name::$variant => $glyph,)*
-                }
-            }
             pub const fn from_glyph(glyph: char) -> Option<Self> {
                 match glyph {
                     $($glyph => Some($name::$variant),)*
@@ -31,6 +27,7 @@ macro_rules! op {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 match self {
                     $($name::$variant => $glyph.fmt(f),)*
+                    $($name::$no_glyph => stringify!($no_glyph).fmt(f),)*
                 }
             }
         }
@@ -58,7 +55,9 @@ op!(
     (Div, '÷'),
     (Max, '⎡'),
     (Min, '⎣'),
-    (Mod, 'ᛁ')
+    (Mod, 'ᛁ'),
+    (Pow, '*'),
+    Log,
 );
 
 op!(
@@ -124,13 +123,6 @@ impl From<ComparisonOp> for Pervasive {
 }
 
 impl Op {
-    pub const fn glyph(&self) -> char {
-        match self {
-            Op::Pervasive(p) => p.glyph(),
-            Op::Rune(r) => r.glyph(),
-            Op::Other(o) => o.glyph(),
-        }
-    }
     pub const fn from_glyph(glyph: char) -> Option<Self> {
         if let Some(p) = Pervasive::from_glyph(glyph) {
             Some(Op::Pervasive(p))
@@ -145,12 +137,6 @@ impl Op {
 }
 
 impl Pervasive {
-    pub const fn glyph(&self) -> char {
-        match self {
-            Pervasive::Math(m) => m.glyph(),
-            Pervasive::Comparison(c) => c.glyph(),
-        }
-    }
     pub const fn from_glyph(glyph: char) -> Option<Self> {
         if let Some(m) = MathOp::from_glyph(glyph) {
             Some(Pervasive::Math(m))
