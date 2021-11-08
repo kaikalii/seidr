@@ -2,6 +2,7 @@ use std::iter::repeat;
 
 use crate::{
     array::{Array, EachArray, SelectArray, ZipForm},
+    ast::Format,
     cwt::{BinValNode, UnValNode, ValNode},
     error::{RuntimeError, RuntimeResult},
     function::{Atop, BinModded, Fork, Function, UnModded},
@@ -359,7 +360,12 @@ pub fn fold_identity(op: &Val, span: &Span) -> RuntimeResult {
                 MathOp::Min => Num::INFINIFY.into(),
                 op => return rt_error(format!("{} has no fold identity", op), span),
             },
-            function => return rt_error(format!("{} has no fold identity", function), span),
+            function => {
+                return rt_error(
+                    format!("{} has no fold identity", function.as_string()?),
+                    span,
+                )
+            }
         },
         val => val.clone(),
     })
@@ -516,9 +522,15 @@ pub fn undo_un(op: Val, x: Val, span: &Span) -> RuntimeResult {
             }
             Function::UnMod(un_mod) => match un_mod.m {
                 RuneUnMod::Ing => eval_un(op, x, span),
-                m => rt_error(format!("Undoing unary {} is not supported", function), span),
+                m => rt_error(
+                    format!("Undoing unary {} is not supported", function.as_string()?),
+                    span,
+                ),
             },
-            function => rt_error(format!("Undoing unary {} is not supported", function), span),
+            function => rt_error(
+                format!("Undoing unary {} is not supported", function.as_string()?),
+                span,
+            ),
         },
         _ => Ok(x),
     }
@@ -548,12 +560,12 @@ pub fn undo_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult {
             Function::UnMod(un_mod) => match un_mod.m {
                 RuneUnMod::Ing => eval_bin(op, w, x, span),
                 m => rt_error(
-                    format!("Undoing binary {} is not supported", function),
+                    format!("Undoing binary {} is not supported", function.as_string()?),
                     span,
                 ),
             },
             function => rt_error(
-                format!("Undoing binary {} is not supported", function),
+                format!("Undoing binary {} is not supported", function.as_string()?),
                 span,
             ),
         },

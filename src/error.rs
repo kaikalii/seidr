@@ -156,6 +156,18 @@ pub struct RuntimeError {
     pub trace: Vec<String>,
 }
 
+impl From<fmt::Error> for RuntimeError {
+    fn from(_: fmt::Error) -> Self {
+        RuntimeError::new("formatting error", Span::dud())
+    }
+}
+
+impl From<RuntimeError> for fmt::Error {
+    fn from(_: RuntimeError) -> Self {
+        fmt::Error
+    }
+}
+
 impl RuntimeError {
     pub fn new(message: impl Into<String>, span: Span) -> Self {
         RuntimeError {

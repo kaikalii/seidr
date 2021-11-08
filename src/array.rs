@@ -3,12 +3,12 @@ use std::{
     cell::RefCell,
     cmp::Ordering,
     collections::HashMap,
-    fmt,
     iter::{self, once},
     rc::Rc,
 };
 
 use crate::{
+    ast::{Format, Formatter},
     error::RuntimeResult,
     eval::{eval_bin, eval_un, index_array},
     lex::Span,
@@ -20,7 +20,7 @@ use crate::{
 
 type Items = RcView<Val>;
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Array {
     Concrete(Items),
     Cached(Rc<CachedArray>),
@@ -296,7 +296,9 @@ impl Array {
             Array::Range(_) => 0,
             arr => arr
                 .iter()
-                .fold(Ok(0), |acc, item| Ok(acc?.max(item?.depth()?)))?,
+                .fold(Ok(0), |acc, item| -> RuntimeResult<usize> {
+                    Ok(acc?.max(item?.depth()?))
+                })?,
         };
         Ok(1 + of_items)
     }
@@ -342,14 +344,8 @@ impl Ord for Array {
     }
 }
 
-impl fmt::Debug for Array {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self)
-    }
-}
-
-impl fmt::Display for Array {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Format for Array {
+    fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
         let len = if let Some(len) = self.len() { len } else { 5 };
         if len > 0
             && self
@@ -359,34 +355,31 @@ impl fmt::Display for Array {
         {
             let mut s = String::new();
             for val in self.iter().take(len) {
-                if let Ok(Val::Atom(Atom::Char(c))) = val.as_deref() {
+                if let Val::Atom(Atom::Char(c)) = val?.as_ref() {
                     s.push(*c);
-                } else {
-                    s.push('?');
                 }
             }
             let s = format!("{:?}", s);
-            write!(f, "{}", &s[..s.len() - 1])?;
+            f.display(&s[..s.len() - 1]);
             if self.len().is_none() {
-                write!(f, "...")?;
+                f.display("...");
             }
-            write!(f, "\"")
+            f.display("\"");
         } else {
-            write!(f, "⟨")?;
+            f.display("⟨");
             for (i, val) in self.iter().take(len).enumerate() {
+                let val = val?;
                 if i > 0 {
-                    write!(f, " ")?;
+                    f.display(" ");
                 }
-                match val {
-                    Ok(val) => val.fmt(f)?,
-                    Err(e) => write!(f, "<error: {}>", e.message)?,
-                }
+                val.format(f)?;
             }
             if self.len().is_none() {
-                write!(f, " ...")?;
+                f.display(" ...");
             }
-            write!(f, "⟩")
+            f.display("⟩");
         }
+        Ok(())
     }
 }
 
@@ -443,7 +436,7 @@ impl Iterator for ArrayIntoIter {
     }
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ZipForm {
     Un(Array),
     BinLeft(Val, Array),
@@ -513,6 +506,7 @@ impl ZipForm {
     }
 }
 
+#[derive(Debug)]
 pub struct CachedArray {
     arr: Array,
     cache: RefCell<HashMap<usize, Val>>,
@@ -543,7 +537,7 @@ impl PartialEq for CachedArray {
 
 impl Eq for CachedArray {}
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct EachArray {
     pub zip: ZipForm,
     pub f: Val,
@@ -558,7 +552,7 @@ impl PartialEq for EachArray {
 
 impl Eq for EachArray {}
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct SelectArray {
     pub indices: Array,
     pub array: Array,

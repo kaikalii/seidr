@@ -10,18 +10,19 @@ use crate::{
     value::{Atom, Val},
 };
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct PervadedArray {
     form: PervadedArrayForm,
     op: Rc<PervadedArrayOp>,
 }
 
+#[derive(Debug)]
 struct PervadedArrayOp {
     pub per: Pervasive,
     pub span: Span,
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PervadedArrayForm {
     Un(Array),
     BinLeft(Atom, Array),

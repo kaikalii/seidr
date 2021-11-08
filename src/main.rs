@@ -4,7 +4,7 @@
 use std::fs::read_to_string;
 
 use crate::{
-    ast::Item,
+    ast::{Format, Item},
     cwt::ToValNode,
     eval::{Eval, Runtime},
 };
@@ -56,8 +56,8 @@ fn main() {
                         for warning in warnings {
                             println!("{}", warning);
                         }
-                        match node.eval(&mut rt) {
-                            Ok(val) => println!("{}", val),
+                        match node.eval(&mut rt).and_then(|val| val.as_string()) {
+                            Ok(s) => println!("{}", s),
                             Err(e) => println!("\n{}", e),
                         }
                     }

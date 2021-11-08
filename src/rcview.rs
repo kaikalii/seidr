@@ -1,5 +1,6 @@
 use std::{
     borrow::Borrow,
+    fmt,
     ops::{Bound, Deref, RangeBounds},
     rc::Rc,
 };
@@ -171,6 +172,15 @@ where
 }
 
 impl<T> Eq for RcView<T> where T: Eq {}
+
+impl<T> fmt::Debug for RcView<T>
+where
+    T: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_list().entries(self.iter()).finish()
+    }
+}
 
 #[test]
 fn rc_view_into_iter() {

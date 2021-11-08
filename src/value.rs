@@ -2,6 +2,7 @@ use std::fmt;
 
 use crate::{
     array::Array,
+    ast::{Format, Formatter},
     error::RuntimeResult,
     function::{BinModded, Function, UnModded},
     num::Num,
@@ -89,19 +90,26 @@ impl From<Function> for Atom {
 
 impl fmt::Debug for Atom {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self)
-    }
-}
-
-impl fmt::Display for Atom {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Atom::Num(num) => num.fmt(f),
-            Atom::Char(c) => write!(f, "{:?}", c),
+            Atom::Num(n) => n.fmt(f),
+            Atom::Char(c) => c.fmt(f),
             Atom::Function(fun) => fun.fmt(f),
             Atom::UnMod(m) => m.fmt(f),
             Atom::BinMod(m) => m.fmt(f),
         }
+    }
+}
+
+impl Format for Atom {
+    fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
+        match self {
+            Atom::Num(num) => f.display(num),
+            Atom::Char(c) => f.debug(c),
+            Atom::Function(fun) => fun.format(f)?,
+            Atom::UnMod(m) => f.display(m),
+            Atom::BinMod(m) => f.display(m),
+        }
+        Ok(())
     }
 }
 
@@ -169,11 +177,11 @@ impl fmt::Debug for Val {
     }
 }
 
-impl fmt::Display for Val {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Format for Val {
+    fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
         match self {
-            Val::Atom(atom) => atom.fmt(f),
-            Val::Array(arr) => arr.fmt(f),
+            Val::Atom(atom) => atom.format(f),
+            Val::Array(arr) => arr.format(f),
         }
     }
 }

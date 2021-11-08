@@ -1,67 +1,52 @@
 //! Types for the Abstract Syntax Tree
 
-use std::{
-    fmt::{self, Debug, Write},
-    rc::Rc,
-};
+use std::{fmt, rc::Rc};
 
 use crate::{
-    lex::{self, digit_or_inf, Comment, Sp, Span},
+    error::RuntimeResult,
+    lex::{Comment, Sp, Span},
     num::Num,
     op::*,
 };
 
 pub struct Formatter<'w> {
     depth: usize,
-    writer: &'w mut dyn Write,
+    writer: &'w mut dyn fmt::Write,
     prev_alphanum: bool,
 }
 
 impl<'w> Formatter<'w> {
-    pub fn new<W: Write>(writer: &'w mut W) -> Self {
+    pub fn new<W: fmt::Write>(writer: &'w mut W) -> Self {
         Formatter {
             depth: 0,
             writer,
             prev_alphanum: false,
         }
     }
-}
-
-impl<'w> Write for Formatter<'w> {
-    fn write_str(&mut self, s: &str) -> fmt::Result {
-        if self.prev_alphanum && s.starts_with(|c| lex::ident_head_char(c) || digit_or_inf(c)) {
-            self.writer.write_char(' ')?;
-        }
-        self.prev_alphanum = s.ends_with(|c| lex::ident_body_char(c) || digit_or_inf(c));
-        self.writer.write_str(s)
+    pub fn display<T>(&mut self, val: T)
+    where
+        T: fmt::Display,
+    {
+        write!(self.writer, "{}", val).unwrap_or_else(|e| panic!("{}", e));
+    }
+    pub fn debug<T>(&mut self, val: T)
+    where
+        T: fmt::Debug,
+    {
+        write!(self.writer, "{:?}", val).unwrap_or_else(|e| panic!("{}", e));
+    }
+    pub fn newline(&mut self) {
+        self.display('\n')
     }
 }
 
 pub trait Format {
-    fn format(&self, f: &mut Formatter) -> fmt::Result;
-    fn as_string(&self) -> String {
+    fn format(&self, f: &mut Formatter) -> RuntimeResult<()>;
+    fn as_string(&self) -> RuntimeResult<String> {
         let mut string = String::new();
         let mut formatter = Formatter::new(&mut string);
-        let _ = self.format(&mut formatter);
-        string
-    }
-}
-
-impl Format for Op {
-    fn format(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self)
-    }
-}
-
-impl Format for RuneUnMod {
-    fn format(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self)
-    }
-}
-
-impl Format for RuneBinMod {
-    fn format(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self)
+        self.format(&mut formatter)?;
+        Ok(string)
     }
 }
 
@@ -69,7 +54,7 @@ macro_rules! format_display {
     ($ty:ty) => {
         impl fmt::Display for $ty {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                write!(f, "{}", self.as_string())
+                write!(f, "{}", self.as_string()?)
             }
         }
     };
@@ -92,13 +77,14 @@ pub enum Item {
 }
 
 impl Format for Item {
-    fn format(&self, f: &mut Formatter) -> fmt::Result {
+    fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
         match self {
             Item::Newline => {}
             Item::Expr(expr) => expr.format(f)?,
-            Item::Comment(comment) => write!(f, "{}", comment)?,
+            Item::Comment(comment) => f.display(comment),
         };
-        writeln!(f)
+        f.newline();
+        Ok(())
     }
 }
 
@@ -109,9 +95,9 @@ pub struct ExprItem {
 }
 
 impl Format for ExprItem {
-    fn format(&self, f: &mut Formatter) -> fmt::Result {
+    fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
         if let Some(comment) = &self.comment {
-            writeln!(f, "{}", comment)?;
+            f.display(comment);
         }
         self.expr.format(f)
     }
@@ -150,7 +136,7 @@ impl fmt::Debug for OpExpr {
 }
 
 impl Format for OpExpr {
-    fn format(&self, f: &mut Formatter) -> fmt::Result {
+    fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
         match self {
             OpExpr::Val(expr) => expr.format(f),
             OpExpr::Un(expr) => expr.format(f),
@@ -195,19 +181,20 @@ impl fmt::Debug for ValExpr {
 }
 
 impl Format for ValExpr {
-    fn format(&self, f: &mut Formatter) -> fmt::Result {
+    fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
         match self {
-            ValExpr::Num(n) => write!(f, "{}", n.string_format(&n.span.as_string())),
-            ValExpr::Char(c) => write!(f, "{:?}", c),
-            ValExpr::String(string) => write!(f, "{:?}", string),
-            ValExpr::Array(expr) => expr.format(f),
+            ValExpr::Num(n) => f.display(n.string_format(&n.span.as_string())),
+            ValExpr::Char(c) => f.debug(c),
+            ValExpr::String(string) => f.debug(string),
+            ValExpr::Array(expr) => expr.format(f)?,
             ValExpr::Parened(expr) => {
-                write!(f, "(")?;
+                f.display('(');
                 expr.format(f)?;
-                write!(f, ")")
+                f.display(')');
             }
-            ValExpr::Mod(expr) => expr.format(f),
+            ValExpr::Mod(expr) => expr.format(f)?,
         }
+        Ok(())
     }
 }
 
@@ -241,17 +228,18 @@ impl fmt::Debug for ModExpr {
 }
 
 impl Format for ModExpr {
-    fn format(&self, f: &mut Formatter) -> fmt::Result {
+    fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
         match self {
-            ModExpr::Op(op) => op.format(f),
-            ModExpr::Un(expr) => expr.format(f),
-            ModExpr::Bin(expr) => expr.format(f),
+            ModExpr::Op(op) => f.display(op),
+            ModExpr::Un(expr) => expr.format(f)?,
+            ModExpr::Bin(expr) => expr.format(f)?,
             ModExpr::Parened(expr) => {
-                write!(f, "(")?;
+                f.display('(');
                 expr.format(f)?;
-                write!(f, ")")
+                f.display(')');
             }
         }
+        Ok(())
     }
 }
 
@@ -267,10 +255,10 @@ impl fmt::Debug for UnOpExpr {
 }
 
 impl Format for UnOpExpr {
-    fn format(&self, f: &mut Formatter) -> fmt::Result {
+    fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
         self.op.format(f)?;
         if matches!(&self.x, OpExpr::Bin(_)) {
-            write!(f, " ")?;
+            f.display(" ");
         }
         self.x.format(f)
     }
@@ -289,11 +277,11 @@ impl fmt::Debug for BinOpExpr {
 }
 
 impl Format for BinOpExpr {
-    fn format(&self, f: &mut Formatter) -> fmt::Result {
+    fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
         self.w.format(f)?;
-        write!(f, " ")?;
+        f.display(" ");
         self.op.format(f)?;
-        write!(f, " ")?;
+        f.display(" ");
         self.x.format(f)
     }
 }
@@ -325,7 +313,7 @@ impl fmt::Debug for TrainExpr {
 }
 
 impl Format for TrainExpr {
-    fn format(&self, f: &mut Formatter) -> fmt::Result {
+    fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
         match self {
             TrainExpr::Single(expr) => expr.format(f),
             TrainExpr::Atop(expr) => expr.format(f),
@@ -346,7 +334,7 @@ impl fmt::Debug for AtopExpr {
 }
 
 impl Format for AtopExpr {
-    fn format(&self, f: &mut Formatter) -> fmt::Result {
+    fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
         self.f.format(f)?;
         self.g.format(f)
     }
@@ -369,7 +357,7 @@ impl fmt::Debug for ForkExpr {
 }
 
 impl Format for ForkExpr {
-    fn format(&self, f: &mut Formatter) -> fmt::Result {
+    fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
         self.left.format(f)?;
         self.center.format(f)?;
         self.right.format(f)
@@ -389,8 +377,8 @@ impl fmt::Debug for UnModExpr {
 }
 
 impl Format for UnModExpr {
-    fn format(&self, f: &mut Formatter) -> fmt::Result {
-        self.m.format(f)?;
+    fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
+        f.display(&self.m);
         self.f.format(f)
     }
 }
@@ -409,8 +397,8 @@ impl fmt::Debug for BinModExpr {
 }
 
 impl Format for BinModExpr {
-    fn format(&self, f: &mut Formatter) -> fmt::Result {
-        self.m.format(f)?;
+    fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
+        f.display(&self.m);
         self.f.format(f)?;
         self.g.format(f)
     }
@@ -429,22 +417,22 @@ impl fmt::Debug for ArrayExpr {
 }
 
 impl Format for ArrayExpr {
-    fn format(&self, f: &mut Formatter) -> fmt::Result {
+    fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
         if !self.tied {
-            write!(f, "⟨")?;
+            f.display('⟨');
         }
         for (i, item) in self.items.iter().enumerate() {
             if i > 0 {
                 if self.tied {
-                    write!(f, "‿")?;
+                    f.display('‿');
                 } else {
-                    write!(f, ", ")?;
+                    f.display(", ");
                 }
             }
             item.format(f)?;
         }
         if !self.tied {
-            write!(f, "⟩")?;
+            f.display('⟩');
         }
         Ok(())
     }
