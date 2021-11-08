@@ -433,8 +433,8 @@ impl Lexer {
                 ')' => self.token(TT::CloseParen),
                 '{' => self.token(TT::OpenCurly),
                 '}' => self.token(TT::CloseCurly),
-                '⟨' | '〈' => self.token(TT::OpenAngle),
-                '⟩' | '〉' => self.token(TT::CloseAngle),
+                '⟨' | '〈' | '[' => self.token(TT::OpenAngle),
+                '⟩' | '〉' | ']' => self.token(TT::CloseAngle),
                 ',' => self.token(TT::Comma),
                 '‿' => self.token(TT::Undertie),
                 '\n' => self.token(TT::Newline),
@@ -504,8 +504,6 @@ impl Lexer {
             return self.error(CompileError::InvalidEscape(String::new()));
         };
         self.token(match c {
-            '[' => TT::OpenAngle,
-            ']' => TT::CloseAngle,
             ' ' => TT::Undertie,
             '8' => TT::Num(Num::INFINIFY, "∞".into()),
             '-' => return self.negative_number(),
