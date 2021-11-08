@@ -503,54 +503,20 @@ impl Lexer {
         } else {
             return self.error(CompileError::InvalidEscape(String::new()));
         };
-        self.token(match c {
-            ' ' => TT::Undertie,
-            '8' => TT::Num(Num::INFINIFY, "∞".into()),
-            '-' => return self.negative_number(),
-            '\\' => {
-                self.comment('\n', false);
-                return Ok(());
+        match c {
+            ' ' => self.token(TT::Undertie),
+            '8' => self.token(TT::Num(Num::INFINIFY, "∞".into())),
+            '-' => self.negative_number()?,
+            '\\' => self.comment('\n', false),
+            '*' => self.comment('*', true),
+            c => {
+                if let Some(op) = Op::from_escape(c) {
+                    self.token(op);
+                } else {
+                    return self.error(CompileError::InvalidEscape(c.into()));
+                }
             }
-            '*' => {
-                self.comment('*', true);
-                return Ok(());
-            }
-            '^' => MathOp::Max.into(),
-            '_' => MathOp::Min.into(),
-            'x' => MathOp::Mul.into(),
-            '/' => MathOp::Div.into(),
-            '<' => ComparisonOp::LessOrEqual.into(),
-            '>' => ComparisonOp::GreaterOrEqual.into(),
-            '=' => ComparisonOp::NotEqual.into(),
-            ':' => OtherOp::Match.into(),
-            ';' => OtherOp::DoNotMatch.into(),
-            'f' => RuneOp::Fehu.into(),
-            'u' => RuneOp::Uruz.into(),
-            'T' => RuneUnMod::Thurisaz.into(),
-            'a' => RuneOp::Ansuz.into(),
-            'r' => RuneUnMod::Raido.into(),
-            'k' => RuneOp::Kaunan.into(),
-            'g' => RuneOp::Gebo.into(),
-            'w' => RuneUnMod::Wunjo.into(),
-            'h' => RuneBinMod::Haglaz.into(),
-            'n' => RuneOp::Naudiz.into(),
-            'j' => RuneOp::Jera.into(),
-            'A' => RuneOp::Iwaz.into(),
-            'p' => RuneOp::Perth.into(),
-            'z' => RuneOp::Algiz.into(),
-            'S' => RuneBinMod::Stan.into(),
-            's' => RuneOp::Sowilo.into(),
-            't' => RuneOp::Tiwaz.into(),
-            'b' => RuneUnMod::Berkanan.into(),
-            'e' => RuneBinMod::Ehwaz.into(),
-            'm' => RuneBinMod::Mannaz.into(),
-            'l' => RuneOp::Laguz.into(),
-            'N' => RuneUnMod::Ingwaz.into(),
-            'G' => RuneUnMod::Ing.into(),
-            'o' => RuneUnMod::Othala.into(),
-            'd' => RuneBinMod::Dagaz.into(),
-            c => return self.error(CompileError::InvalidEscape(c.into())),
-        });
+        };
         self.escaped = true;
         Ok(())
     }

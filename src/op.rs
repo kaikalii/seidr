@@ -1,7 +1,7 @@
 use std::fmt;
 
 macro_rules! op {
-    ($name:ident, $(($variant:ident, $glyph:literal)),* $(,$no_glyph:ident)* $(,)?) => {
+    ($name:ident, $(($variant:ident, $glyph:literal $(,$escape:literal)?)),* $(,$no_glyph:ident)* $(,)?) => {
         #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
         pub enum $name {
             $($variant,)*
@@ -12,6 +12,12 @@ macro_rules! op {
             pub const fn from_glyph(glyph: char) -> Option<Self> {
                 match glyph {
                     $($glyph => Some($name::$variant),)*
+                    _ => None,
+                }
+            }
+            pub const fn from_escape(escape: char) -> Option<Self> {
+                match escape {
+                    $($($escape => Some($name::$variant),)*)*
                     _ => None,
                 }
             }
@@ -51,10 +57,10 @@ op!(
     MathOp,
     (Add, '+'),
     (Sub, '-'),
-    (Mul, '×'),
-    (Div, '÷'),
-    (Max, '⎡'),
-    (Min, '⎣'),
+    (Mul, '×', 'x'),
+    (Div, '÷', '/'),
+    (Max, '⎡', '^'),
+    (Min, '⎣', '_'),
     (Mod, 'ᛁ'),
     (Pow, '*'),
     Log,
@@ -63,31 +69,31 @@ op!(
 op!(
     ComparisonOp,
     (Equal, '='),
-    (NotEqual, '≠'),
+    (NotEqual, '≠', '='),
     (Less, '<'),
-    (LessOrEqual, '≤'),
+    (LessOrEqual, '≤', '<'),
     (Greater, '>'),
-    (GreaterOrEqual, '≥'),
+    (GreaterOrEqual, '≥', '>'),
 );
 
 op!(
     RuneOp,
-    (Fehu, 'ᚠ'),
-    (Uruz, 'ᚢ'),
-    (Ansuz, 'ᚨ'),
-    (Kaunan, 'ᚲ'),
-    (Gebo, 'ᚷ'),
-    (Naudiz, 'ᚾ'),
-    (Jera, 'ᛃ'),
-    (Iwaz, 'ᛇ'),
-    (Perth, 'ᛈ'),
-    (Algiz, 'ᛉ'),
-    (Sowilo, 'ᛊ'),
-    (Tiwaz, 'ᛏ'),
-    (Laguz, 'ᛚ'),
+    (Fehu, 'ᚠ', 'f'),
+    (Uruz, 'ᚢ', 'u'),
+    (Ansuz, 'ᚨ', 'a'),
+    (Kaunan, 'ᚲ', 'k'),
+    (Gebo, 'ᚷ', 'g'),
+    (Naudiz, 'ᚾ', 'n'),
+    (Jera, 'ᛃ', 'j'),
+    (Iwaz, 'ᛇ', 'A'),
+    (Perth, 'ᛈ', 'p'),
+    (Algiz, 'ᛉ', 'z'),
+    (Sowilo, 'ᛊ', 's'),
+    (Tiwaz, 'ᛏ', 't'),
+    (Laguz, 'ᛚ', 'l'),
 );
 
-op!(OtherOp, (Match, '≡'), (DoNotMatch, '≢'));
+op!(OtherOp, (Match, '≡', ':'), (DoNotMatch, '≢', ';'));
 
 impl<P> From<P> for Op
 where
@@ -134,6 +140,17 @@ impl Op {
             None
         }
     }
+    pub const fn from_escape(escape: char) -> Option<Self> {
+        if let Some(p) = Pervasive::from_escape(escape) {
+            Some(Op::Pervasive(p))
+        } else if let Some(r) = RuneOp::from_escape(escape) {
+            Some(Op::Rune(r))
+        } else if let Some(o) = OtherOp::from_escape(escape) {
+            Some(Op::Other(o))
+        } else {
+            None
+        }
+    }
 }
 
 impl Pervasive {
@@ -141,6 +158,15 @@ impl Pervasive {
         if let Some(m) = MathOp::from_glyph(glyph) {
             Some(Pervasive::Math(m))
         } else if let Some(c) = ComparisonOp::from_glyph(glyph) {
+            Some(Pervasive::Comparison(c))
+        } else {
+            None
+        }
+    }
+    pub const fn from_escape(escape: char) -> Option<Self> {
+        if let Some(m) = MathOp::from_escape(escape) {
+            Some(Pervasive::Math(m))
+        } else if let Some(c) = ComparisonOp::from_escape(escape) {
             Some(Pervasive::Comparison(c))
         } else {
             None
@@ -188,20 +214,20 @@ impl fmt::Display for Pervasive {
 
 op!(
     RuneUnMod,
-    (Thurisaz, 'ᚦ'),
-    (Raido, 'ᚱ'),
-    (Wunjo, 'ᚹ'),
-    (Berkanan, 'ᛒ'),
-    (Ingwaz, 'ᛜ'),
-    (Ing, 'ᛝ'),
-    (Othala, 'ᛟ'),
+    (Thurisaz, 'ᚦ', 'T'),
+    (Raido, 'ᚱ', 'r'),
+    (Wunjo, 'ᚹ', 'w'),
+    (Berkanan, 'ᛒ', 'b'),
+    (Ingwaz, 'ᛜ', 'N'),
+    (Ing, 'ᛝ', 'G'),
+    (Othala, 'ᛟ', 'o'),
 );
 
 op!(
     RuneBinMod,
-    (Haglaz, 'ᚻ'),
-    (Ehwaz, 'ᛖ'),
-    (Mannaz, 'ᛗ'),
-    (Dagaz, 'ᛞ'),
-    (Stan, 'ᛥ'),
+    (Haglaz, 'ᚻ', 'h'),
+    (Ehwaz, 'ᛖ', 'e'),
+    (Mannaz, 'ᛗ', 'm'),
+    (Dagaz, 'ᛞ', 'd'),
+    (Stan, 'ᛥ', 'S'),
 );
