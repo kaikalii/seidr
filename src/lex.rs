@@ -546,6 +546,7 @@ impl Lexer {
             'm' => RuneBinMod::Mannaz.into(),
             'l' => RuneOp::Laguz.into(),
             'N' => RuneUnMod::Ingwaz.into(),
+            'G' => RuneUnMod::Ing.into(),
             'o' => RuneUnMod::Othala.into(),
             'd' => RuneBinMod::Dagaz.into(),
             c => return self.error(CompileError::InvalidEscape(c.into())),

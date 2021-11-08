@@ -58,6 +58,7 @@
 | ᛒ     | each      | b                | berkanan | birch               |
 | ᛜ     | constant  | N                | ingwaz   | Yngvi               |
 | ᛟ     | both/flip | o                | othala   | heritage/possession |
+| ᛝ     | undo      | G                | ing      | Yngvi               |
 
 # Binary Modifiers
 
@@ -75,13 +76,13 @@
 | ᛥ     | catch  | S                | stan   | stone   |
 
 # Unassigned Unary Operators
-- Depth
 - Throw
 - Transpose
 - Print?
+- Flatten
 
 # Unassigned Binary Operators
-- Match
+- Chunks
 
 # Unassign Binary Modifiers
 - Repeat

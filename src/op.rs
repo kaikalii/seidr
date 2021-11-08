@@ -207,6 +207,7 @@ op!(
     (Wunjo, 'ᚹ'),
     (Berkanan, 'ᛒ'),
     (Ingwaz, 'ᛜ'),
+    (Ing, 'ᛝ'),
     (Othala, 'ᛟ'),
 );
 

@@ -99,6 +99,7 @@ pub fn eval_un(op: Val, x: Val, span: &Span) -> RuntimeResult {
                 RuneUnMod::Raido => fold(un_mod.f, None, x, span),
                 RuneUnMod::Othala => eval_bin(un_mod.f, x.clone(), x, span),
                 RuneUnMod::Berkanan => each_un(un_mod.f, x, span).map(Into::into),
+                RuneUnMod::Ing => undo_un(un_mod.f, x, span),
                 m => todo!("{:?}", m),
             },
             Function::BinMod(bin_mod) => match bin_mod.m {
@@ -159,6 +160,7 @@ pub fn eval_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult {
                 RuneUnMod::Raido => fold(un_mod.f, Some(w), x, span),
                 RuneUnMod::Othala => eval_bin(un_mod.f, x, w, span),
                 RuneUnMod::Berkanan => each_bin(un_mod.f, w, x, span).map(Into::into),
+                RuneUnMod::Ing => undo_bin(un_mod.f, w, x, span),
                 m => todo!("{:?}", m),
             },
             Function::BinMod(bin_mod) => match bin_mod.m {
@@ -489,6 +491,42 @@ pub fn select(w: Val, x: Val, span: &Span) -> RuntimeResult {
                 span,
             ),
         },
+    }
+}
+
+pub fn undo_un(op: Val, x: Val, span: &Span) -> RuntimeResult {
+    match op {
+        Val::Atom(Atom::Function(function)) => match function {
+            Function::Op(Op::Pervasive(
+                per @ Pervasive::Math(MathOp::Add | MathOp::Sub | MathOp::Div),
+            )) => un_pervade_val(per, x, span),
+            function => rt_error(format!("Undoing unary {} is not supported", function), span),
+        },
+        _ => Ok(x),
+    }
+}
+
+pub fn undo_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult {
+    match op {
+        Val::Atom(Atom::Function(function)) => match function {
+            Function::Op(Op::Pervasive(Pervasive::Math(MathOp::Add))) => {
+                bin_pervade_val(Pervasive::Math(MathOp::Sub), x, w, span)
+            }
+            Function::Op(Op::Pervasive(Pervasive::Math(MathOp::Sub))) => {
+                bin_pervade_val(Pervasive::Math(MathOp::Add), x, w, span)
+            }
+            Function::Op(Op::Pervasive(Pervasive::Math(MathOp::Mul))) => {
+                bin_pervade_val(Pervasive::Math(MathOp::Div), x, w, span)
+            }
+            Function::Op(Op::Pervasive(Pervasive::Math(MathOp::Div))) => {
+                bin_pervade_val(Pervasive::Math(MathOp::Mul), x, w, span)
+            }
+            function => rt_error(
+                format!("Undoing binary {} is not supported", function),
+                span,
+            ),
+        },
+        _ => Ok(x),
     }
 }
 
