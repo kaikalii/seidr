@@ -291,7 +291,7 @@ impl Parser {
         if self.match_token(TT::OpenParen).is_none() {
             return Ok(None);
         }
-        Ok(if let Some(train) = dbg!(self.train()?) {
+        Ok(if let Some(train) = self.train()? {
             self.expect_token(TT::CloseParen)?;
             Some(match train {
                 TrainExpr::Single(expr) => expr,

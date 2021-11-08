@@ -73,6 +73,10 @@ impl Eval for UnValNode {
 pub fn eval_un(op: Val, x: Val, span: &Span) -> RuntimeResult {
     match op {
         Val::Atom(Atom::Function(function)) => match function {
+            Function::Op(Op::Pervasive(Pervasive::Comparison(ComparisonOp::Equal))) => match x {
+                Val::Array(arr) => Ok(arr.len().map(Num::from).unwrap_or(Num::INFINIFY).into()),
+                Val::Atom(_) => Ok(1i64.into()),
+            },
             Function::Op(Op::Pervasive(per)) => un_pervade_val(per, x, span),
             Function::Op(Op::Rune(rune)) => match rune {
                 RuneOp::Kaunan | RuneOp::Laguz => Ok(x),
@@ -96,6 +100,7 @@ pub fn eval_un(op: Val, x: Val, span: &Span) -> RuntimeResult {
                 eval_bin(fork.center, left, right, span)
             }
             Function::UnMod(un_mod) => match un_mod.m {
+                RuneUnMod::Ingwaz => eval_un(un_mod.f, x, span),
                 RuneUnMod::Raido => fold(un_mod.f, None, x, span),
                 RuneUnMod::Othala => eval_bin(un_mod.f, x.clone(), x, span),
                 RuneUnMod::Berkanan => each_un(un_mod.f, x, span).map(Into::into),
@@ -159,6 +164,7 @@ pub fn eval_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult {
                 eval_bin(fork.center, left, right, span)
             }
             Function::UnMod(un_mod) => match un_mod.m {
+                RuneUnMod::Ingwaz => eval_bin(un_mod.f, w, x, span),
                 RuneUnMod::Raido => fold(un_mod.f, Some(w), x, span),
                 RuneUnMod::Othala => eval_bin(un_mod.f, x, w, span),
                 RuneUnMod::Berkanan => each_bin(un_mod.f, w, x, span).map(Into::into),

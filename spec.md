@@ -40,7 +40,7 @@
 | ᛇ     | join           | join to   | A                            | iwaz   | yew-tree      |
 | ᛈ     | first          | index     | p                            | perth  | unknown       |
 | ᛉ     | range          | windows   | z                            | algiz  | elk           |
-| ᛊ     | grade          | classify  | s                            | sowilo | sun           |
+| ᛊ     | grade          |           | s                            | sowilo | sun           |
 | ᛏ     | sort           |           | t                            | tiwaz  | Týr           |
 | ᛚ     | identity       | right     | l                            | laguz  | water/lake    |
 
@@ -77,10 +77,13 @@
 | ᛥ     | catch  | S                | stan   | stone   |
 
 # Unassigned Unary Operators
-- Throw
-- Print?
+- throw
+- print?
 
 # Unassigned Binary Operators
+- index of
+- member of
+- group
 
 # Unassign Binary Modifiers
-- Repeat
+- repeat
