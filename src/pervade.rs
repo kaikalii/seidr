@@ -131,6 +131,7 @@ pub fn un_pervade_val(per: Pervasive, x: Val, span: &Span) -> RuntimeResult {
         (per, Val::Atom(x)) => un_pervade_atom(per, x, span)?,
         (Pervasive::Comparison(cmp), Val::Array(arr)) => match cmp {
             ComparisonOp::Equal => arr.len().map(Num::from).unwrap_or(Num::INFINIFY).into(),
+            ComparisonOp::NotEqual => PervadedArrayForm::Un(arr).with(per, span.clone()).into(),
             cmp => todo!("{}", cmp),
         },
         (Pervasive::Math(_), Val::Array(x)) => {
@@ -166,6 +167,9 @@ pub fn un_pervade_atom(per: Pervasive, x: Atom, span: &Span) -> RuntimeResult {
         (Pervasive::Math(MathOp::Mod), Atom::Num(n)) => Ok(n.abs().into()),
         (Pervasive::Math(MathOp::Max), Atom::Num(n)) => Ok(n.ceil().into()),
         (Pervasive::Math(MathOp::Min), Atom::Num(n)) => Ok(n.floor().into()),
+        (Pervasive::Comparison(ComparisonOp::NotEqual), Atom::Num(n)) => {
+            Ok((Num::Int(1) - n).into())
+        }
         (per, x) => rt_error(format!("{} {} is invalid", per, x.type_name()), span),
     }
 }
