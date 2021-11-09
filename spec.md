@@ -59,7 +59,6 @@
 | ᛒ     | each      | b                | berkanan | birch               |
 | ᛜ     | constant  | N                | ingwaz   | Yngvi               |
 | ᛟ     | both/flip | o                | othala   | heritage/possession |
-| ᛝ     | undo      | G                | ing      | Yngvi               |
 
 # Binary Modifiers
 
