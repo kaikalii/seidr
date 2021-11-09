@@ -111,6 +111,7 @@ impl Format for OpExpr {
 }
 
 pub enum ValExpr {
+    Ident(Sp<Ident>),
     Num(Sp<Num>),
     Char(Sp<char>),
     String(Sp<Rc<str>>),
@@ -122,6 +123,7 @@ pub enum ValExpr {
 impl ValExpr {
     pub fn span(&self) -> &Span {
         match self {
+            ValExpr::Ident(ident) => &ident.span,
             ValExpr::Char(c) => &c.span,
             ValExpr::Num(num) => &num.span,
             ValExpr::String(string) => &string.span,
@@ -135,6 +137,7 @@ impl ValExpr {
 impl fmt::Debug for ValExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            ValExpr::Ident(ident) => ident.fmt(f),
             ValExpr::Num(n) => n.fmt(f),
             ValExpr::Char(c) => c.fmt(f),
             ValExpr::String(string) => string.fmt(f),
@@ -148,6 +151,7 @@ impl fmt::Debug for ValExpr {
 impl Format for ValExpr {
     fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
         match self {
+            ValExpr::Ident(ident) => f.display(ident),
             ValExpr::Num(n) => f.display(n.string_format(&n.span.as_string())),
             ValExpr::Char(c) => f.debug(c),
             ValExpr::String(string) => f.debug(string),

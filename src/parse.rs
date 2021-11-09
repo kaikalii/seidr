@@ -236,7 +236,9 @@ impl Parser {
         })
     }
     fn val_expr(&mut self) -> CompileResult<Option<ValExpr>> {
-        Ok(Some(if let Some(num) = self.match_to(num) {
+        Ok(Some(if let Some(ident) = self.match_to(ident::<OpExpr>) {
+            ValExpr::Ident(ident)
+        } else if let Some(num) = self.match_to(num) {
             ValExpr::Num(num)
         } else if let Some(c) = self.match_to(char) {
             ValExpr::Char(c)

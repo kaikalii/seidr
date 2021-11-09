@@ -52,6 +52,12 @@ impl Eval for Val {
 impl Eval for ValNode {
     fn eval(&self, rt: &mut Runtime) -> RuntimeResult {
         match self {
+            ValNode::Ident(ident) => Ok(rt
+                .scope()
+                .bindings
+                .get(ident)
+                .unwrap_or_else(|| panic!("No value stored for `{}`", ident))
+                .clone()),
             ValNode::Val(val) => val.eval(rt),
             ValNode::Un(un) => un.eval(rt),
             ValNode::Bin(bin) => bin.eval(rt),

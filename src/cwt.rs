@@ -13,6 +13,7 @@ use crate::{
 
 #[derive(Clone)]
 pub enum ValNode {
+    Ident(Ident),
     Val(Val),
     Un(Rc<UnValNode>),
     Bin(Rc<BinValNode>),
@@ -161,6 +162,14 @@ impl ToValNode for ExprItem {
 impl ToValNode for ValExpr {
     fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
         match self {
+            ValExpr::Ident(ident) => {
+                if !builder.lookup(ident) {
+                    builder.error(
+                        CompileError::UnknownBinding(ident.data.clone()).at(ident.span.clone()),
+                    );
+                }
+                ValNode::Ident(ident.data.clone())
+            }
             ValExpr::Num(num) => (**num).into(),
             ValExpr::Char(c) => (**c).into(),
             ValExpr::String(string) => Array::string(string.data.clone()).into(),
