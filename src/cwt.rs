@@ -137,7 +137,7 @@ impl ToValNode for ValExpr {
             ValExpr::Array(expr) => expr
                 .items
                 .iter()
-                .map(|expr| match expr {
+                .map(|(expr, _)| match expr {
                     ArrayItemExpr::Val(expr) => expr.to_val(builder),
                     ArrayItemExpr::Function(expr) => expr.to_val(builder),
                 })

@@ -415,8 +415,7 @@ impl Format for BinModExpr {
 }
 
 pub struct ArrayExpr {
-    pub items: Vec<ArrayItemExpr>,
-    pub tied: bool,
+    pub items: Vec<(ArrayItemExpr, bool)>,
     pub span: Span,
 }
 
@@ -428,22 +427,14 @@ impl fmt::Debug for ArrayExpr {
 
 impl Format for ArrayExpr {
     fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
-        if !self.tied {
-            f.display('⟨');
-        }
-        for (i, item) in self.items.iter().enumerate() {
-            if i > 0 {
-                if self.tied {
-                    f.display('‿');
-                } else {
-                    f.display(", ");
-                }
-            }
+        f.display('⟨');
+        for (i, (item, comma)) in self.items.iter().enumerate() {
             item.format(f)?;
+            if *comma {
+                f.display(", ");
+            }
         }
-        if !self.tied {
-            f.display('⟩');
-        }
+        f.display('⟩');
         Ok(())
     }
 }

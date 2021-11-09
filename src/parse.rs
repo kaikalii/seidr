@@ -233,25 +233,25 @@ impl Parser {
             ValExpr::String(s)
         } else if let Some(val) = self.parened_op_expr()? {
             val
-        } else if let Some(open) = self.match_token(TT::OpenAngle) {
-            let mut items = Vec::new();
-            while let Some(item) = self.array_item()? {
-                items.push(item);
-                if self.match_token(TT::Comma).is_none() {
-                    break;
-                }
-            }
-            self.match_token(TT::Comma);
-            let close = self.expect_token_or(TT::CloseAngle, "array item")?;
-            let span = open.span.join(&close.span);
-            ValExpr::Array(ArrayExpr {
-                items,
-                tied: false,
-                span,
-            })
+        } else if let Some(array) = self.array()? {
+            ValExpr::Array(array)
         } else {
             return Ok(None);
         }))
+    }
+    fn array(&mut self) -> CompileResult<Option<ArrayExpr>> {
+        let open = if let Some(token) = self.match_token(TT::OpenAngle) {
+            token
+        } else {
+            return Ok(None);
+        };
+        let mut items = Vec::new();
+        while let Some(item) = self.array_item()? {
+            items.push((item, self.match_token(TT::Comma).is_some()));
+        }
+        let close = self.expect_token_or(TT::CloseAngle, "array item")?;
+        let span = open.span.join(&close.span);
+        Ok(Some(ArrayExpr { items, span }))
     }
     fn array_item(&mut self) -> CompileResult<Option<ArrayItemExpr>> {
         Ok(if let Some(expr) = self.train()? {
