@@ -87,7 +87,7 @@ fn eval_un_function(function: Function, x: Val, span: &Span) -> RuntimeResult {
         },
         Function::Op(Op::Pervasive(per)) => un_pervade_val(per, x, span),
         Function::Op(Op::Rune(rune)) => match rune {
-            RuneOp::Kaunan | RuneOp::Laguz => Ok(x),
+            RuneOp::Laguz => Ok(x),
             RuneOp::Jera => reverse(x, span),
             RuneOp::Algiz => range(x, span).map(Val::from),
             RuneOp::Tiwaz => sort(x, span).map(Val::from),
@@ -153,7 +153,6 @@ fn eval_bin_function(function: Function, w: Val, x: Val, span: &Span) -> Runtime
     match function {
         Function::Op(Op::Pervasive(per)) => bin_pervade_val(per, w, x, span),
         Function::Op(Op::Rune(rune)) => match rune {
-            RuneOp::Kaunan => Ok(w),
             RuneOp::Laguz => Ok(x),
             RuneOp::Fehu => replicate(w, x, span).map(Val::from),
             RuneOp::Jera => rotate(w, x, span),

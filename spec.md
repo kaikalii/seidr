@@ -32,7 +32,7 @@
 | ᚠ     |                | replicate | f                            | fehu   | cattle/wealth |
 | ᚢ     | transpose      | chunks    | u                            | uruz   | strength      |
 | ᚨ     |                | select    | a                            | ansuz  | god           |
-| ᚲ     | identity       | left      | k                            | kaunan | torch         |
+| ᚲ     |                |           | k                            | kaunan | torch         |
 | ᚷ     |                | drop      | g                            | gebo   | gift          |
 | ᚾ     |                | take      | n                            | naudiz | need          |
 | ᛁ     | absolute value | modulus   | \| (vertical bar, unescaped) | isaz   | ice           |
