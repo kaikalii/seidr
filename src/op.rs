@@ -40,6 +40,8 @@ macro_rules! op {
     }
 }
 
+op!(AssignOp, (Assign, '←', '\''), (Reassign, '↩', '"'));
+
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Op {
     Pervasive(Pervasive),

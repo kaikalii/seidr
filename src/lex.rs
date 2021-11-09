@@ -3,6 +3,7 @@ use std::{
     cmp::Ordering,
     fmt,
     fs::OpenOptions,
+    hash::{Hash, Hasher},
     io::Write,
     mem::take,
     ops::{Deref, DerefMut},
@@ -45,8 +46,55 @@ where
     Ok(tokens)
 }
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone)]
 pub struct Ident(Rc<str>);
+
+impl Ident {
+    pub fn canonical(&self) -> String {
+        self.0.to_lowercase().replace('_', "")
+    }
+    pub fn is_val(&self) -> bool {
+        self.0.starts_with(char::is_lowercase)
+    }
+    pub fn is_function(&self) -> bool {
+        self.0.starts_with(char::is_uppercase)
+    }
+    pub fn is_un_mod(&self) -> bool {
+        self.0.starts_with('_') && !self.ends_with('_')
+    }
+    pub fn is_bin_mod(&self) -> bool {
+        self.0.starts_with('_') && self.ends_with('_')
+    }
+}
+
+impl PartialEq for Ident {
+    fn eq(&self, other: &Self) -> bool {
+        self.canonical() == other.canonical()
+    }
+}
+
+impl Eq for Ident {}
+
+impl PartialOrd for Ident {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.canonical().partial_cmp(&other.canonical())
+    }
+}
+
+impl Ord for Ident {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.canonical().cmp(&other.canonical())
+    }
+}
+
+impl Hash for Ident {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        self.canonical().hash(state);
+    }
+}
 
 impl From<String> for Ident {
     fn from(s: String) -> Self {
@@ -139,6 +187,7 @@ pub enum TT {
     Op(Op),
     UnMod(RuneUnMod),
     BinMod(RuneBinMod),
+    Assign(AssignOp),
     // Brackets
     OpenParen,
     CloseParen,
@@ -199,6 +248,7 @@ impl fmt::Display for TT {
             TT::Op(op) => op.fmt(f),
             TT::UnMod(m) => m.fmt(f),
             TT::BinMod(m) => m.fmt(f),
+            TT::Assign(op) => op.fmt(f),
             TT::Comma => ','.fmt(f),
             TT::Newline => '\n'.fmt(f),
             TT::SuperscriptMinus => '‾'.fmt(f),
@@ -474,6 +524,8 @@ impl Lexer {
                         self.token(m)
                     } else if let Some(m) = RuneBinMod::from_glyph(c) {
                         self.token(m)
+                    } else if let Some(a) = AssignOp::from_glyph(c) {
+                        self.token(TT::Assign(a))
                     } else {
                         return self.error(CompileError::InvalidCharacter(c));
                     }
@@ -512,6 +564,8 @@ impl Lexer {
                     self.token(m)
                 } else if let Some(m) = RuneBinMod::from_escape(c) {
                     self.token(m)
+                } else if let Some(op) = AssignOp::from_escape(c) {
+                    self.token(TT::Assign(op))
                 } else {
                     return self.error(CompileError::InvalidEscape(c.into()));
                 }

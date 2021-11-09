@@ -5,7 +5,7 @@ use std::{fmt, rc::Rc};
 use crate::{
     error::RuntimeResult,
     format::{Format, Formatter},
-    lex::{Comment, Sp, Span},
+    lex::{Comment, Ident, Sp, Span},
     num::Num,
     op::*,
 };
@@ -68,6 +68,7 @@ pub enum OpExpr {
     Val(ValExpr),
     Un(Box<UnOpExpr>),
     Bin(Box<BinOpExpr>),
+    Assign(Box<AssignExpr<OpExpr>>),
 }
 
 impl OpExpr {
@@ -76,6 +77,7 @@ impl OpExpr {
             OpExpr::Val(expr) => expr.span(),
             OpExpr::Un(expr) => expr.op.span(),
             OpExpr::Bin(expr) => expr.op.span(),
+            OpExpr::Assign(expr) => &expr.span,
         }
     }
     pub fn unparen(self) -> Self {
@@ -92,6 +94,7 @@ impl fmt::Debug for OpExpr {
             OpExpr::Val(expr) => expr.fmt(f),
             OpExpr::Un(expr) => expr.fmt(f),
             OpExpr::Bin(expr) => expr.fmt(f),
+            OpExpr::Assign(expr) => expr.fmt(f),
         }
     }
 }
@@ -102,6 +105,7 @@ impl Format for OpExpr {
             OpExpr::Val(expr) => expr.format(f),
             OpExpr::Un(expr) => expr.format(f),
             OpExpr::Bin(expr) => expr.format(f),
+            OpExpr::Assign(expr) => expr.format(f),
         }
     }
 }
@@ -362,6 +366,58 @@ impl Format for BinModExpr {
         f.display(&self.m);
         self.f.format(f)?;
         self.g.format(f)
+    }
+}
+
+pub struct AssignExpr<T> {
+    pub name: Ident,
+    pub op: AssignOp,
+    pub body: T,
+    pub span: Span,
+}
+
+impl<T> fmt::Debug for AssignExpr<T>
+where
+    T: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({} {} {:?})", self.name, self.op, self.body)
+    }
+}
+
+impl<T> Format for AssignExpr<T>
+where
+    T: Format,
+{
+    fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
+        f.display(&self.name);
+        f.display(' ');
+        f.display(self.op);
+        f.display(' ');
+        self.body.format(f)
+    }
+}
+
+pub enum BodyExpr {
+    Function(TrainExpr),
+    Constant(OpExpr),
+}
+
+impl fmt::Debug for BodyExpr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            BodyExpr::Function(expr) => expr.fmt(f),
+            BodyExpr::Constant(expr) => expr.fmt(f),
+        }
+    }
+}
+
+impl Format for BodyExpr {
+    fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
+        match self {
+            BodyExpr::Function(expr) => expr.format(f),
+            BodyExpr::Constant(expr) => expr.format(f),
+        }
     }
 }
 

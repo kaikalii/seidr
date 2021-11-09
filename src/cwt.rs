@@ -1,12 +1,13 @@
 //! Types for and conversion into the Concrete Walkable Tree
 
-use std::rc::Rc;
+use std::{collections::HashSet, rc::Rc};
 
 use crate::{
     array::Array,
     ast::*,
-    error::{Problem, SpannedCompileWarning},
-    lex::Span,
+    error::{CompileError, Problem, SpannedCompileWarning},
+    lex::{Ident, Span},
+    op::AssignOp,
     value::Val,
 };
 
@@ -18,6 +19,7 @@ pub enum ValNode {
     Array(Rc<[Self]>),
     Atop(Box<Self>, Box<Self>),
     Fork(Box<Self>, Box<Self>, Box<Self>),
+    Assign(Rc<AssignValNode>),
 }
 
 pub struct UnValNode {
@@ -31,6 +33,11 @@ pub struct BinValNode {
     pub w: ValNode,
     pub x: ValNode,
     pub span: Span,
+}
+
+pub struct AssignValNode {
+    pub name: Ident,
+    pub body: ValNode,
 }
 
 impl From<UnValNode> for ValNode {
@@ -75,12 +82,26 @@ impl FromIterator<ValNode> for ValNode {
     }
 }
 
-#[derive(Default)]
 pub struct TreeBuilder {
     problems: Vec<Problem>,
+    scopes: Vec<Scope>,
+}
+
+#[derive(Default)]
+struct Scope {
+    bindings: HashSet<Ident>,
 }
 
 pub type TreeBuildResult = Result<(ValNode, Vec<SpannedCompileWarning>), Vec<Problem>>;
+
+impl Default for TreeBuilder {
+    fn default() -> Self {
+        TreeBuilder {
+            problems: Vec::new(),
+            scopes: vec![Scope::default()],
+        }
+    }
+}
 
 impl TreeBuilder {
     pub fn build<V>(&mut self, node: &V) -> TreeBuildResult
@@ -112,6 +133,15 @@ impl TreeBuilder {
         P: Into<Problem>,
     {
         self.problems.push(error.into())
+    }
+    fn scope(&mut self) -> &mut Scope {
+        self.scopes.last_mut().expect("scopes is empty")
+    }
+    pub fn lookup(&self, name: &Ident) -> bool {
+        self.scopes
+            .iter()
+            .rev()
+            .any(|scope| scope.bindings.contains(name))
     }
 }
 
@@ -154,6 +184,7 @@ impl ToValNode for OpExpr {
             OpExpr::Val(expr) => expr.to_val(builder),
             OpExpr::Un(expr) => expr.to_val(builder),
             OpExpr::Bin(expr) => expr.to_val(builder),
+            OpExpr::Assign(expr) => expr.to_val(builder),
         }
     }
 }
@@ -183,6 +214,33 @@ impl ToValNode for BinOpExpr {
             x,
         }
         .into()
+    }
+}
+
+impl<T> ToValNode for AssignExpr<T>
+where
+    T: ToValNode,
+{
+    fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
+        match self.op {
+            AssignOp::Assign => {
+                builder.scope().bindings.insert(self.name.clone());
+            }
+            AssignOp::Reassign => {
+                if !builder.lookup(&self.name) {
+                    builder.error(
+                        CompileError::UnknownBinding(self.name.clone()).at(self.span.clone()),
+                    );
+                }
+            }
+        }
+        ValNode::Assign(
+            AssignValNode {
+                name: self.name.clone(),
+                body: self.body.to_val(builder),
+            }
+            .into(),
+        )
     }
 }
 

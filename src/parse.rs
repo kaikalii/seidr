@@ -37,6 +37,11 @@ where
     Ok(items)
 }
 
+trait ExprParse: Sized {
+    fn ident_matches(ident: &Ident) -> bool;
+    fn parse(parser: &mut Parser) -> CompileResult<Option<Self>>;
+}
+
 struct Parser {
     tokens: Vec<Token>,
     curr: usize,
@@ -155,29 +160,35 @@ impl Parser {
         self.match_to(comment).map(|comment| comment.data)
     }
     fn op_expr(&mut self) -> CompileResult<Option<OpExpr>> {
-        Ok(match self.mod_or_val_expr()? {
-            // un
-            Some(ValExpr::Mod(op)) => {
-                let x = self.expect_with(format!("{}'s x argument", op), Self::op_expr)?;
-                // Simplify negative number
-                if let ModExpr::Op(op) = &op {
-                    if let Op::Pervasive(Pervasive::Math(MathOp::Sub)) = &**op {
-                        if let OpExpr::Val(ValExpr::Num(n)) = &x {
-                            return Ok(Some(OpExpr::Val(ValExpr::Num(n.span.clone().sp(-**n)))));
+        Ok(if let Some(assign) = self.assign::<OpExpr>()? {
+            Some(OpExpr::Assign(assign.into()))
+        } else {
+            match self.mod_or_val_expr()? {
+                // un
+                Some(ValExpr::Mod(op)) => {
+                    let x = self.expect_with(format!("{}'s x argument", op), Self::op_expr)?;
+                    // Simplify negative number
+                    if let ModExpr::Op(op) = &op {
+                        if let Op::Pervasive(Pervasive::Math(MathOp::Sub)) = &**op {
+                            if let OpExpr::Val(ValExpr::Num(n)) = &x {
+                                return Ok(Some(OpExpr::Val(ValExpr::Num(
+                                    n.span.clone().sp(-**n),
+                                ))));
+                            }
                         }
                     }
+                    Some(OpExpr::Un(UnOpExpr { op, x }.into()))
                 }
-                Some(OpExpr::Un(UnOpExpr { op, x }.into()))
+                // val or bin
+                Some(w) => Some(match self.mod_expr()? {
+                    Some(op) => {
+                        let x = self.expect_with(format!("{}'s x argument", op), Self::op_expr)?;
+                        OpExpr::Bin(BinOpExpr { op, w, x }.into())
+                    }
+                    None => OpExpr::Val(w),
+                }),
+                None => None,
             }
-            // val or bin
-            Some(w) => Some(match self.mod_expr()? {
-                Some(op) => {
-                    let x = self.expect_with(format!("{}'s x argument", op), Self::op_expr)?;
-                    OpExpr::Bin(BinOpExpr { op, w, x }.into())
-                }
-                None => OpExpr::Val(w),
-            }),
-            None => None,
         })
     }
     fn mod_expr(&mut self) -> CompileResult<Option<ModExpr>> {
@@ -357,6 +368,39 @@ impl Parser {
             right,
         }))
     }
+    fn assign<T>(&mut self) -> CompileResult<Option<AssignExpr<T>>>
+    where
+        T: ExprParse,
+    {
+        let start = self.curr;
+        let ident = if let Some(ident) = self.match_to(ident::<T>) {
+            ident
+        } else {
+            return Ok(None);
+        };
+        let op = if let Some(op) = self.match_to(assign_op) {
+            op
+        } else {
+            self.curr = start;
+            return Ok(None);
+        };
+        let body = self.expect_with("body", T::parse)?;
+        Ok(Some(AssignExpr {
+            name: ident.data,
+            op: *op,
+            body,
+            span: ident.span,
+        }))
+    }
+}
+
+impl ExprParse for OpExpr {
+    fn ident_matches(ident: &Ident) -> bool {
+        ident.is_val()
+    }
+    fn parse(parser: &mut Parser) -> CompileResult<Option<Self>> {
+        parser.op_expr()
+    }
 }
 
 fn num(tt: &TT) -> Option<Num> {
@@ -413,4 +457,24 @@ fn comment(tt: &TT) -> Option<Comment> {
     } else {
         None
     }
+}
+
+fn assign_op(tt: &TT) -> Option<AssignOp> {
+    if let TT::Assign(op) = tt {
+        Some(*op)
+    } else {
+        None
+    }
+}
+
+fn ident<T>(tt: &TT) -> Option<Ident>
+where
+    T: ExprParse,
+{
+    if let TT::Ident(ident) = tt {
+        if T::ident_matches(ident) {
+            return Some(ident.clone());
+        }
+    }
+    None
 }

@@ -2,7 +2,11 @@ use std::{error::Error, fmt, io};
 
 use colored::{Color, Colorize};
 
-use crate::{lex::Span, op::Op, value::Val};
+use crate::{
+    lex::{Ident, Span},
+    op::Op,
+    value::Val,
+};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum CompileError {
@@ -16,6 +20,7 @@ pub enum CompileError {
     UnclosedChar,
     NoBinaryImplementation(Op),
     NoUnaryImplementation(Op),
+    UnknownBinding(Ident),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -40,6 +45,7 @@ impl fmt::Display for CompileError {
             CompileError::NoUnaryImplementation(op) => {
                 write!(f, "{} has no unary implementation", op)
             }
+            CompileError::UnknownBinding(name) => write!(f, "Unknown binding `{}`", name),
         }
     }
 }

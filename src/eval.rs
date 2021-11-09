@@ -1,22 +1,43 @@
-use std::iter::repeat;
+use std::{collections::HashMap, iter::repeat};
 
 use crate::{
     array::{Array, EachArray, ReplicateArray, ScanArray, SelectArray, TableArray, ZipForm},
-    cwt::{BinValNode, UnValNode, ValNode},
+    cwt::{AssignValNode, BinValNode, UnValNode, ValNode},
     error::{RuntimeError, RuntimeResult},
     format::Format,
     function::{Atop, BinModded, Fork, Function, UnModded},
-    lex::Span,
+    lex::{Ident, Span},
     num::Num,
     op::*,
     pervade::{bin_pervade_val, un_pervade_val},
     value::{Atom, Val},
 };
 
-#[derive(Default)]
-pub struct Runtime {}
+pub struct Runtime {
+    scopes: Vec<Scope>,
+}
 
-impl Runtime {}
+impl Default for Runtime {
+    fn default() -> Self {
+        Runtime {
+            scopes: vec![Scope::default()],
+        }
+    }
+}
+
+impl Runtime {
+    fn scope(&mut self) -> &mut Scope {
+        self.scopes.last_mut().expect("scopes are empty")
+    }
+    fn set(&mut self, name: Ident, val: Val) {
+        self.scope().bindings.insert(name, val);
+    }
+}
+
+#[derive(Default)]
+struct Scope {
+    bindings: HashMap<Ident, Val>,
+}
 
 pub trait Eval {
     fn eval(&self, rt: &mut Runtime) -> RuntimeResult;
@@ -58,7 +79,16 @@ impl Eval for ValNode {
                 .into(),
             )
             .into()),
+            ValNode::Assign(assign) => assign.eval(rt),
         }
+    }
+}
+
+impl Eval for AssignValNode {
+    fn eval(&self, rt: &mut Runtime) -> RuntimeResult {
+        let val = self.body.eval(rt)?;
+        rt.set(self.name.clone(), val.clone());
+        Ok(val)
     }
 }
 

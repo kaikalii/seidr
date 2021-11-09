@@ -3,9 +3,10 @@
 
 use std::fs::read_to_string;
 
+use cwt::TreeBuilder;
+
 use crate::{
     ast::Item,
-    cwt::ToValNode,
     eval::{Eval, Runtime},
     format::Format,
 };
@@ -46,6 +47,7 @@ fn main() {
         }
     };
 
+    let mut builder = TreeBuilder::default();
     let mut rt = Runtime::default();
     for item in items {
         match item {
@@ -53,7 +55,7 @@ fn main() {
             Item::Expr(expr) => {
                 println!("    {:?}", expr.expr);
                 println!("     {}", expr.expr);
-                match expr.expr.build_val_tree() {
+                match builder.build(&expr) {
                     Ok((node, warnings)) => {
                         for warning in warnings {
                             println!("{}", warning);
