@@ -6,7 +6,7 @@ use crate::{
     array::Array,
     ast::*,
     error::{CompileError, Problem, SpannedCompileWarning},
-    lex::{Ident, Span},
+    lex::{Ident, Sp, Span},
     op::AssignOp,
     value::Val,
 };
@@ -153,7 +153,20 @@ pub trait ToValNode {
     }
 }
 
-impl ToValNode for ExprItem {
+impl ToValNode for Item {
+    fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
+        match self {
+            Item::Newline | Item::Comment(_) => todo!(),
+            Item::Expr(expr) => expr.to_val(builder),
+            Item::Function(expr) => expr.to_val(builder),
+        }
+    }
+}
+
+impl<T> ToValNode for ExprItem<T>
+where
+    T: ToValNode,
+{
     fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
         self.expr.to_val(builder)
     }
@@ -162,14 +175,7 @@ impl ToValNode for ExprItem {
 impl ToValNode for ValExpr {
     fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
         match self {
-            ValExpr::Ident(ident) => {
-                if !builder.lookup(ident) {
-                    builder.error(
-                        CompileError::UnknownBinding(ident.data.clone()).at(ident.span.clone()),
-                    );
-                }
-                ValNode::Ident(ident.data.clone())
-            }
+            ValExpr::Ident(ident) => ident.to_val(builder),
             ValExpr::Num(num) => (**num).into(),
             ValExpr::Char(c) => (**c).into(),
             ValExpr::String(string) => Array::string(string.data.clone()).into(),
@@ -226,6 +232,15 @@ impl ToValNode for BinOpExpr {
     }
 }
 
+impl ToValNode for Sp<Ident> {
+    fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
+        if !builder.lookup(self) {
+            builder.error(CompileError::UnknownBinding(self.data.clone()).at(self.span.clone()));
+        }
+        ValNode::Ident(self.data.clone())
+    }
+}
+
 impl<T> ToValNode for AssignExpr<T>
 where
     T: ToValNode,
@@ -256,6 +271,7 @@ where
 impl ToValNode for ModExpr {
     fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
         match self {
+            ModExpr::Ident(ident) => ident.to_val(builder),
             ModExpr::Op(op) => (**op).into(),
             ModExpr::Un(expr) => expr.to_val(builder),
             ModExpr::Bin(expr) => expr.to_val(builder),
@@ -297,6 +313,7 @@ impl ToValNode for TrainExpr {
             TrainExpr::Single(expr) => expr.to_val(builder),
             TrainExpr::Atop(expr) => expr.to_val(builder),
             TrainExpr::Fork(expr) => expr.to_val(builder),
+            TrainExpr::Assign(expr) => expr.to_val(builder),
         }
     }
 }

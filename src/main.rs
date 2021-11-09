@@ -52,10 +52,10 @@ fn main() {
     for item in items {
         match item {
             Item::Newline | Item::Comment(_) => {}
-            Item::Expr(expr) => {
-                println!("    {:?}", expr.expr);
-                println!("     {}", expr.expr);
-                match builder.build(&expr) {
+            item => {
+                // println!("    {:?}", item);
+                println!("     {}", item);
+                match builder.build(&item) {
                     Ok((node, warnings)) => {
                         for warning in warnings {
                             println!("{}", warning);
@@ -71,6 +71,7 @@ fn main() {
                         }
                     }
                 }
+                println!();
             }
         }
     }

@@ -30,16 +30,7 @@ where
         })
         .at(Span::dud()));
     }
-    // for expr in &exprs {
-    //     println!("    {:?}", expr);
-    // }
-    // println!();
     Ok(items)
-}
-
-trait ExprParse: Sized {
-    fn ident_matches(ident: &Ident) -> bool;
-    fn parse(parser: &mut Parser) -> CompileResult<Option<Self>>;
 }
 
 struct Parser {
@@ -134,7 +125,10 @@ impl Parser {
     }
     fn item(&mut self) -> CompileResult<Option<Item>> {
         let comment = self.comment();
-        Ok(Some(if let Some(expr) = self.op_expr()? {
+        Ok(Some(if let Some(expr) = self.train()? {
+            self.match_token(TT::Newline);
+            Item::Function(ExprItem { expr, comment })
+        } else if let Some(expr) = self.op_expr()? {
             self.match_token(TT::Newline);
             Item::Expr(ExprItem {
                 expr: expr.unparen(),
@@ -199,6 +193,10 @@ impl Parser {
         // Op
         if let Some(op) = self.match_to(op) {
             return Ok(Some(ModExpr::Op(op)));
+        }
+        // Ident
+        if let Some(ident) = self.match_to(ident::<TrainExpr>) {
+            return Ok(Some(ModExpr::Ident(ident)));
         }
         // Un
         if let Some(m) = self.match_to(un_mod) {
@@ -306,24 +304,26 @@ impl Parser {
         })
     }
     fn train(&mut self) -> CompileResult<Option<TrainExpr>> {
-        let start = self.curr;
-        Ok(if let Some(train) = self.fork_or_single()? {
+        Ok(if let Some(assign) = self.assign::<TrainExpr>()? {
+            Some(TrainExpr::Assign(assign.into()))
+        } else if let Some(train) = self.fork_or_single()? {
             Some(train)
         } else {
             self.atop()?.map(Into::into).map(TrainExpr::Atop)
         })
     }
     fn fork_or_single(&mut self) -> CompileResult<Option<TrainExpr>> {
+        println!("try fork or single");
         Ok(Some(if let Some(fork) = self.fork()? {
             TrainExpr::Fork(fork.into())
         } else {
             let start = self.curr;
             let single = if let Some(single) = self.mod_expr()? {
-                single
+                dbg!(single)
             } else {
                 return Ok(None);
             };
-            if self.mod_expr()?.is_some() || self.op_expr()?.is_some() {
+            if dbg!(self.mod_expr()?.is_some()) || dbg!(self.op_expr()?.is_some()) {
                 self.curr = start;
                 return Ok(None);
             }
@@ -374,6 +374,7 @@ impl Parser {
     where
         T: ExprParse,
     {
+        println!("try assign");
         let start = self.curr;
         let ident = if let Some(ident) = self.match_to(ident::<T>) {
             ident
@@ -386,7 +387,8 @@ impl Parser {
             self.curr = start;
             return Ok(None);
         };
-        let body = self.expect_with("body", T::parse)?;
+        dbg!(&ident);
+        let body = self.expect_with(T::EXPECTATION, T::parse)?;
         Ok(Some(AssignExpr {
             name: ident.data,
             op: *op,
@@ -396,12 +398,29 @@ impl Parser {
     }
 }
 
+trait ExprParse: Sized {
+    const EXPECTATION: &'static str;
+    fn ident_matches(ident: &Ident) -> bool;
+    fn parse(parser: &mut Parser) -> CompileResult<Option<Self>>;
+}
+
 impl ExprParse for OpExpr {
+    const EXPECTATION: &'static str = "value";
     fn ident_matches(ident: &Ident) -> bool {
         ident.is_val()
     }
     fn parse(parser: &mut Parser) -> CompileResult<Option<Self>> {
         parser.op_expr()
+    }
+}
+
+impl ExprParse for TrainExpr {
+    const EXPECTATION: &'static str = "function";
+    fn ident_matches(ident: &Ident) -> bool {
+        ident.is_function()
+    }
+    fn parse(parser: &mut Parser) -> CompileResult<Option<TrainExpr>> {
+        parser.train()
     }
 }
 
@@ -479,4 +498,12 @@ where
         }
     }
     None
+}
+
+fn any_ident(tt: &TT) -> Option<Ident> {
+    if let TT::Ident(ident) = tt {
+        Some(ident.clone())
+    } else {
+        None
+    }
 }

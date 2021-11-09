@@ -21,6 +21,7 @@ pub enum CompileError {
     NoBinaryImplementation(Op),
     NoUnaryImplementation(Op),
     UnknownBinding(Ident),
+    MismatchedRoles,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -46,6 +47,7 @@ impl fmt::Display for CompileError {
                 write!(f, "{} has no unary implementation", op)
             }
             CompileError::UnknownBinding(name) => write!(f, "Unknown binding `{}`", name),
+            CompileError::MismatchedRoles => write!(f, "Mismatched roles"),
         }
     }
 }

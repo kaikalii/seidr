@@ -21,7 +21,6 @@ macro_rules! format_display {
 }
 
 format_display!(Item);
-format_display!(ExprItem);
 format_display!(OpExpr);
 format_display!(ModExpr);
 format_display!(ValExpr);
@@ -30,32 +29,45 @@ format_display!(BinOpExpr);
 format_display!(ArrayExpr);
 format_display!(TrainExpr);
 
-#[derive(Debug)]
 pub enum Item {
     Newline,
     Comment(Comment),
-    Expr(ExprItem),
+    Expr(ExprItem<OpExpr>),
+    Function(ExprItem<TrainExpr>),
+}
+
+impl fmt::Debug for Item {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Item::Newline => Ok(()),
+            Item::Comment(comment) => comment.fmt(f),
+            Item::Expr(expr) => expr.expr.fmt(f),
+            Item::Function(expr) => expr.expr.fmt(f),
+        }
+    }
 }
 
 impl Format for Item {
     fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
         match self {
             Item::Newline => {}
-            Item::Expr(expr) => expr.format(f)?,
             Item::Comment(comment) => f.display(comment),
+            Item::Expr(expr) => expr.format(f)?,
+            Item::Function(expr) => expr.format(f)?,
         };
-        f.newline();
         Ok(())
     }
 }
 
-#[derive(Debug)]
-pub struct ExprItem {
-    pub expr: OpExpr,
+pub struct ExprItem<T> {
+    pub expr: T,
     pub comment: Option<Comment>,
 }
 
-impl Format for ExprItem {
+impl<T> Format for ExprItem<T>
+where
+    T: Format,
+{
     fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
         if let Some(comment) = &self.comment {
             f.display(comment)
@@ -168,6 +180,7 @@ impl Format for ValExpr {
 }
 
 pub enum ModExpr {
+    Ident(Sp<Ident>),
     Op(Sp<Op>),
     Un(Box<UnModExpr>),
     Bin(Box<BinModExpr>),
@@ -177,6 +190,7 @@ pub enum ModExpr {
 impl ModExpr {
     pub fn span(&self) -> &Span {
         match self {
+            ModExpr::Ident(ident) => &ident.span,
             ModExpr::Op(op) => &op.span,
             ModExpr::Un(expr) => &expr.span,
             ModExpr::Bin(expr) => &expr.span,
@@ -188,6 +202,7 @@ impl ModExpr {
 impl fmt::Debug for ModExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            ModExpr::Ident(ident) => ident.fmt(f),
             ModExpr::Op(op) => op.fmt(f),
             ModExpr::Un(expr) => expr.fmt(f),
             ModExpr::Bin(expr) => expr.fmt(f),
@@ -199,6 +214,7 @@ impl fmt::Debug for ModExpr {
 impl Format for ModExpr {
     fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
         match self {
+            ModExpr::Ident(ident) => f.display(ident),
             ModExpr::Op(op) => f.display(op),
             ModExpr::Un(expr) => expr.format(f)?,
             ModExpr::Bin(expr) => expr.format(f)?,
@@ -259,6 +275,7 @@ pub enum TrainExpr {
     Single(ModExpr),
     Atop(Box<AtopExpr>),
     Fork(Box<ForkExpr>),
+    Assign(Box<AssignExpr<Self>>),
 }
 
 impl TrainExpr {
@@ -267,6 +284,7 @@ impl TrainExpr {
             TrainExpr::Single(expr) => expr.span(),
             TrainExpr::Atop(expr) => expr.f.span(),
             TrainExpr::Fork(expr) => expr.center.span(),
+            TrainExpr::Assign(expr) => &expr.span,
         }
     }
 }
@@ -277,6 +295,7 @@ impl fmt::Debug for TrainExpr {
             TrainExpr::Single(expr) => write!(f, "(single {:?})", expr),
             TrainExpr::Atop(expr) => expr.fmt(f),
             TrainExpr::Fork(expr) => expr.fmt(f),
+            TrainExpr::Assign(expr) => expr.fmt(f),
         }
     }
 }
@@ -287,6 +306,7 @@ impl Format for TrainExpr {
             TrainExpr::Single(expr) => expr.format(f),
             TrainExpr::Atop(expr) => expr.format(f),
             TrainExpr::Fork(expr) => expr.format(f),
+            TrainExpr::Assign(expr) => expr.format(f),
         }
     }
 }
