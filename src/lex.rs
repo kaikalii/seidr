@@ -150,7 +150,6 @@ pub enum TT {
     Comma,
     Whitespace,
     Newline,
-    Undertie,
     SuperscriptMinus,
 }
 
@@ -202,7 +201,6 @@ impl fmt::Display for TT {
             TT::BinMod(m) => m.fmt(f),
             TT::Comma => ','.fmt(f),
             TT::Newline => '\n'.fmt(f),
-            TT::Undertie => '‿'.fmt(f),
             TT::SuperscriptMinus => '‾'.fmt(f),
             TT::Comment(comment) => comment.fmt(f),
             TT::Whitespace => ' '.fmt(f),
@@ -436,7 +434,6 @@ impl Lexer {
                 '⟨' | '〈' | '[' => self.token(TT::OpenAngle),
                 '⟩' | '〉' | ']' => self.token(TT::CloseAngle),
                 ',' => self.token(TT::Comma),
-                '‿' => self.token(TT::Undertie),
                 '\n' => self.token(TT::Newline),
                 '∞' => self.token(TT::Num(Num::INFINIFY, "∞".into())),
                 '「' => self.token(MathOp::Max),
@@ -504,7 +501,6 @@ impl Lexer {
             return self.error(CompileError::InvalidEscape(String::new()));
         };
         match c {
-            ' ' => self.token(TT::Undertie),
             '8' => self.token(TT::Num(Num::INFINIFY, "∞".into())),
             '-' => self.negative_number()?,
             '\\' => self.comment('\n', false),
