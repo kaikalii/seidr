@@ -2,8 +2,8 @@ use std::fmt;
 
 use crate::{
     array::Array,
-    ast::{Format, Formatter},
     error::RuntimeResult,
+    format::{Format, Formatter},
     function::{BinModded, Function, UnModded},
     lex::Span,
     num::Num,

@@ -2,9 +2,9 @@ use std::iter::repeat;
 
 use crate::{
     array::{Array, EachArray, ReplicateArray, ScanArray, SelectArray, TableArray, ZipForm},
-    ast::Format,
     cwt::{BinValNode, UnValNode, ValNode},
     error::{RuntimeError, RuntimeResult},
+    format::Format,
     function::{Atop, BinModded, Fork, Function, UnModded},
     lex::Span,
     num::Num,

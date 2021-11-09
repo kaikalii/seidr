@@ -4,9 +4,10 @@
 use std::fs::read_to_string;
 
 use crate::{
-    ast::{Format, Item},
+    ast::Item,
     cwt::ToValNode,
     eval::{Eval, Runtime},
+    format::Format,
 };
 
 mod array;
@@ -14,6 +15,7 @@ mod ast;
 mod cwt;
 mod error;
 mod eval;
+mod format;
 mod function;
 mod lex;
 mod num;

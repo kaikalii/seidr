@@ -8,9 +8,9 @@ use std::{
 };
 
 use crate::{
-    ast::{Format, Formatter},
     error::RuntimeResult,
     eval::{eval_bin, eval_un, index_array, replicator_int, rt_error},
+    format::{Format, Formatter},
     lex::Span,
     num::{modulus, Num},
     pervade::PervadedArray,
