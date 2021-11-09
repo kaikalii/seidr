@@ -10,7 +10,6 @@ use crate::{
     num::Num,
     op::*,
     pervade::{bin_pervade_val, un_pervade_val},
-    rcview::RcView,
     value::{Atom, Val},
 };
 
@@ -256,22 +255,10 @@ fn range(x: Val, span: &Span) -> RuntimeResult<Array> {
                 Ok(Array::Range(n))
             }
         }
-        Val::Atom(atom) => rt_error(
-            format!("A range cannot be built from {}", atom.type_name()),
+        val => rt_error(
+            format!("A range cannot be built from {}", val.type_name()),
             span,
         ),
-        Val::Array(arr) => {
-            if arr.len().map_or(true, |len| len == 0) {
-                rt_error("Range array must have a positive, finite size", span)
-            } else {
-                Ok(Array::Product(
-                    arr.into_iter()
-                        .map(|val| val.and_then(|val| range(val, span)))
-                        .collect::<RuntimeResult<_>>()?,
-                    RcView::new([]),
-                ))
-            }
-        }
     }
 }
 

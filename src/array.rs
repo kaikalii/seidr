@@ -1,11 +1,4 @@
-use std::{
-    borrow::Cow,
-    cell::RefCell,
-    cmp::Ordering,
-    collections::HashMap,
-    iter::{self, once},
-    rc::Rc,
-};
+use std::{borrow::Cow, cell::RefCell, cmp::Ordering, collections::HashMap, iter, rc::Rc};
 
 use crate::{
     error::RuntimeResult,
@@ -28,7 +21,6 @@ pub enum Array {
     Rotate(Box<Self>, i64),
     Reverse(Box<Self>),
     Range(Num),
-    Product(RcView<Self>, Items),
     JoinTo(Box<Self>, Box<Self>),
     Pervaded(Box<PervadedArray>),
     Take(Box<Self>, i64),
@@ -40,6 +32,14 @@ pub enum Array {
     Replicate(Rc<ReplicateArray>),
     Scan(Rc<ScanArray>),
     Table(Rc<TableArray>),
+}
+
+fn _array_size() {
+    use std::mem::transmute;
+    let _: [u8; 8] = unsafe { transmute(Box::new(0)) };
+    let _: [u8; 8] = unsafe { transmute(Rc::new(0)) };
+    let _: [u8; 32] = unsafe { transmute(RcView::new(Some(1))) };
+    let _: [u8; 40] = unsafe { transmute(Array::string("")) };
 }
 
 fn min_len(a: Option<usize>, b: Option<usize>) -> Option<usize> {
@@ -114,7 +114,6 @@ impl Array {
                     i64::from(*n) as usize
                 }
             }
-            Array::Product(arrs, _) => arrs[0].len()?,
             Array::JoinTo(a, b) => a.len().zip(b.len()).map(|(a, b)| a + b)?,
             Array::Pervaded(pa) => pa.len()?,
             Array::Take(arr, n) => match (arr.len(), *n >= 0) {
@@ -193,27 +192,6 @@ impl Array {
                     Some(Cow::Owned(index.into()))
                 }
             }
-            Array::Product(arrs, items) => arrs[0].get(index)?.map(|first| {
-                if arrs.len() == 1 {
-                    if items.is_empty() {
-                        first
-                    } else {
-                        Cow::Owned(
-                            Array::concrete(items.iter().cloned().chain(once(first.into_owned())))
-                                .into(),
-                        )
-                    }
-                } else {
-                    let val = first.into_owned();
-                    Cow::Owned(
-                        Array::Product(
-                            arrs.sub(1..),
-                            items.iter().cloned().chain(once(val)).collect(),
-                        )
-                        .into(),
-                    )
-                }
-            }),
             Array::JoinTo(a, b) => {
                 if let Some(val) = a.get(index)? {
                     Some(val)
