@@ -540,11 +540,11 @@ impl Lexer {
         while let Some(c) = self.next_if(|c| c != terminator) {
             message.push(c);
         }
-        self.next();
         self.token(TT::Comment(Comment {
             message: message.trim().into(),
             multiline,
-        }))
+        }));
+        self.next_if(|c| dbg!(c) != '\n');
     }
     fn escape(&mut self) -> CompileResult {
         let c = if let Some(c) = self.next() {

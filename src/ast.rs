@@ -58,7 +58,7 @@ pub struct ExprItem {
 impl Format for ExprItem {
     fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
         if let Some(comment) = &self.comment {
-            f.display(comment);
+            f.display(comment)
         }
         self.expr.format(f)
     }
