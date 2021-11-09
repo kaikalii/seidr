@@ -21,6 +21,7 @@ mod op;
 mod parse;
 mod pervade;
 mod rcview;
+mod types;
 mod value;
 
 fn main() {

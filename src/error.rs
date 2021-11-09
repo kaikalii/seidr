@@ -2,7 +2,7 @@ use std::{error::Error, fmt, io};
 
 use colored::{Color, Colorize};
 
-use crate::{lex::Span, op::Op, value::Val};
+use crate::{lex::Span, op::Op, types::TypeSet, value::Val};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum CompileError {
@@ -16,6 +16,8 @@ pub enum CompileError {
     UnclosedChar,
     NoBinaryImplementation(Op),
     NoUnaryImplementation(Op),
+    Const(String),
+    UnreconcilableTypes(TypeSet, TypeSet),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -39,6 +41,10 @@ impl fmt::Display for CompileError {
             }
             CompileError::NoUnaryImplementation(op) => {
                 write!(f, "{} has no unary implementation", op)
+            }
+            CompileError::Const(message) => write!(f, "{}", message),
+            CompileError::UnreconcilableTypes(a, b) => {
+                write!(f, "Unable to reconcile {:?} and {:?}", a, b)
             }
         }
     }
@@ -135,6 +141,12 @@ impl fmt::Display for Problem {
     }
 }
 
+impl From<RuntimeError> for Problem {
+    fn from(e: RuntimeError) -> Self {
+        CompileError::Const(e.message).at(e.span)
+    }
+}
+
 impl Error for Problem {}
 
 pub type CompileResult<T = ()> = Result<T, Problem>;
@@ -152,7 +164,7 @@ impl Problem {
 #[derive(Debug)]
 pub struct RuntimeError {
     pub message: String,
-    pub span: Option<Span>,
+    pub span: Span,
     pub trace: Vec<Span>,
 }
 
@@ -172,7 +184,7 @@ impl RuntimeError {
     pub fn new(message: impl Into<String>, span: Span) -> Self {
         RuntimeError {
             message: message.into(),
-            span: Some(span),
+            span,
             trace: Vec::new(),
         }
     }
@@ -190,9 +202,7 @@ impl fmt::Display for RuntimeError {
             "Error: ".bright_red().bold(),
             self.message.bright_white()
         )?;
-        if let Some(span) = &self.span {
-            span.format_error(f, Color::BrightRed)?;
-        }
+        self.span.format_error(f, Color::BrightRed)?;
         if !self.trace.is_empty() {
             writeln!(f)?;
             for span in &self.trace {
