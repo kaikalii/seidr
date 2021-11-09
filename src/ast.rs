@@ -372,7 +372,9 @@ pub struct ArrayExpr {
 
 impl fmt::Debug for ArrayExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", self.items)
+        f.debug_list()
+            .entries(self.items.iter().map(|(item, _)| item))
+            .finish()
     }
 }
 
