@@ -700,15 +700,10 @@ impl ScanArray {
                     break;
                 }
             } else {
-                let w = self.array.get(i - 1)?.unwrap();
+                let w = cache.get(i - 1).unwrap().clone();
                 let x = self.array.get(i)?;
-                if let Some(x) = self.array.get(i)? {
-                    cache.push(eval_bin(
-                        self.f.clone(),
-                        w.into_owned(),
-                        x.into_owned(),
-                        &self.span,
-                    )?);
+                if let Some(x) = x {
+                    cache.push(eval_bin(self.f.clone(), w, x.into_owned(), &self.span)?);
                 } else {
                     break;
                 }

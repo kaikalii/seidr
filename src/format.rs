@@ -104,11 +104,15 @@ impl<'w> Formatter<'w> {
             }
             depth => {
                 for item in array.iter() {
-                    self.newline();
                     match item?.into_owned() {
                         Val::Atom(atom) => atom.format(self)?,
                         Val::Array(arr) => arr.format(self)?,
                     }
+                    self.newline();
+                }
+                if unbounded {
+                    self.display("...");
+                    self.newline();
                 }
             }
         }
