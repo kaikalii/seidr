@@ -380,9 +380,12 @@ impl Format for ArrayExpr {
     fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
         f.display('⟨');
         for (i, (item, comma)) in self.items.iter().enumerate() {
+            if i > 0 {
+                f.display(' ');
+            }
             item.format(f)?;
             if *comma {
-                f.display(", ");
+                f.display(',');
             }
         }
         f.display('⟩');

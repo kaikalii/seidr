@@ -94,6 +94,13 @@ impl Array {
             cache: Default::default(),
         }))
     }
+    pub fn bounded(&self) -> Cow<Self> {
+        if self.len().is_none() {
+            Cow::Owned(Array::Take(self.clone().into(), 5))
+        } else {
+            Cow::Borrowed(self)
+        }
+    }
     pub fn len(&self) -> Option<usize> {
         Some(match self {
             Array::Concrete(items) => items.len(),
@@ -148,6 +155,7 @@ impl Array {
                 .as_bytes()
                 .get(index)
                 .copied()
+                .map(char::from)
                 .map(Val::from)
                 .map(Cow::Owned),
             Array::Cached(arr) => arr.get(index)?.map(Cow::Owned),
@@ -319,6 +327,18 @@ impl Array {
             false
         })
     }
+    pub fn limited_depth(&self) -> RuntimeResult<usize> {
+        let of_items = match self {
+            Array::Range(_) => 0,
+            arr => arr
+                .bounded()
+                .iter()
+                .fold(Ok(0), |acc, item| -> RuntimeResult<usize> {
+                    Ok(acc?.max(item?.limited_depth()?))
+                })?,
+        };
+        Ok(1 + of_items)
+    }
     pub fn depth(&self, span: &Span) -> RuntimeResult<usize> {
         let of_items = match self {
             Array::Range(_) => 0,
@@ -377,40 +397,7 @@ impl Ord for Array {
 
 impl Format for Array {
     fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
-        let len = if let Some(len) = self.len() { len } else { 5 };
-        if len > 0
-            && self
-                .iter()
-                .take(len)
-                .all(|val| matches!(val.as_deref(), Ok(Val::Atom(Atom::Char(_)))))
-        {
-            let mut s = String::new();
-            for val in self.iter().take(len) {
-                if let Val::Atom(Atom::Char(c)) = val?.as_ref() {
-                    s.push(*c);
-                }
-            }
-            let s = format!("{:?}", s);
-            f.display(&s[..s.len() - 1]);
-            if self.len().is_none() {
-                f.display("...");
-            }
-            f.display("\"");
-        } else {
-            f.display("⟨");
-            for (i, val) in self.iter().take(len).enumerate() {
-                let val = val?;
-                if i > 0 {
-                    f.display(" ");
-                }
-                val.format(f)?;
-            }
-            if self.len().is_none() {
-                f.display(" ...");
-            }
-            f.display("⟩");
-        }
-        Ok(())
+        f.array(self)
     }
 }
 

@@ -140,6 +140,12 @@ impl Val {
             _ => Ok(false),
         }
     }
+    pub fn limited_depth(&self) -> RuntimeResult<usize> {
+        match self {
+            Val::Atom(_) => Ok(0),
+            Val::Array(arr) => arr.limited_depth(),
+        }
+    }
     pub fn depth(&self, span: &Span) -> RuntimeResult<usize> {
         match self {
             Val::Atom(_) => Ok(0),
