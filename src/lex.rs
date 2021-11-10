@@ -227,6 +227,7 @@ impl fmt::Debug for TT {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             TT::Newline => write!(f, "\\n"),
+            TT::Whitespace => write!(f, "' '"),
             tt => write!(f, "{}", tt),
         }
     }
@@ -250,7 +251,7 @@ impl fmt::Display for TT {
             TT::BinMod(m) => m.fmt(f),
             TT::Assign(op) => op.fmt(f),
             TT::Comma => ','.fmt(f),
-            TT::Newline => '\n'.fmt(f),
+            TT::Newline => "\n".fmt(f),
             TT::SuperscriptMinus => '‾'.fmt(f),
             TT::Comment(comment) => comment.fmt(f),
             TT::Whitespace => ' '.fmt(f),
@@ -514,7 +515,7 @@ impl Lexer {
                     );
                 }
                 c if c.is_whitespace() => {
-                    while self.next_if(|c| c.is_whitespace() && c == '\n').is_some() {}
+                    while self.next_if(|c| c.is_whitespace() && c != '\n').is_some() {}
                     self.token(TT::Whitespace);
                 }
                 c => {
@@ -544,7 +545,7 @@ impl Lexer {
             message: message.trim().into(),
             multiline,
         }));
-        self.next_if(|c| dbg!(c) != '\n');
+        self.next_if(|c| c != '\n');
     }
     fn escape(&mut self) -> CompileResult {
         let c = if let Some(c) = self.next() {

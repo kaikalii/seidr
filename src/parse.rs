@@ -313,17 +313,16 @@ impl Parser {
         })
     }
     fn fork_or_single(&mut self) -> CompileResult<Option<TrainExpr>> {
-        println!("try fork or single");
         Ok(Some(if let Some(fork) = self.fork()? {
             TrainExpr::Fork(fork.into())
         } else {
             let start = self.curr;
             let single = if let Some(single) = self.mod_expr()? {
-                dbg!(single)
+                single
             } else {
                 return Ok(None);
             };
-            if dbg!(self.mod_expr()?.is_some()) || dbg!(self.op_expr()?.is_some()) {
+            if self.mod_expr()?.is_some() || self.op_expr()?.is_some() {
                 self.curr = start;
                 return Ok(None);
             }
@@ -374,7 +373,6 @@ impl Parser {
     where
         T: ExprParse,
     {
-        println!("try assign");
         let start = self.curr;
         let ident = if let Some(ident) = self.match_to(ident::<T>) {
             ident
@@ -387,7 +385,6 @@ impl Parser {
             self.curr = start;
             return Ok(None);
         };
-        dbg!(&ident);
         let body = self.expect_with(T::EXPECTATION, T::parse)?;
         Ok(Some(AssignExpr {
             name: ident.data,

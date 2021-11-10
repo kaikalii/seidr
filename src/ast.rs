@@ -39,7 +39,7 @@ pub enum Item {
 impl fmt::Debug for Item {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Item::Newline => Ok(()),
+            Item::Newline => write!(f, "\\n"),
             Item::Comment(comment) => comment.fmt(f),
             Item::Expr(expr) => expr.expr.fmt(f),
             Item::Function(expr) => expr.expr.fmt(f),
@@ -55,6 +55,7 @@ impl Format for Item {
             Item::Expr(expr) => expr.format(f)?,
             Item::Function(expr) => expr.format(f)?,
         };
+        f.newline();
         Ok(())
     }
 }
@@ -70,7 +71,8 @@ where
 {
     fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
         if let Some(comment) = &self.comment {
-            f.display(comment)
+            f.display(comment);
+            f.newline();
         }
         self.expr.format(f)
     }
