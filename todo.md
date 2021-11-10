@@ -1,4 +1,4 @@
 - Implement rest of ops and modifiers
-- Make replicate lazy
-- Add functions
+- Simplify assignment parsing
+- Add parameters
 - Add variables
