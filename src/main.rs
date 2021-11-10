@@ -53,8 +53,9 @@ fn main() {
         match item {
             Item::Newline | Item::Comment(_) => {}
             item => {
-                // println!("    {:?}", item);
-                print!("\n     {}", item);
+                println!();
+                println!("    {:?}", item);
+                print!("     {}", item);
                 match builder.build(&item) {
                     Ok((node, warnings)) => {
                         for warning in warnings {

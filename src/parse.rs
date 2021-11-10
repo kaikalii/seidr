@@ -125,15 +125,9 @@ impl Parser {
     }
     fn item(&mut self) -> CompileResult<Option<Item>> {
         let comment = self.comment();
-        Ok(Some(if let Some(expr) = self.train()? {
+        Ok(Some(if let Some(expr) = self.top_expr()? {
             self.match_token(TT::Newline);
-            Item::Function(ExprItem { expr, comment })
-        } else if let Some(expr) = self.op_expr()? {
-            self.match_token(TT::Newline);
-            Item::Expr(ExprItem {
-                expr: expr.unparen(),
-                comment,
-            })
+            Item::Expr(ExprItem { expr, comment })
         } else if let Some(comment) = comment {
             self.match_token(TT::Newline);
             Item::Comment(comment)
@@ -153,271 +147,94 @@ impl Parser {
     fn comment(&mut self) -> Option<Comment> {
         self.match_to(comment).map(|comment| comment.data)
     }
-    fn op_expr(&mut self) -> CompileResult<Option<OpExpr>> {
-        Ok(if let Some(assign) = self.assign::<OpExpr>()? {
-            Some(OpExpr::Assign(assign.into()))
-        } else {
-            match self.mod_or_val_expr()? {
-                // un
-                Some(ValExpr::Mod(op)) => {
-                    let x = self.expect_with(format!("{}'s x argument", op), Self::op_expr)?;
-                    // Simplify negative number
-                    if let ModExpr::Op(op) = &op {
-                        if let Op::Pervasive(Pervasive::Math(MathOp::Sub)) = &**op {
-                            if let OpExpr::Val(ValExpr::Num(n)) = &x {
-                                return Ok(Some(OpExpr::Val(ValExpr::Num(
-                                    n.span.clone().sp(-**n),
-                                ))));
-                            }
-                        }
-                    }
-                    Some(OpExpr::Un(UnOpExpr { op, x }.into()))
-                }
-                // val or bin
-                Some(w) => Some(match self.mod_expr()? {
-                    Some(op) => {
-                        let x = self.expect_with(format!("{}'s x argument", op), Self::op_expr)?;
-                        OpExpr::Bin(BinOpExpr { op, w, x }.into())
-                    }
-                    None => OpExpr::Val(w),
-                }),
-                None => None,
-            }
-        })
-    }
-    fn mod_expr(&mut self) -> CompileResult<Option<ModExpr>> {
-        // Parened
-        if let Some(expr) = self.parened_mod_expr()? {
-            return Ok(Some(expr));
-        }
-        // Op
-        if let Some(op) = self.match_to(op) {
-            return Ok(Some(ModExpr::Op(op)));
-        }
-        // Ident
-        if let Some(ident) = self.match_to(ident::<TrainExpr>) {
-            return Ok(Some(ModExpr::Ident(ident)));
-        }
-        // Un
-        if let Some(m) = self.match_to(un_mod) {
-            let f = self.expect_with(format!("{}'s f argument", m), Self::mod_or_val_expr)?;
-            return Ok(Some(ModExpr::Un(
-                UnModExpr {
-                    m: *m,
-                    f,
-                    span: m.span,
-                }
-                .into(),
-            )));
-        }
-        // Bin
-        if let Some(m) = self.match_to(bin_mod) {
-            let f = self.expect_with(format!("{}'s f argument", m), Self::mod_or_val_expr)?;
-            let g = self.expect_with(format!("{}'s g argument", m), Self::mod_or_val_expr)?;
-            return Ok(Some(ModExpr::Bin(
-                BinModExpr {
-                    m: *m,
-                    f,
-                    g,
-                    span: m.span,
-                }
-                .into(),
-            )));
-        }
-        Ok(None)
-    }
-    fn mod_or_val_expr(&mut self) -> CompileResult<Option<ValExpr>> {
-        Ok(if let Some(expr) = self.mod_expr()? {
-            Some(ValExpr::Mod(expr))
-        } else {
-            self.val_expr()?
-        })
-    }
-    fn val_expr(&mut self) -> CompileResult<Option<ValExpr>> {
-        Ok(Some(if let Some(ident) = self.match_to(ident::<OpExpr>) {
-            ValExpr::Ident(ident)
-        } else if let Some(num) = self.match_to(num) {
-            ValExpr::Num(num)
-        } else if let Some(c) = self.match_to(char) {
-            ValExpr::Char(c)
-        } else if let Some(s) = self.match_to(string) {
-            ValExpr::String(s)
-        } else if let Some(val) = self.parened_op_expr()? {
-            val
-        } else if let Some(array) = self.array()? {
-            ValExpr::Array(array)
+    fn top_expr(&mut self) -> CompileResult<Option<Expr>> {
+        Ok(Some(if let Some(expr) = self.expr()? {
+            expr
         } else {
             return Ok(None);
         }))
     }
-    fn array(&mut self) -> CompileResult<Option<ArrayExpr>> {
+    fn assign(&mut self, name: Ident, op: AssignOp, span: Span) -> CompileResult<AssignExpr> {
+        let body = self.expect_with("expression", Self::top_expr)?;
+        Ok(AssignExpr {
+            name,
+            op,
+            body,
+            span,
+        })
+    }
+    fn expr(&mut self) -> CompileResult<Option<Expr>> {
+        let a = if let Some(term) = self.term()? {
+            term
+        } else {
+            return Ok(None);
+        };
+        let b = if let Some(expr) = self.expr()? {
+            expr
+        } else {
+            return Ok(Some(a));
+        };
+        Ok(Some(match (a.role(), b) {
+            (Role::Value, Expr::Un(b)) if b.op.role() == Role::Function => {
+                Expr::bin(b.op, a, b.inner)
+            }
+            (_, b) => Expr::un(a, b),
+        }))
+    }
+    fn term(&mut self) -> CompileResult<Option<Expr>> {
+        Ok(Some(if let Some(num) = self.match_to(num) {
+            Expr::Num(num)
+        } else if let Some(char) = self.match_to(char) {
+            Expr::Char(char)
+        } else if let Some(string) = self.match_to(string) {
+            Expr::String(string)
+        } else if let Some(op) = self.match_to(op) {
+            Expr::Op(op)
+        } else if let Some(un_mod) = self.match_to(un_mod) {
+            Expr::UnMod(un_mod)
+        } else if let Some(bin_mod) = self.match_to(bin_mod) {
+            Expr::BinMod(bin_mod)
+        } else if let Some(ident) = self.match_to(ident) {
+            Expr::Ident(ident)
+        } else if let Some(expr) = self.parened()? {
+            expr
+        } else if let Some(expr) = self.array()? {
+            expr
+        } else {
+            return Ok(None);
+        }))
+    }
+    fn parened(&mut self) -> CompileResult<Option<Expr>> {
+        if self.match_token(TT::OpenParen).is_none() {
+            return Ok(None);
+        }
+        let expr = self.expect_with("expression", Self::expr)?;
+        self.expect_token(TT::CloseParen)?;
+        Ok(Some(Expr::Parened(expr.into())))
+    }
+    fn array(&mut self) -> CompileResult<Option<Expr>> {
         let open = if let Some(token) = self.match_token(TT::OpenAngle) {
             token
         } else {
             return Ok(None);
         };
         let mut items = Vec::new();
-        while let Some(item) = self.array_item()? {
-            items.push((item, self.match_token(TT::Comma).is_some()));
-        }
-        let close = self.expect_token_or(TT::CloseAngle, "array item")?;
-        let span = open.span.join(&close.span);
-        Ok(Some(ArrayExpr { items, span }))
-    }
-    fn array_item(&mut self) -> CompileResult<Option<ArrayItemExpr>> {
-        Ok(if let Some(expr) = self.train()? {
-            Some(ArrayItemExpr::Function(expr))
-        } else {
-            self.op_expr()?.map(ArrayItemExpr::Val)
-        })
-    }
-    fn parened_op_expr(&mut self) -> CompileResult<Option<ValExpr>> {
-        let start = self.curr;
-        if self.match_token(TT::OpenParen).is_none() {
-            return Ok(None);
-        }
-        Ok(if let Some(expr) = self.op_expr()? {
-            self.expect_token(TT::CloseParen)?;
-            Some(match expr {
-                OpExpr::Val(expr) => expr,
-                expr => ValExpr::Parened(expr.into()),
-            })
-        } else {
-            self.curr = start;
-            None
-        })
-    }
-    fn parened_mod_expr(&mut self) -> CompileResult<Option<ModExpr>> {
-        let start = self.curr;
-        if self.match_token(TT::OpenParen).is_none() {
-            return Ok(None);
-        }
-        Ok(if let Some(train) = self.train()? {
-            self.expect_token(TT::CloseParen)?;
-            Some(match train {
-                TrainExpr::Single(expr) => expr,
-                train => ModExpr::Parened(train.into()),
-            })
-        } else {
-            self.curr = start;
-            None
-        })
-    }
-    fn train(&mut self) -> CompileResult<Option<TrainExpr>> {
-        Ok(if let Some(assign) = self.assign::<TrainExpr>()? {
-            Some(TrainExpr::Assign(assign.into()))
-        } else if let Some(train) = self.fork_or_single()? {
-            Some(train)
-        } else {
-            self.atop()?.map(Into::into).map(TrainExpr::Atop)
-        })
-    }
-    fn fork_or_single(&mut self) -> CompileResult<Option<TrainExpr>> {
-        Ok(Some(if let Some(fork) = self.fork()? {
-            TrainExpr::Fork(fork.into())
-        } else {
-            let start = self.curr;
-            let single = if let Some(single) = self.mod_expr()? {
-                single
-            } else {
-                return Ok(None);
-            };
-            if self.mod_expr()?.is_some() || self.op_expr()?.is_some() {
-                self.curr = start;
-                return Ok(None);
+        fn add_item(items: &mut Vec<(Expr, bool)>, expr: Expr, comma: bool) {
+            match expr {
+                Expr::Un(un) if [un.op.role(), un.inner.role()] == [Role::Value; 2] => {
+                    items.push((un.op, false));
+                    add_item(items, un.inner, comma);
+                }
+                expr => items.push((expr, comma)),
             }
-            TrainExpr::Single(single)
-        }))
-    }
-    fn atop(&mut self) -> CompileResult<Option<AtopExpr>> {
-        let start = self.curr;
-        let f = if let Some(f) = self.mod_expr()? {
-            f
-        } else {
-            return Ok(None);
-        };
-        let g = if let Some(g) = self.fork_or_single()? {
-            g
-        } else {
-            self.curr = start;
-            return Ok(None);
-        };
-        Ok(Some(AtopExpr { f, g }))
-    }
-    fn fork(&mut self) -> CompileResult<Option<ForkExpr>> {
-        let start = self.curr;
-        let left = if let Some(left) = self.mod_or_val_expr()? {
-            left
-        } else {
-            return Ok(None);
-        };
-        let center = if let Some(center) = self.mod_expr()? {
-            center
-        } else {
-            self.curr = start;
-            return Ok(None);
-        };
-        let right = if let Some(right) = self.fork_or_single()? {
-            right
-        } else {
-            self.curr = start;
-            return Ok(None);
-        };
-        Ok(Some(ForkExpr {
-            left,
-            center,
-            right,
-        }))
-    }
-    fn assign<T>(&mut self) -> CompileResult<Option<AssignExpr<T>>>
-    where
-        T: ExprParse,
-    {
-        let start = self.curr;
-        let ident = if let Some(ident) = self.match_to(ident::<T>) {
-            ident
-        } else {
-            return Ok(None);
-        };
-        let op = if let Some(op) = self.match_to(assign_op) {
-            op
-        } else {
-            self.curr = start;
-            return Ok(None);
-        };
-        let body = self.expect_with(T::EXPECTATION, T::parse)?;
-        Ok(Some(AssignExpr {
-            name: ident.data,
-            op: *op,
-            body,
-            span: ident.span,
-        }))
-    }
-}
-
-trait ExprParse: Sized {
-    const EXPECTATION: &'static str;
-    fn ident_matches(ident: &Ident) -> bool;
-    fn parse(parser: &mut Parser) -> CompileResult<Option<Self>>;
-}
-
-impl ExprParse for OpExpr {
-    const EXPECTATION: &'static str = "value";
-    fn ident_matches(ident: &Ident) -> bool {
-        ident.is_val()
-    }
-    fn parse(parser: &mut Parser) -> CompileResult<Option<Self>> {
-        parser.op_expr()
-    }
-}
-
-impl ExprParse for TrainExpr {
-    const EXPECTATION: &'static str = "function";
-    fn ident_matches(ident: &Ident) -> bool {
-        ident.is_function()
-    }
-    fn parse(parser: &mut Parser) -> CompileResult<Option<TrainExpr>> {
-        parser.train()
+        }
+        while let Some(expr) = self.expr()? {
+            let comma = self.match_token(TT::Comma).is_some();
+            add_item(&mut items, expr, comma);
+        }
+        let close = self.expect_token(TT::CloseAngle)?;
+        let span = open.span.join(&close.span);
+        Ok(Some(Expr::Array(ArrayExpr { items, span })))
     }
 }
 
@@ -485,22 +302,27 @@ fn assign_op(tt: &TT) -> Option<AssignOp> {
     }
 }
 
-fn ident<T>(tt: &TT) -> Option<Ident>
-where
-    T: ExprParse,
-{
-    if let TT::Ident(ident) = tt {
-        if T::ident_matches(ident) {
-            return Some(ident.clone());
-        }
-    }
-    None
-}
-
-fn any_ident(tt: &TT) -> Option<Ident> {
+fn ident(tt: &TT) -> Option<Ident> {
     if let TT::Ident(ident) = tt {
         Some(ident.clone())
     } else {
         None
+    }
+}
+
+fn ident_if<F>(f: F) -> impl Fn(&TT) -> Option<Ident>
+where
+    F: Fn(&Ident) -> bool,
+{
+    move |tt: &TT| {
+        if let TT::Ident(ident) = tt {
+            if f(ident) {
+                Some(ident.clone())
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     }
 }

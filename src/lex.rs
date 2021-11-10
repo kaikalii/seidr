@@ -46,30 +46,63 @@ where
     Ok(tokens)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Role {
+    Value,
+    Function,
+    UnModifier,
+    BinModifier,
+}
+
+impl Role {
+    pub const fn un(&self, inner: Role) -> Role {
+        match (self, inner) {
+            (Role::Value, _) => Role::Value,
+            (Role::Function, Role::Value) => Role::Value,
+            (Role::Function, Role::Function) => Role::Function,
+            _ => Role::Function,
+        }
+    }
+    pub const fn bin(&self, left: Role, right: Role) -> Role {
+        match (left, self, right) {
+            (_, Role::Value, _) => Role::Value,
+            (Role::Value, Role::Function, Role::Value) => Role::Value,
+            (Role::Function, Role::Function, Role::Value) => Role::Value,
+            (Role::Value, Role::Function, Role::Function) => Role::Function,
+            (Role::Function, Role::Function, Role::Function) => Role::Function,
+            _ => Role::Function,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct Ident(Rc<str>);
 
 impl Ident {
-    pub fn canonical(&self) -> String {
-        self.0.to_lowercase().replace('_', "")
+    pub fn role(&self) -> Role {
+        if self.0.starts_with('_') {
+            if self.0.ends_with('_') {
+                Role::BinModifier
+            } else {
+                Role::UnModifier
+            }
+        } else if self.0.starts_with(char::is_uppercase) {
+            Role::Function
+        } else {
+            Role::Value
+        }
     }
-    pub fn is_val(&self) -> bool {
-        self.0.starts_with(char::is_lowercase)
-    }
-    pub fn is_function(&self) -> bool {
-        self.0.starts_with(char::is_uppercase)
-    }
-    pub fn is_un_mod(&self) -> bool {
-        self.0.starts_with('_') && !self.ends_with('_')
-    }
-    pub fn is_bin_mod(&self) -> bool {
-        self.0.starts_with('_') && self.ends_with('_')
+    fn canon_chars(&self) -> impl Iterator<Item = char> + '_ {
+        self.0
+            .chars()
+            .flat_map(char::to_lowercase)
+            .filter(|c| c != &'_')
     }
 }
 
 impl PartialEq for Ident {
     fn eq(&self, other: &Self) -> bool {
-        self.canonical() == other.canonical()
+        self.canon_chars().eq(other.canon_chars())
     }
 }
 
@@ -77,13 +110,13 @@ impl Eq for Ident {}
 
 impl PartialOrd for Ident {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.canonical().partial_cmp(&other.canonical())
+        Some(self.cmp(other))
     }
 }
 
 impl Ord for Ident {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.canonical().cmp(&other.canonical())
+        self.canon_chars().cmp(other.canon_chars())
     }
 }
 
@@ -92,7 +125,9 @@ impl Hash for Ident {
     where
         H: Hasher,
     {
-        self.canonical().hash(state);
+        for c in self.canon_chars() {
+            c.hash(state);
+        }
     }
 }
 
