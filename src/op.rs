@@ -1,10 +1,10 @@
 use std::fmt;
 
 macro_rules! op {
-    ($name:ident, $(($variant:ident, $glyph:literal $(,$escape:literal)?)),* $(,$no_glyph:ident)* $(,)?) => {
+    ($name:ident, $($(#[$meta:meta])* ($variant:ident, $glyph:literal $(,$escape:literal)?)),* $(,$no_glyph:ident)* $(,)?) => {
         #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
         pub enum $name {
-            $($variant,)*
+            $($(#[$meta])* $variant,)*
             $($no_glyph,)*
         }
 
@@ -80,18 +80,31 @@ op!(
 
 op!(
     RuneOp,
+    /// ?/Replicate
     (Fehu, 'ᚠ', 'f'),
+    /// Transpose/Chunks
     (Uruz, 'ᚢ', 'u'),
+    /// ?/Select
     (Ansuz, 'ᚨ', 'a'),
+    /// ?/?
     (Kaunan, 'ᚲ', 'k'),
+    /// ?/Drop
     (Gebo, 'ᚷ', 'g'),
+    /// ?/Take
     (Naudiz, 'ᚾ', 'n'),
+    /// Reverse/Rotate
     (Jera, 'ᛃ', 'j'),
+    /// Join/Join To
     (Iwaz, 'ᛇ', 'A'),
+    /// First/Index
     (Perth, 'ᛈ', 'p'),
+    /// Range/Windows
     (Algiz, 'ᛉ', 'z'),
+    /// Grade/?
     (Sowilo, 'ᛊ', 's'),
+    /// Sort/?
     (Tiwaz, 'ᛏ', 't'),
+    /// Identity/Right
     (Laguz, 'ᛚ', 'l'),
 );
 
@@ -216,19 +229,30 @@ impl fmt::Display for Pervasive {
 
 op!(
     RuneUnMod,
+    /// Scan
     (Thurisaz, 'ᚦ', 'T'),
+    /// Fold
     (Raido, 'ᚱ', 'r'),
+    /// Table
     (Wunjo, 'ᚹ', 'w'),
+    /// Each
     (Berkanan, 'ᛒ', 'b'),
+    /// Constant
     (Ingwaz, 'ᛜ', 'N'),
+    /// Flip
     (Othala, 'ᛟ', 'o'),
 );
 
 op!(
     RuneBinMod,
+    /// Over
     (Haglaz, 'ᚻ', 'h'),
+    /// Beside
     (Ehwaz, 'ᛖ', 'e'),
+    /// ?
     (Mannaz, 'ᛗ', 'm'),
+    /// Choose
     (Dagaz, 'ᛞ', 'd'),
+    /// Catch
     (Stan, 'ᛥ', 'S'),
 );

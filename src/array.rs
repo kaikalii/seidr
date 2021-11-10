@@ -52,6 +52,9 @@ fn min_len(a: Option<usize>, b: Option<usize>) -> Option<usize> {
 }
 
 impl Array {
+    pub fn empty() -> Self {
+        Array::concrete(<[Val; 0]>::default())
+    }
     pub fn string<S>(s: S) -> Self
     where
         S: Into<Rc<str>>,

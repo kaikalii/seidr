@@ -404,6 +404,27 @@ pub fn fold_identity(op: &Val, span: &Span) -> RuntimeResult {
                 MathOp::Min => Num::INFINIFY.into(),
                 op => return rt_error(format!("{} has no fold identity", op), span),
             },
+            Function::Op(Op::Rune(RuneOp::Iwaz)) => Array::empty().into(),
+            Function::Atop(atop) => fold_identity(&atop.f, span)?,
+            Function::Fork(fork) => fold_identity(&fork.center, span)?,
+            Function::UnMod(un_mod) => match &un_mod.m {
+                RuneUnMod::Ingwaz | RuneUnMod::Othala => fold_identity(&un_mod.f, span)?,
+                _ => {
+                    return rt_error(
+                        format!("{} has no fold identity", function.as_string()?),
+                        span,
+                    )
+                }
+            },
+            Function::BinMod(bin_mod) => match &bin_mod.m {
+                RuneBinMod::Ehwaz | RuneBinMod::Haglaz => fold_identity(&bin_mod.f, span)?,
+                _ => {
+                    return rt_error(
+                        format!("{} has no fold identity", function.as_string()?),
+                        span,
+                    )
+                }
+            },
             function => {
                 return rt_error(
                     format!("{} has no fold identity", function.as_string()?),
