@@ -3,7 +3,7 @@ use std::{error::Error, fmt, io};
 use colored::{Color, Colorize};
 
 use crate::{
-    lex::{Ident, Span},
+    lex::{Ident, Role, Span},
     op::Op,
     value::Val,
 };
@@ -21,7 +21,8 @@ pub enum CompileError {
     NoBinaryImplementation(Op),
     NoUnaryImplementation(Op),
     UnknownBinding(Ident),
-    MismatchedRoles,
+    MismatchedRoles(Ident, Role),
+    DoubleSubjects,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -47,7 +48,14 @@ impl fmt::Display for CompileError {
                 write!(f, "{} has no unary implementation", op)
             }
             CompileError::UnknownBinding(name) => write!(f, "Unknown binding `{}`", name),
-            CompileError::MismatchedRoles => write!(f, "Mismatched roles"),
+            CompileError::MismatchedRoles(name, role) => write!(
+                f,
+                "Mismatched roles. The name `{}` indicates a {}, but the body resolves to a {}",
+                name,
+                name.role(),
+                role
+            ),
+            CompileError::DoubleSubjects => write!(f, "Double subjects"),
         }
     }
 }

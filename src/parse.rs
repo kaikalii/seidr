@@ -194,12 +194,25 @@ impl Parser {
             Expr::UnMod(un_mod)
         } else if let Some(bin_mod) = self.match_to(bin_mod) {
             Expr::BinMod(bin_mod)
-        } else if let Some(ident) = self.match_to(ident) {
-            Expr::Ident(ident)
         } else if let Some(expr) = self.parened()? {
             expr
         } else if let Some(expr) = self.array()? {
             expr
+        } else if let Some(ident) = self.match_to(ident) {
+            if let Some(op) = self.match_to(assign_op) {
+                let body = self.expect_with("expression", Self::expr)?;
+                Expr::Assign(
+                    AssignExpr {
+                        name: ident.data,
+                        op: op.data,
+                        body,
+                        span: ident.span,
+                    }
+                    .into(),
+                )
+            } else {
+                Expr::Ident(ident)
+            }
         } else {
             return Ok(None);
         }))

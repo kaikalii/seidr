@@ -75,6 +75,18 @@ impl Role {
     }
 }
 
+impl fmt::Display for Role {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Role::Value => "value",
+            Role::Function => "function",
+            Role::UnModifier => "unary modifier",
+            Role::BinModifier => "binary modifier",
+        }
+        .fmt(f)
+    }
+}
+
 #[derive(Clone)]
 pub struct Ident(Rc<str>);
 

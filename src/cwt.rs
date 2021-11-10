@@ -218,6 +218,13 @@ impl ToValNode for BinExpr {
 
 impl ToValNode for AssignExpr {
     fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
+        if self.name.role() != self.body.role() {
+            builder.error(
+                CompileError::MismatchedRoles(self.name.clone(), self.body.role())
+                    .at(self.span.clone()),
+            );
+        }
+        builder.scope().bindings.insert(self.name.clone());
         ValNode::Assign(
             AssignValNode {
                 name: self.name.clone(),

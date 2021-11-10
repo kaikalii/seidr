@@ -55,7 +55,7 @@ fn main() {
             Item::Expr(expr) => {
                 println!();
                 println!("    {:?}", expr.expr);
-                println!("     {}", expr.expr);
+                println!("    {}", expr.expr);
                 match builder.build(&expr) {
                     Ok((node, warnings)) => {
                         for warning in warnings {
