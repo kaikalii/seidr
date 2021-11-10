@@ -88,8 +88,27 @@ impl Expr {
     pub fn un(op: Self, inner: Self) -> Self {
         Expr::Un(UnExpr { op, inner }.into())
     }
-    pub fn bin(op: Self, left: Self, right: Self) -> Self {
-        Expr::Bin(BinExpr { op, left, right }.into())
+    pub fn bin_infix(op: Self, left: Self, right: Self) -> Self {
+        Expr::Bin(
+            BinExpr {
+                op,
+                left,
+                right,
+                infix: true,
+            }
+            .into(),
+        )
+    }
+    pub fn bin_prefix(op: Self, left: Self, right: Self) -> Self {
+        Expr::Bin(
+            BinExpr {
+                op,
+                left,
+                right,
+                infix: false,
+            }
+            .into(),
+        )
     }
     pub fn role(&self) -> Role {
         use Expr::*;
@@ -200,20 +219,30 @@ pub struct BinExpr {
     pub op: Expr,
     pub left: Expr,
     pub right: Expr,
+    pub infix: bool,
 }
 
 impl fmt::Debug for BinExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({:?} {:?} {:?})", self.left, self.op, self.right)
+        if self.infix {
+            write!(f, "({:?} {:?} {:?})", self.left, self.op, self.right)
+        } else {
+            write!(f, "({:?}{:?}{:?})", self.op, self.left, self.right)
+        }
     }
 }
 
 impl Format for BinExpr {
     fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
-        self.left.format(f)?;
-        f.display(" ");
-        self.op.format(f)?;
-        f.display(" ");
+        if self.infix {
+            self.left.format(f)?;
+            f.display(" ");
+            self.op.format(f)?;
+            f.display(" ");
+        } else {
+            self.op.format(f)?;
+            self.left.format(f)?;
+        }
         self.right.format(f)
     }
 }

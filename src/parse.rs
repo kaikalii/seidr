@@ -23,6 +23,9 @@ where
     }
     // Write back to file
     let formatted: String = items.iter().map(|item| item.to_string()).collect();
+    if formatted != input {
+        return parse(&formatted, file);
+    }
     if let Err(error) = fs::write(&file, &formatted) {
         return Err(CompileError::IO(IoError {
             message: format!("Unable to format `{}`", file.as_ref().to_string_lossy()),
@@ -175,8 +178,15 @@ impl Parser {
             return Ok(Some(a));
         };
         Ok(Some(match (a.role(), b) {
+            (Role::BinModifier, Expr::Un(b)) if b.op.role() <= Role::Function => {
+                Expr::bin_prefix(a, b.op, b.inner)
+            }
+            (Role::BinModifier, Expr::Bin(b)) if b.op.role() <= Role::Function => {
+                Expr::bin_prefix(Expr::un(a, b.op), b.left, b.right)
+            }
+            (Role::UnModifier, Expr::Un(b)) => Expr::un(Expr::un(a, b.op), b.inner),
             (Role::Value, Expr::Un(b)) if b.op.role() == Role::Function => {
-                Expr::bin(b.op, a, b.inner)
+                Expr::bin_infix(b.op, a, b.inner)
             }
             (_, b) => Expr::un(a, b),
         }))
