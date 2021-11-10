@@ -52,11 +52,11 @@ fn main() {
     for item in items {
         match item {
             Item::Newline | Item::Comment(_) => {}
-            item => {
+            Item::Expr(expr) => {
                 println!();
-                println!("    {:?}", item);
-                print!("     {}", item);
-                match builder.build(&item) {
+                println!("    {:?}", expr.expr);
+                println!("     {}", expr.expr);
+                match builder.build(&expr) {
                     Ok((node, warnings)) => {
                         for warning in warnings {
                             println!("{}", warning);

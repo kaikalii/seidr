@@ -101,7 +101,7 @@ impl Eval for AssignValNode {
 impl Eval for UnValNode {
     fn eval(&self, rt: &mut Runtime) -> RuntimeResult {
         let op = self.op.eval(rt)?;
-        let x = self.x.eval(rt)?;
+        let x = self.inner.eval(rt)?;
         eval_un(op, x, &self.span)
     }
 }
@@ -170,8 +170,8 @@ fn eval_un_function(function: Function, x: Val, span: &Span) -> RuntimeResult {
 impl Eval for BinValNode {
     fn eval(&self, rt: &mut Runtime) -> RuntimeResult {
         let op = self.op.eval(rt)?;
-        let w = self.w.eval(rt)?;
-        let x = self.x.eval(rt)?;
+        let w = self.left.eval(rt)?;
+        let x = self.right.eval(rt)?;
         eval_bin(op, w, x, &self.span)
     }
 }

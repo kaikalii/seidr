@@ -3,8 +3,9 @@
 use std::{collections::HashSet, rc::Rc};
 
 use crate::{
+    array::Array,
     ast::*,
-    error::{Problem, SpannedCompileWarning},
+    error::{CompileError, Problem, SpannedCompileWarning},
     lex::{Ident, Span},
     value::Val,
 };
@@ -23,14 +24,14 @@ pub enum ValNode {
 
 pub struct UnValNode {
     pub op: ValNode,
-    pub x: ValNode,
+    pub inner: ValNode,
     pub span: Span,
 }
 
 pub struct BinValNode {
     pub op: ValNode,
-    pub w: ValNode,
-    pub x: ValNode,
+    pub left: ValNode,
+    pub right: ValNode,
     pub span: Span,
 }
 
@@ -151,17 +152,78 @@ pub trait ToValNode {
     }
 }
 
-impl ToValNode for Item {
+impl ToValNode for ExprItem {
+    fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
+        self.expr.to_val(builder)
+    }
+}
+
+impl ToValNode for Expr {
     fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
         match self {
-            Item::Newline | Item::Comment(_) => todo!(),
-            Item::Expr(expr) => expr.to_val(builder),
+            Expr::Op(op) => (**op).into(),
+            Expr::UnMod(m) => (**m).into(),
+            Expr::BinMod(m) => (**m).into(),
+            Expr::Ident(ident) => {
+                if !builder.lookup(ident) {
+                    builder.error(
+                        CompileError::UnknownBinding(ident.data.clone()).at(ident.span.clone()),
+                    )
+                }
+                ValNode::Ident(ident.data.clone())
+            }
+            Expr::Num(n) => (**n).into(),
+            Expr::Char(c) => (**c).into(),
+            Expr::String(s) => Array::string(s.data.clone()).into(),
+            Expr::Array(arr) => ValNode::Array(
+                arr.items
+                    .iter()
+                    .map(|(item, _)| item.to_val(builder))
+                    .collect(),
+            ),
+            Expr::Parened(expr) => expr.to_val(builder),
+            Expr::Un(expr) => expr.to_val(builder),
+            Expr::Bin(expr) => expr.to_val(builder),
+            Expr::Assign(expr) => expr.to_val(builder),
         }
     }
 }
 
-impl ToValNode for ExprItem {
+impl ToValNode for UnExpr {
     fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
-        todo!()
+        ValNode::Un(
+            UnValNode {
+                op: self.op.to_val(builder),
+                inner: self.inner.to_val(builder),
+                span: self.op.span().clone(),
+            }
+            .into(),
+        )
+    }
+}
+
+impl ToValNode for BinExpr {
+    fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
+        ValNode::Bin(
+            BinValNode {
+                op: self.op.to_val(builder),
+                left: self.left.to_val(builder),
+                right: self.right.to_val(builder),
+                span: self.op.span().clone(),
+            }
+            .into(),
+        )
+    }
+}
+
+impl ToValNode for AssignExpr {
+    fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
+        ValNode::Assign(
+            AssignValNode {
+                name: self.name.clone(),
+                body: self.body.to_val(builder),
+            }
+            .into(),
+        )
     }
 }
