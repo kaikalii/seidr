@@ -550,7 +550,7 @@ impl Lexer {
                 '\\' => self.escape()?,
                 '‾' => self.negative_number()?,
                 MULTI_LINE_COMMENT_OPEN => self.comment(MULTI_LINE_COMMENT_CLOSE, true),
-                SINGLE_LINE_COMMENT_CHAR => self.comment('\n', false),
+                SINGLE_LINE_COMMENT_CHAR | '#' => self.comment('\n', false),
                 c if digit_or_inf(c) => self.number(c, false)?,
                 c if ident_head_char(c) => {
                     let mut ident = String::from(c);
@@ -603,7 +603,6 @@ impl Lexer {
         match c {
             '8' => self.token(TT::Num(Num::INFINIFY, "∞".into())),
             '-' => self.negative_number()?,
-            '\\' => self.comment('\n', false),
             '*' => self.comment('*', true),
             c => {
                 if let Some(op) = Op::from_escape(c) {
