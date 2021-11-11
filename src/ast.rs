@@ -5,7 +5,7 @@ use std::{fmt, rc::Rc};
 use crate::{
     error::RuntimeResult,
     format::{Format, Formatter},
-    lex::{Comment, Ident, Param, Role, Sp, Span},
+    lex::*,
     num::Num,
     op::*,
 };
@@ -83,6 +83,7 @@ pub enum Expr {
     Un(Box<UnExpr>),
     Bin(Box<BinExpr>),
     Assign(Box<AssignExpr>),
+    Function(Box<Self>),
 }
 
 impl Expr {
@@ -113,6 +114,29 @@ impl Expr {
             Un(expr) => expr.op.role().un(expr.inner.role()),
             Bin(expr) => expr.op.role().bin(expr.left.role(), expr.right.role()),
             Assign(expr) => expr.name.role(),
+            Function(expr) => expr
+                .max_param_place()
+                .map(|place| place.min_role())
+                .unwrap_or(Role::Function),
+        }
+    }
+    pub fn max_param_place(&self) -> Option<ParamPlace> {
+        use Expr::*;
+        match self {
+            Param(param) => Some(param.place),
+            Array(expr) => expr
+                .items
+                .iter()
+                .fold(None, |acc, (expr, _)| expr.max_param_place().max(acc)),
+            Parened(expr) => expr.max_param_place(),
+            Un(expr) => expr.op.max_param_place().max(expr.inner.max_param_place()),
+            Bin(expr) => expr
+                .op
+                .max_param_place()
+                .max(expr.left.max_param_place())
+                .max(expr.right.max_param_place()),
+            Assign(expr) => expr.body.max_param_place(),
+            _ => None,
         }
     }
     pub fn span(&self) -> &Span {
@@ -130,6 +154,7 @@ impl Expr {
             Expr::Un(expr) => expr.op.span(),
             Expr::Bin(expr) => expr.op.span(),
             Expr::Assign(expr) => &expr.span,
+            Expr::Function(expr) => expr.span(),
         }
     }
 }
@@ -154,6 +179,11 @@ impl fmt::Debug for Expr {
             Expr::Un(expr) => expr.fmt(f),
             Expr::Bin(expr) => expr.fmt(f),
             Expr::Assign(expr) => expr.fmt(f),
+            Expr::Function(expr) => {
+                write!(f, "⦑")?;
+                expr.fmt(f)?;
+                write!(f, "⦒")
+            }
         }
     }
 }
@@ -178,6 +208,11 @@ impl Format for Expr {
             Expr::Un(expr) => expr.format(f)?,
             Expr::Bin(expr) => expr.format(f)?,
             Expr::Assign(expr) => expr.format(f)?,
+            Expr::Function(expr) => {
+                f.display("⦑ ");
+                expr.format(f)?;
+                f.display(" ⦒");
+            }
         }
         Ok(())
     }

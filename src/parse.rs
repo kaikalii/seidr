@@ -298,6 +298,8 @@ impl Parser {
         let start = self.curr;
         let expr = if let Some(expr) = self.parened()? {
             expr
+        } else if let Some(expr) = self.function_literal()? {
+            expr
         } else if let Some(ident) = self.match_to(ident) {
             if let Some(op) = self.match_to(assign_op) {
                 let body = self.expect_with("expression", Self::expr)?;
@@ -332,6 +334,14 @@ impl Parser {
         let expr = self.expect_with("expression", Self::expr)?;
         self.expect_token(TT::CloseParen)?;
         Ok(Some(Expr::Parened(expr.into())))
+    }
+    fn function_literal(&mut self) -> CompileResult<Option<Expr>> {
+        if self.match_token(TT::OpenAngleDot).is_none() {
+            return Ok(None);
+        }
+        let expr = self.expect_with("function body", Self::expr)?;
+        self.expect_token(TT::CloseAngleDot)?;
+        Ok(Some(Expr::Function(expr.into())))
     }
     fn array(&mut self) -> CompileResult<Option<Expr>> {
         let open = if let Some(token) = self.match_token(TT::OpenAngle) {

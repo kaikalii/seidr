@@ -224,10 +224,20 @@ impl fmt::Display for Comment {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ParamPlace {
-    W,
     X,
+    W,
     F,
     G,
+}
+
+impl ParamPlace {
+    pub const fn min_role(&self) -> Role {
+        match self {
+            ParamPlace::X | ParamPlace::W => Role::Function,
+            ParamPlace::F => Role::UnModifier,
+            ParamPlace::G => Role::BinModifier,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -238,8 +248,8 @@ pub enum ParamForm {
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Param {
-    pub place: ParamPlace,
     pub form: ParamForm,
+    pub place: ParamPlace,
 }
 
 impl Param {
@@ -297,8 +307,8 @@ pub enum TT {
     // Brackets
     OpenParen,
     CloseParen,
-    OpenCurly,
-    CloseCurly,
+    OpenAngleDot,
+    CloseAngleDot,
     OpenAngle,
     CloseAngle,
     // Misc
@@ -354,8 +364,8 @@ impl fmt::Display for TT {
             TT::String(s) => write!(f, "{:?}", s),
             TT::OpenParen => '('.fmt(f),
             TT::CloseParen => ')'.fmt(f),
-            TT::OpenCurly => '{'.fmt(f),
-            TT::CloseCurly => '}'.fmt(f),
+            TT::OpenAngleDot => '⦑'.fmt(f),
+            TT::CloseAngleDot => '⦒'.fmt(f),
             TT::OpenAngle => '⟨'.fmt(f),
             TT::CloseAngle => '⟩'.fmt(f),
             TT::Op(op) => op.fmt(f),
@@ -609,8 +619,8 @@ impl Lexer {
             match c {
                 '(' => self.token(TT::OpenParen),
                 ')' => self.token(TT::CloseParen),
-                '{' => self.token(TT::OpenCurly),
-                '}' => self.token(TT::CloseCurly),
+                '⦑' | '{' => self.token(TT::OpenAngleDot),
+                '⦒' | '}' => self.token(TT::CloseAngleDot),
                 '⟨' | '〈' | '[' => self.token(TT::OpenAngle),
                 '⟩' | '〉' | ']' => self.token(TT::CloseAngle),
                 ',' => self.token(TT::Comma),

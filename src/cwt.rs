@@ -184,6 +184,7 @@ impl ToValNode for Expr {
             Expr::Un(expr) => expr.to_val(builder),
             Expr::Bin(expr) => expr.to_val(builder),
             Expr::Assign(expr) => expr.to_val(builder),
+            Expr::Function(expr) => todo!(),
         }
     }
 }
