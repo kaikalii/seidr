@@ -23,6 +23,7 @@ pub enum CompileError {
     UnknownBinding(Ident),
     MismatchedRoles(Ident, Role),
     InvalidRole(Role, Vec<Role>),
+    ParameterOutsideFunction,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -73,6 +74,9 @@ impl fmt::Display for CompileError {
             CompileError::InvalidRole(found, expected) => {
                 write!(f, "{} role is not valid in this position. Expected ", found)?;
                 natural_list(expected, "or", f)
+            }
+            CompileError::ParameterOutsideFunction => {
+                write!(f, "Parameters can only occur within functions")
             }
         }
     }
@@ -163,7 +167,7 @@ impl fmt::Display for SpannedCompileError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", "Error: ".bright_red().bold())?;
         let message = self.kind.to_string();
-        write!(f, "{}", message.bright_white())?;
+        write!(f, "{}", message)?;
         self.span.format_error(f, Color::BrightRed)
     }
 }
@@ -172,7 +176,7 @@ impl fmt::Display for SpannedCompileWarning {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", "Warning: ".bright_yellow().bold())?;
         let message = self.kind.to_string();
-        write!(f, "{}", message.bright_white())?;
+        write!(f, "{}", message)?;
         self.span.format_error(f, Color::BrightYellow)
     }
 }

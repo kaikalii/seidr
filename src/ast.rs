@@ -115,27 +115,27 @@ impl Expr {
             Bin(expr) => expr.op.role().bin(expr.left.role(), expr.right.role()),
             Assign(expr) => expr.name.role(),
             Function(expr) => expr
-                .max_param_place()
-                .map(|place| place.min_role())
+                .max_param()
+                .map(|param| param.place.min_role())
                 .unwrap_or(Role::Function),
         }
     }
-    pub fn max_param_place(&self) -> Option<ParamPlace> {
+    pub fn max_param(&self) -> Option<&Sp<Param>> {
         use Expr::*;
         match self {
-            Param(param) => Some(param.place),
+            Param(param) => Some(param),
             Array(expr) => expr
                 .items
                 .iter()
-                .fold(None, |acc, (expr, _)| expr.max_param_place().max(acc)),
-            Parened(expr) => expr.max_param_place(),
-            Un(expr) => expr.op.max_param_place().max(expr.inner.max_param_place()),
+                .fold(None, |acc, (expr, _)| expr.max_param().max(acc)),
+            Parened(expr) => expr.max_param(),
+            Un(expr) => expr.op.max_param().max(expr.inner.max_param()),
             Bin(expr) => expr
                 .op
-                .max_param_place()
-                .max(expr.left.max_param_place())
-                .max(expr.right.max_param_place()),
-            Assign(expr) => expr.body.max_param_place(),
+                .max_param()
+                .max(expr.left.max_param())
+                .max(expr.right.max_param()),
+            Assign(expr) => expr.body.max_param(),
             _ => None,
         }
     }

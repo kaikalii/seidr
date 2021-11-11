@@ -159,6 +159,9 @@ pub trait ToValNode {
 
 impl ToValNode for ExprItem {
     fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
+        if let Some(param) = self.expr.max_param() {
+            builder.error(CompileError::ParameterOutsideFunction.at(param.span.clone()));
+        }
         self.expr.to_val(builder)
     }
 }
@@ -193,7 +196,7 @@ impl ToValNode for Expr {
             Expr::Assign(expr) => expr.to_val(builder),
             Expr::Function(expr) => {
                 let node = Rc::new(expr.to_val(builder));
-                match expr.max_param_place() {
+                match expr.max_param().map(|param| param.place) {
                     Some(ParamPlace::W | ParamPlace::X) | None => Function::Node(node).into(),
                     Some(ParamPlace::F) => Atom::UnMod(UnMod::Node(node)).into(),
                     Some(ParamPlace::G) => Atom::BinMod(BinMod::Node(node)).into(),
