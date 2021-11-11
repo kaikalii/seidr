@@ -4,12 +4,9 @@
 use std::fs::read_to_string;
 
 use cwt::TreeBuilder;
+use runtime::Runtime;
 
-use crate::{
-    ast::Item,
-    eval::{Eval, Runtime},
-    format::Format,
-};
+use crate::{ast::Item, eval::Eval, format::Format};
 
 mod array;
 mod ast;
@@ -24,6 +21,7 @@ mod op;
 mod parse;
 mod pervade;
 mod rcview;
+mod runtime;
 mod value;
 
 fn main() {
@@ -48,7 +46,7 @@ fn main() {
     };
 
     let mut builder = TreeBuilder::default();
-    let mut rt = Runtime::default();
+    let rt = Runtime::default();
     for item in items {
         match item {
             Item::Newline | Item::Comment(_) => {}
@@ -61,7 +59,7 @@ fn main() {
                         for warning in warnings {
                             println!("{}", warning);
                         }
-                        match node.eval(&mut rt).and_then(|val| val.as_string()) {
+                        match node.eval(&rt).and_then(|val| val.as_string()) {
                             Ok(s) => println!("{}", s),
                             Err(e) => println!("\n{}", e),
                         }

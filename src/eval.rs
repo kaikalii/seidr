@@ -1,4 +1,4 @@
-use std::{collections::HashMap, iter::repeat};
+use std::iter::repeat;
 
 use crate::{
     array::*,
@@ -6,68 +6,31 @@ use crate::{
     error::{RuntimeError, RuntimeResult},
     format::Format,
     function::*,
-    lex::{Ident, Span},
+    lex::{ParamPlace, Span},
     num::Num,
     op::*,
     pervade::{bin_pervade_val, un_pervade_val},
+    runtime::Runtime,
     value::{Atom, Val},
 };
 
-pub struct Runtime {
-    scopes: Vec<Scope>,
-}
-
-impl Default for Runtime {
-    fn default() -> Self {
-        Runtime {
-            scopes: vec![Scope::default()],
-        }
-    }
-}
-
-impl Runtime {
-    fn scope(&mut self) -> &mut Scope {
-        self.scopes.last_mut().expect("scopes are empty")
-    }
-    fn set(&mut self, name: Ident, val: Val) {
-        self.scope().bindings.insert(name, val);
-    }
-}
-
-#[derive(Default)]
-pub struct Params {
-    x: Option<Val>,
-    w: Option<Val>,
-    f: Option<Val>,
-    g: Option<Val>,
-}
-
-#[derive(Default)]
-struct Scope {
-    params: Params,
-    bindings: HashMap<Ident, Val>,
-}
-
 pub trait Eval {
-    fn eval(&self, rt: &mut Runtime) -> RuntimeResult;
+    fn eval(&self, rt: &Runtime) -> RuntimeResult;
 }
 
 impl Eval for Val {
-    fn eval(&self, _: &mut Runtime) -> RuntimeResult {
+    fn eval(&self, _: &Runtime) -> RuntimeResult {
         Ok(self.clone())
     }
 }
 
 impl Eval for ValNode {
-    fn eval(&self, rt: &mut Runtime) -> RuntimeResult {
+    fn eval(&self, rt: &Runtime) -> RuntimeResult {
         match self {
-            ValNode::Param(param) => todo!(),
+            ValNode::Param(param) => Ok(rt.get_param(param.place).unwrap_or_else(|| 0i64.into())),
             ValNode::Ident(ident) => Ok(rt
-                .scope()
-                .bindings
                 .get(ident)
-                .unwrap_or_else(|| panic!("No value stored for `{}`", ident))
-                .clone()),
+                .unwrap_or_else(|| panic!("No value stored for `{}`", ident))),
             ValNode::Val(val) => val.eval(rt),
             ValNode::Un(un) => un.eval(rt),
             ValNode::Bin(bin) => bin.eval(rt),
@@ -84,15 +47,25 @@ impl Eval for ValNode {
 }
 
 impl Eval for AssignValNode {
-    fn eval(&self, rt: &mut Runtime) -> RuntimeResult {
+    fn eval(&self, rt: &Runtime) -> RuntimeResult {
         let val = self.body.eval(rt)?;
-        rt.set(self.name.clone(), val.clone());
+        match self.op {
+            AssignOp::Assign => rt.bind(self.name.clone(), val.clone()),
+            AssignOp::Reassign => {
+                if rt
+                    .get_mut(&self.name, |bound| *bound = val.clone())
+                    .is_none()
+                {
+                    panic!("attempted to set unbound variable")
+                }
+            }
+        }
         Ok(val)
     }
 }
 
 impl Eval for UnValNode {
-    fn eval(&self, rt: &mut Runtime) -> RuntimeResult {
+    fn eval(&self, rt: &Runtime) -> RuntimeResult {
         let op = self.op.eval(rt)?;
         let x = self.inner.eval(rt)?;
         rt.eval_un(op, x, &self.span)
@@ -100,7 +73,7 @@ impl Eval for UnValNode {
 }
 
 impl Eval for BinValNode {
-    fn eval(&self, rt: &mut Runtime) -> RuntimeResult {
+    fn eval(&self, rt: &Runtime) -> RuntimeResult {
         let op = self.op.eval(rt)?;
         let w = self.left.eval(rt)?;
         let x = self.right.eval(rt)?;
@@ -109,7 +82,7 @@ impl Eval for BinValNode {
 }
 
 impl Runtime {
-    pub fn eval_un(&mut self, op: Val, x: Val, span: &Span) -> RuntimeResult {
+    pub fn eval_un(&self, op: Val, x: Val, span: &Span) -> RuntimeResult {
         match op {
             Val::Atom(Atom::Function(function)) => self.eval_un_function(function, x, span),
             Val::Atom(Atom::UnMod(m)) => Ok(UnModded { m, f: x }.into()),
@@ -117,12 +90,16 @@ impl Runtime {
         }
     }
 
-    fn eval_un_function(&mut self, function: Function, x: Val, span: &Span) -> RuntimeResult {
+    fn eval_un_function(&self, function: Function, x: Val, span: &Span) -> RuntimeResult {
         if let Val::Atom(Atom::Function(g)) = x {
             return Ok(Function::Atop(Atop { f: function, g }.into()).into());
         }
         match function {
-            Function::Node(node) => todo!(),
+            Function::Node(node) => {
+                let rt = self.push();
+                rt.bind_param(ParamPlace::X, x);
+                node.eval(&rt)
+            }
             Function::Op(Op::Pervasive(Pervasive::Comparison(ComparisonOp::Equal))) => match x {
                 Val::Array(arr) => Ok(arr.len().map(Num::from).unwrap_or(Num::INFINIFY).into()),
                 Val::Atom(_) => Ok(1i64.into()),
@@ -184,7 +161,7 @@ impl Runtime {
         }
     }
 
-    pub fn eval_bin(&mut self, op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult {
+    pub fn eval_bin(&self, op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult {
         match op {
             Val::Atom(Atom::Function(function)) => self.eval_bin_function(function, w, x, span),
             Val::Atom(Atom::BinMod(m)) => Ok(BinModded { m, f: w, g: x }.into()),
@@ -192,13 +169,7 @@ impl Runtime {
         }
     }
 
-    fn eval_bin_function(
-        &mut self,
-        function: Function,
-        w: Val,
-        x: Val,
-        span: &Span,
-    ) -> RuntimeResult {
+    fn eval_bin_function(&self, function: Function, w: Val, x: Val, span: &Span) -> RuntimeResult {
         if let Val::Atom(Atom::Function(right)) = x {
             return Ok(Function::Fork(
                 Fork {
@@ -276,7 +247,7 @@ impl Runtime {
         }
     }
 
-    fn rotate(&mut self, w: Val, x: Val, span: &Span) -> RuntimeResult {
+    fn rotate(&self, w: Val, x: Val, span: &Span) -> RuntimeResult {
         match (w, x) {
             (Val::Atom(Atom::Num(n)), Val::Array(arr)) => {
                 Ok(Array::Rotate(arr.into(), i64::from(n)).into())
@@ -305,7 +276,7 @@ impl Runtime {
         }
     }
 
-    fn reverse(&mut self, x: Val, span: &Span) -> RuntimeResult<Val> {
+    fn reverse(&self, x: Val, span: &Span) -> RuntimeResult<Val> {
         match x {
             Val::Atom(_) => Ok(x),
             Val::Array(arr) if arr.len().is_none() => {
@@ -315,7 +286,7 @@ impl Runtime {
         }
     }
 
-    fn range(&mut self, x: Val, span: &Span) -> RuntimeResult<Array> {
+    fn range(&self, x: Val, span: &Span) -> RuntimeResult<Array> {
         match x {
             Val::Atom(Atom::Num(n)) => {
                 if n < 0 {
@@ -330,7 +301,7 @@ impl Runtime {
             ),
         }
     }
-    fn replicate(&mut self, w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
+    fn replicate(&self, w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
         match (w, x) {
             (Val::Array(w), Val::Array(x)) => Ok(if w.len().is_some() && x.len().is_some() {
                 let arrays: Vec<Array> = w
@@ -358,7 +329,7 @@ impl Runtime {
         }
     }
 
-    pub fn take(&mut self, w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
+    pub fn take(&self, w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
         match (w, x) {
             (Val::Atom(Atom::Num(n)), Val::Array(arr)) => Ok(Array::Take(arr.into(), i64::from(n))),
             (w, x) => rt_error(
@@ -372,7 +343,7 @@ impl Runtime {
         }
     }
 
-    pub fn drop(&mut self, w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
+    pub fn drop(&self, w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
         match (w, x) {
             (Val::Atom(Atom::Num(n)), Val::Array(arr)) => Ok(Array::Drop(arr.into(), i64::from(n))),
             (w, x) => rt_error(
@@ -386,16 +357,18 @@ impl Runtime {
         }
     }
 
-    pub fn scan(&mut self, op: Val, w: Option<Val>, x: Val, span: &Span) -> RuntimeResult<Array> {
+    pub fn scan(&self, op: Val, w: Option<Val>, x: Val, span: &Span) -> RuntimeResult<Array> {
         match x {
-            Val::Array(arr) => Ok(Array::Scan(ScanArray::new(op, arr, w, span.clone()).into())),
+            Val::Array(arr) => Ok(Array::Scan(
+                ScanArray::new(op, arr, w, span.clone(), self.clone()).into(),
+            )),
             Val::Atom(atom) => {
                 rt_error(format!("Attempted to scan over {}", atom.type_name()), span)
             }
         }
     }
 
-    pub fn fold(&mut self, op: Val, w: Option<Val>, x: Val, span: &Span) -> RuntimeResult {
+    pub fn fold(&self, op: Val, w: Option<Val>, x: Val, span: &Span) -> RuntimeResult {
         match x {
             Val::Array(arr) => {
                 if let Some(w) = w {
@@ -419,32 +392,36 @@ impl Runtime {
             }
         }
     }
-    pub fn each_un(&mut self, op: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
+    pub fn each_un(&self, op: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
         match x {
             Val::Array(arr) => Ok(Array::Each(
                 EachArray {
                     zip: ZipForm::Un(arr),
                     f: op,
                     span: span.clone(),
+                    rt: self.clone(),
                 }
                 .into(),
-            )),
+            )
+            .cache()),
             Val::Atom(atom) => {
                 rt_error(format!("Each cannot be used on {}", atom.type_name()), span)
             }
         }
     }
 
-    pub fn each_bin(&mut self, op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
+    pub fn each_bin(&self, op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
         match ZipForm::bin(w, x) {
             Ok(zip) => Ok(Array::Each(
                 EachArray {
                     zip,
                     f: op,
                     span: span.clone(),
+                    rt: self.clone(),
                 }
                 .into(),
-            )),
+            )
+            .cache()),
             Err((w, x)) => rt_error(
                 format!(
                     "Each cannot be used on {} and {}",
@@ -456,7 +433,7 @@ impl Runtime {
         }
     }
 
-    pub fn sort(&mut self, x: Val, span: &Span) -> RuntimeResult<Array> {
+    pub fn sort(&self, x: Val, span: &Span) -> RuntimeResult<Array> {
         match x {
             Val::Array(arr) => {
                 if arr.len().is_some() {
@@ -471,7 +448,7 @@ impl Runtime {
         }
     }
 
-    pub fn grade(&mut self, x: Val, span: &Span) -> RuntimeResult<Array> {
+    pub fn grade(&self, x: Val, span: &Span) -> RuntimeResult<Array> {
         match x {
             Val::Array(arr) => {
                 if arr.len().is_some() {
@@ -487,7 +464,7 @@ impl Runtime {
         }
     }
 
-    pub fn first(&mut self, x: Val, span: &Span) -> RuntimeResult {
+    pub fn first(&self, x: Val, span: &Span) -> RuntimeResult {
         Ok(match x {
             x @ Val::Atom(_) => x,
             Val::Array(x) => {
@@ -500,14 +477,14 @@ impl Runtime {
         })
     }
 
-    pub fn index(&mut self, w: Val, x: Val, span: &Span) -> RuntimeResult {
+    pub fn index(&self, w: Val, x: Val, span: &Span) -> RuntimeResult {
         match x {
             Val::Array(arr) => self.index_array(w, &arr, span),
             Val::Atom(atom) => rt_error(format!("{} cannot be indexed", atom.type_name()), span),
         }
     }
 
-    pub fn index_array(&mut self, w: Val, x: &Array, span: &Span) -> RuntimeResult {
+    pub fn index_array(&self, w: Val, x: &Array, span: &Span) -> RuntimeResult {
         match w {
             Val::Atom(Atom::Num(i)) => {
                 let i = i64::from(i);
@@ -559,7 +536,7 @@ impl Runtime {
         }
     }
 
-    pub fn select(&mut self, w: Val, x: Val, span: &Span) -> RuntimeResult {
+    pub fn select(&self, w: Val, x: Val, span: &Span) -> RuntimeResult {
         match w {
             w @ Val::Atom(_) => self.index(w, x, span),
             Val::Array(w) => match x {
@@ -568,6 +545,7 @@ impl Runtime {
                         indices: w,
                         array: x,
                         span: span.clone(),
+                        rt: self.clone(),
                     }
                     .into(),
                 )
@@ -580,7 +558,7 @@ impl Runtime {
         }
     }
 
-    pub fn windows(&mut self, w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
+    pub fn windows(&self, w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
         match (w, x) {
             (Val::Atom(Atom::Num(n)), Val::Array(arr)) => {
                 let n = i64::from(n);
@@ -601,7 +579,7 @@ impl Runtime {
         }
     }
 
-    pub fn chunks(&mut self, w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
+    pub fn chunks(&self, w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
         match (w, x) {
             (Val::Atom(Atom::Num(n)), Val::Array(arr)) => {
                 let n = i64::from(n);
@@ -622,11 +600,11 @@ impl Runtime {
         }
     }
 
-    pub fn table(&mut self, f: Val, w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
+    pub fn table(&self, f: Val, w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
         match (w, x) {
-            (Val::Array(w), Val::Array(x)) => {
-                Ok(Array::Table(TableArray::new(f, w, x, span.clone()).into()))
-            }
+            (Val::Array(w), Val::Array(x)) => Ok(Array::Table(
+                TableArray::new(f, w, x, span.clone(), self.clone()).into(),
+            )),
             (w, x) => self.each_bin(f, w, x, span),
         }
     }

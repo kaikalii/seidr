@@ -8,6 +8,7 @@ use crate::{
     num::{modulus, Num},
     pervade::PervadedArray,
     rcview::{RcView, RcViewIntoIter},
+    runtime::Runtime,
     value::{Atom, Val},
 };
 
@@ -239,8 +240,8 @@ impl Array {
                 .zip
                 .index_apply(
                     index,
-                    |x| eval_un(each.f.clone(), x, &each.span),
-                    |w, x| eval_bin(each.f.clone(), w, x, &each.span),
+                    |x| each.rt.eval_un(each.f.clone(), x, &each.span),
+                    |w, x| each.rt.eval_bin(each.f.clone(), w, x, &each.span),
                 )?
                 .map(Cow::Owned),
             Array::Select(sel) => {
@@ -249,7 +250,7 @@ impl Array {
                 } else {
                     return Ok(None);
                 };
-                Some(Cow::Owned(index_array(w, &sel.array, &sel.span)?))
+                Some(Cow::Owned(sel.rt.index_array(w, &sel.array, &sel.span)?))
             }
             Array::Windows(arr, size) => {
                 if let Some(len) = self.len() {
@@ -519,11 +520,12 @@ impl CachedArray {
         self.arr.len()
     }
     pub fn get(&self, index: usize) -> RuntimeResult<Option<Val>> {
-        Ok(if let Some(val) = self.cache.borrow().get(&index) {
+        let mut cache = self.cache.borrow_mut();
+        Ok(if let Some(val) = cache.get(&index) {
             Some(val.clone())
         } else if let Some(val) = self.arr.get(index)? {
             let val = val.into_owned();
-            self.cache.borrow_mut().insert(index, val.clone());
+            cache.insert(index, val.clone());
             Some(val)
         } else {
             None
@@ -544,6 +546,7 @@ pub struct EachArray {
     pub zip: ZipForm,
     pub f: Val,
     pub span: Span,
+    pub rt: Runtime,
 }
 
 impl PartialEq for EachArray {
@@ -559,6 +562,7 @@ pub struct SelectArray {
     pub indices: Array,
     pub array: Array,
     pub span: Span,
+    pub rt: Runtime,
 }
 
 impl PartialEq for SelectArray {
@@ -636,6 +640,7 @@ pub struct ScanArray {
     init: Option<Val>,
     cache: RefCell<Vec<Val>>,
     span: Span,
+    rt: Runtime,
 }
 
 impl PartialEq for ScanArray {
@@ -647,13 +652,14 @@ impl PartialEq for ScanArray {
 impl Eq for ScanArray {}
 
 impl ScanArray {
-    pub fn new(f: Val, array: Array, init: Option<Val>, span: Span) -> Self {
+    pub fn new(f: Val, array: Array, init: Option<Val>, span: Span, rt: Runtime) -> Self {
         ScanArray {
             f,
             array,
             init,
             cache: Default::default(),
             span,
+            rt,
         }
     }
     pub fn len(&self) -> Option<usize> {
@@ -666,7 +672,7 @@ impl ScanArray {
             if i == 0 {
                 if let Some(init) = &self.init {
                     if let Some(val) = self.array.get(i)? {
-                        cache.push(eval_bin(
+                        cache.push(self.rt.eval_bin(
                             self.f.clone(),
                             init.clone(),
                             val.into_owned(),
@@ -684,7 +690,10 @@ impl ScanArray {
                 let w = cache.get(i - 1).unwrap().clone();
                 let x = self.array.get(i)?;
                 if let Some(x) = x {
-                    cache.push(eval_bin(self.f.clone(), w, x.into_owned(), &self.span)?);
+                    cache.push(
+                        self.rt
+                            .eval_bin(self.f.clone(), w, x.into_owned(), &self.span)?,
+                    );
                 } else {
                     break;
                 }
@@ -700,6 +709,7 @@ pub struct TableArray {
     w: Array,
     x: Array,
     span: Span,
+    rt: Runtime,
 }
 
 impl PartialEq for TableArray {
@@ -711,8 +721,8 @@ impl PartialEq for TableArray {
 impl Eq for TableArray {}
 
 impl TableArray {
-    pub fn new(f: Val, w: Array, x: Array, span: Span) -> Self {
-        TableArray { f, w, x, span }
+    pub fn new(f: Val, w: Array, x: Array, span: Span, rt: Runtime) -> Self {
+        TableArray { f, w, x, span, rt }
     }
     pub fn len(&self) -> Option<usize> {
         self.w.len()
@@ -728,6 +738,7 @@ impl TableArray {
                 zip: ZipForm::BinLeft(val, self.x.clone()),
                 f: self.f.clone(),
                 span: self.span.clone(),
+                rt: self.rt.clone(),
             }
             .into(),
         ))))

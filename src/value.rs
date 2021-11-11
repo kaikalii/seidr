@@ -61,13 +61,13 @@ impl From<Op> for Atom {
 
 impl From<UnMod> for Atom {
     fn from(m: UnMod) -> Self {
-        Atom::UnMod(m.into())
+        Atom::UnMod(m)
     }
 }
 
 impl From<BinMod> for Atom {
     fn from(m: BinMod) -> Self {
-        Atom::BinMod(m.into())
+        Atom::BinMod(m)
     }
 }
 
@@ -85,7 +85,7 @@ impl From<BinModded> for Atom {
 
 impl From<Function> for Atom {
     fn from(f: Function) -> Self {
-        Atom::Function(f.into())
+        Atom::Function(f)
     }
 }
 

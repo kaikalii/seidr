@@ -7,8 +7,9 @@ use crate::{
     ast::*,
     error::{CompileError, Problem, SpannedCompileWarning},
     function::*,
-    lex::{Ident, Param, Span},
-    value::Val,
+    lex::{Ident, Param, ParamPlace, Span},
+    op::AssignOp,
+    value::{Atom, Val},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -40,6 +41,7 @@ pub struct BinValNode {
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct AssignValNode {
     pub name: Ident,
+    pub op: AssignOp,
     pub body: ValNode,
 }
 
@@ -189,7 +191,14 @@ impl ToValNode for Expr {
             Expr::Un(expr) => expr.to_val(builder),
             Expr::Bin(expr) => expr.to_val(builder),
             Expr::Assign(expr) => expr.to_val(builder),
-            Expr::Function(expr) => todo!(),
+            Expr::Function(expr) => {
+                let node = Rc::new(expr.to_val(builder));
+                match expr.max_param_place() {
+                    Some(ParamPlace::W | ParamPlace::X) | None => Function::Node(node).into(),
+                    Some(ParamPlace::F) => Atom::UnMod(UnMod::Node(node)).into(),
+                    Some(ParamPlace::G) => Atom::BinMod(BinMod::Node(node)).into(),
+                }
+            }
         }
     }
 }
@@ -233,6 +242,7 @@ impl ToValNode for AssignExpr {
         ValNode::Assign(
             AssignValNode {
                 name: self.name.clone(),
+                op: self.op,
                 body: self.body.to_val(builder),
             }
             .into(),
