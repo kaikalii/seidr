@@ -48,13 +48,28 @@ impl fmt::Display for CompileError {
                 write!(f, "{} has no unary implementation", op)
             }
             CompileError::UnknownBinding(name) => write!(f, "Unknown binding `{}`", name),
-            CompileError::MismatchedRoles(name, role) => write!(
-                f,
-                "Mismatched roles. The name `{}` indicates a {}, but the body resolves to a {}",
-                name,
-                name.role(),
-                role
-            ),
+            CompileError::MismatchedRoles(name, role) => {
+                write!(
+                    f,
+                    "Mismatched roles. The name `{}` indicates a {}, but the body resolves to a {}. ",
+                    name,
+                    name.role(),
+                    role
+                )?;
+                match role {
+                    Role::Value => write!(f, "Value names should start with a lowercase letter."),
+                    Role::Function => {
+                        write!(f, "Function names should start with an uppercase letter.")
+                    }
+                    Role::UnModifier => {
+                        write!(f, "Unary modifier names should start with an underscore")
+                    }
+                    Role::BinModifier => write!(
+                        f,
+                        "Binary modifier names should start and end with an underscore"
+                    ),
+                }
+            }
             CompileError::InvalidRole(found, expected) => {
                 write!(f, "{} role is not valid in this position. Expected ", found)?;
                 natural_list(expected, "or", f)
