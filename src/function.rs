@@ -1,11 +1,48 @@
 use std::fmt;
 
 use crate::{
+    cwt::ValNode,
     error::RuntimeResult,
     format::{Format, Formatter},
     op::*,
     value::Val,
 };
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Modifier<R> {
+    Rune(R),
+    Val(ValNode),
+}
+
+pub type UnMod = Modifier<RuneUnMod>;
+pub type BinMod = Modifier<RuneBinMod>;
+
+impl<R> fmt::Debug for Modifier<R>
+where
+    Self: fmt::Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+impl fmt::Display for UnMod {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Modifier::Rune(rune) => rune.fmt(f),
+            Modifier::Val(_) => "<unary modifier>".fmt(f),
+        }
+    }
+}
+
+impl fmt::Display for BinMod {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Modifier::Rune(rune) => rune.fmt(f),
+            Modifier::Val(_) => "<binary modifier>".fmt(f),
+        }
+    }
+}
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct UnModded {
@@ -110,7 +147,7 @@ pub enum Function {
 impl Function {
     pub const fn type_name(&self) -> &'static str {
         match self {
-            Function::Op(_) => "operator",
+            Function::Op(_) => "function",
             Function::UnMod(_) => "unary modifier",
             Function::BinMod(_) => "binary modifier",
             Function::Atop(atop) => atop.f.type_name(),

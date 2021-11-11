@@ -508,6 +508,26 @@ impl fmt::Debug for Span {
     }
 }
 
+impl PartialEq for Span {
+    fn eq(&self, other: &Self) -> bool {
+        true
+    }
+}
+
+impl Eq for Span {}
+
+impl PartialOrd for Span {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Span {
+    fn cmp(&self, other: &Self) -> Ordering {
+        Ordering::Equal
+    }
+}
+
 #[derive(Clone)]
 pub struct Token {
     pub tt: TT,

@@ -6,12 +6,13 @@ use crate::{
     array::Array,
     ast::*,
     error::{CompileError, Problem, SpannedCompileWarning},
-    lex::{Ident, Span},
+    lex::{Ident, Param, Span},
     value::Val,
 };
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ValNode {
+    Param(Param),
     Ident(Ident),
     Val(Val),
     Un(Rc<UnValNode>),
@@ -20,12 +21,14 @@ pub enum ValNode {
     Assign(Rc<AssignValNode>),
 }
 
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub struct UnValNode {
     pub op: ValNode,
     pub inner: ValNode,
     pub span: Span,
 }
 
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub struct BinValNode {
     pub op: ValNode,
     pub left: ValNode,
@@ -33,6 +36,7 @@ pub struct BinValNode {
     pub span: Span,
 }
 
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub struct AssignValNode {
     pub name: Ident,
     pub body: ValNode,
@@ -159,7 +163,7 @@ impl ToValNode for ExprItem {
 impl ToValNode for Expr {
     fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
         match self {
-            Expr::Param(param) => todo!(),
+            Expr::Param(param) => ValNode::Param(param.data),
             Expr::Op(op) => (**op).into(),
             Expr::UnMod(m) => (**m).into(),
             Expr::BinMod(m) => (**m).into(),

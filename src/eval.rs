@@ -35,7 +35,16 @@ impl Runtime {
 }
 
 #[derive(Default)]
+pub struct Params {
+    x: Option<Val>,
+    w: Option<Val>,
+    f: Option<Val>,
+    g: Option<Val>,
+}
+
+#[derive(Default)]
 struct Scope {
+    params: Params,
     bindings: HashMap<Ident, Val>,
 }
 
@@ -52,6 +61,7 @@ impl Eval for Val {
 impl Eval for ValNode {
     fn eval(&self, rt: &mut Runtime) -> RuntimeResult {
         match self {
+            ValNode::Param(param) => todo!(),
             ValNode::Ident(ident) => Ok(rt
                 .scope()
                 .bindings
