@@ -68,23 +68,6 @@ impl Eval for ValNode {
                     .collect::<RuntimeResult<_>>()?;
                 Ok(Val::from_iter(vals))
             }
-            ValNode::Atop(f, g) => Ok(Function::Atop(
-                Atop {
-                    f: f.eval(rt)?,
-                    g: g.eval(rt)?,
-                }
-                .into(),
-            )
-            .into()),
-            ValNode::Fork(left, center, right) => Ok(Function::Fork(
-                Fork {
-                    left: left.eval(rt)?,
-                    center: center.eval(rt)?,
-                    right: right.eval(rt)?,
-                }
-                .into(),
-            )
-            .into()),
             ValNode::Assign(assign) => assign.eval(rt),
         }
     }
@@ -115,6 +98,9 @@ pub fn eval_un(op: Val, x: Val, span: &Span) -> RuntimeResult {
 }
 
 fn eval_un_function(function: Function, x: Val, span: &Span) -> RuntimeResult {
+    if let Val::Atom(Atom::Function(g)) = x {
+        return Ok(Function::Atop(Atop { f: function, g }.into()).into());
+    }
     match function {
         Function::Op(Op::Pervasive(Pervasive::Comparison(ComparisonOp::Equal))) => match x {
             Val::Array(arr) => Ok(arr.len().map(Num::from).unwrap_or(Num::INFINIFY).into()),
@@ -135,13 +121,13 @@ fn eval_un_function(function: Function, x: Val, span: &Span) -> RuntimeResult {
             other => todo!("{:?}", other),
         },
         Function::Atop(atop) => {
-            let lower = eval_un(atop.g, x, span)?;
-            eval_un(atop.f, lower, span)
+            let lower = eval_un_function(atop.g, x, span)?;
+            eval_un_function(atop.f, lower, span)
         }
         Function::Fork(fork) => {
             let left = eval_un(fork.left, x.clone(), span)?;
-            let right = eval_un(fork.right, x, span)?;
-            eval_bin(fork.center, left, right, span)
+            let right = eval_un_function(fork.right, x, span)?;
+            eval_bin_function(fork.center, left, right, span)
         }
         Function::UnMod(un_mod) => match un_mod.m {
             RuneUnMod::Ingwaz => eval_un(un_mod.f, x, span),
@@ -185,6 +171,17 @@ pub fn eval_bin(op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult {
 }
 
 fn eval_bin_function(function: Function, w: Val, x: Val, span: &Span) -> RuntimeResult {
+    if let Val::Atom(Atom::Function(right)) = x {
+        return Ok(Function::Fork(
+            Fork {
+                left: w,
+                center: function,
+                right,
+            }
+            .into(),
+        )
+        .into());
+    }
     match function {
         Function::Op(Op::Pervasive(per)) => bin_pervade_val(per, w, x, span),
         Function::Op(Op::Rune(rune)) => match rune {
@@ -205,13 +202,13 @@ fn eval_bin_function(function: Function, w: Val, x: Val, span: &Span) -> Runtime
             OtherOp::DoNotMatch => w.matches(&x).map(|matches| (!matches).into()),
         },
         Function::Atop(atop) => {
-            let lower = eval_bin(atop.g, w, x, span)?;
-            eval_un(atop.f, lower, span)
+            let lower = eval_bin_function(atop.g, w, x, span)?;
+            eval_un_function(atop.f, lower, span)
         }
         Function::Fork(fork) => {
             let left = eval_bin(fork.left, w.clone(), x.clone(), span)?;
-            let right = eval_bin(fork.right, w, x, span)?;
-            eval_bin(fork.center, left, right, span)
+            let right = eval_bin_function(fork.right, w, x, span)?;
+            eval_bin_function(fork.center, left, right, span)
         }
         Function::UnMod(un_mod) => match un_mod.m {
             RuneUnMod::Ingwaz => eval_bin(un_mod.f, w, x, span),
@@ -395,44 +392,48 @@ pub fn fold(op: Val, w: Option<Val>, x: Val, span: &Span) -> RuntimeResult {
 }
 
 pub fn fold_identity(op: &Val, span: &Span) -> RuntimeResult {
-    Ok(match op {
-        Val::Atom(Atom::Function(function)) => match function {
-            Function::Op(Op::Pervasive(Pervasive::Math(math))) => match math {
-                MathOp::Add | MathOp::Sub => 0i64.into(),
-                MathOp::Mul | MathOp::Div => 1i64.into(),
-                MathOp::Max => (-Num::INFINIFY).into(),
-                MathOp::Min => Num::INFINIFY.into(),
-                op => return rt_error(format!("{} has no fold identity", op), span),
-            },
-            Function::Op(Op::Rune(RuneOp::Iwaz)) => Array::empty().into(),
-            Function::Atop(atop) => fold_identity(&atop.f, span)?,
-            Function::Fork(fork) => fold_identity(&fork.center, span)?,
-            Function::UnMod(un_mod) => match &un_mod.m {
-                RuneUnMod::Ingwaz | RuneUnMod::Othala => fold_identity(&un_mod.f, span)?,
-                _ => {
-                    return rt_error(
-                        format!("{} has no fold identity", function.as_string()?),
-                        span,
-                    )
-                }
-            },
-            Function::BinMod(bin_mod) => match &bin_mod.m {
-                RuneBinMod::Ehwaz | RuneBinMod::Haglaz => fold_identity(&bin_mod.f, span)?,
-                _ => {
-                    return rt_error(
-                        format!("{} has no fold identity", function.as_string()?),
-                        span,
-                    )
-                }
-            },
-            function => {
+    match op {
+        Val::Atom(Atom::Function(function)) => function_fold_identity(function, span),
+        val => Ok(val.clone()),
+    }
+}
+
+pub fn function_fold_identity(function: &Function, span: &Span) -> RuntimeResult {
+    Ok(match function {
+        Function::Op(Op::Pervasive(Pervasive::Math(math))) => match math {
+            MathOp::Add | MathOp::Sub => 0i64.into(),
+            MathOp::Mul | MathOp::Div => 1i64.into(),
+            MathOp::Max => (-Num::INFINIFY).into(),
+            MathOp::Min => Num::INFINIFY.into(),
+            op => return rt_error(format!("{} has no fold identity", op), span),
+        },
+        Function::Op(Op::Rune(RuneOp::Iwaz)) => Array::empty().into(),
+        Function::Atop(atop) => function_fold_identity(&atop.f, span)?,
+        Function::Fork(fork) => function_fold_identity(&fork.center, span)?,
+        Function::UnMod(un_mod) => match &un_mod.m {
+            RuneUnMod::Ingwaz | RuneUnMod::Othala => fold_identity(&un_mod.f, span)?,
+            _ => {
                 return rt_error(
                     format!("{} has no fold identity", function.as_string()?),
                     span,
                 )
             }
         },
-        val => val.clone(),
+        Function::BinMod(bin_mod) => match &bin_mod.m {
+            RuneBinMod::Ehwaz | RuneBinMod::Haglaz => fold_identity(&bin_mod.f, span)?,
+            _ => {
+                return rt_error(
+                    format!("{} has no fold identity", function.as_string()?),
+                    span,
+                )
+            }
+        },
+        function => {
+            return rt_error(
+                format!("{} has no fold identity", function.as_string()?),
+                span,
+            )
+        }
     })
 }
 

@@ -51,8 +51,8 @@ impl Format for BinModded {
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Atop {
-    pub f: Val,
-    pub g: Val,
+    pub f: Function,
+    pub g: Function,
 }
 
 impl fmt::Debug for Atop {
@@ -72,8 +72,8 @@ impl Format for Atop {
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Fork {
     pub left: Val,
-    pub center: Val,
-    pub right: Val,
+    pub center: Function,
+    pub right: Function,
 }
 
 impl fmt::Debug for Fork {

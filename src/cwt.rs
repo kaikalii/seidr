@@ -17,8 +17,6 @@ pub enum ValNode {
     Un(Rc<UnValNode>),
     Bin(Rc<BinValNode>),
     Array(Rc<[Self]>),
-    Atop(Box<Self>, Box<Self>),
-    Fork(Box<Self>, Box<Self>, Box<Self>),
     Assign(Rc<AssignValNode>),
 }
 
