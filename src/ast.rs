@@ -5,7 +5,7 @@ use std::{fmt, rc::Rc};
 use crate::{
     error::RuntimeResult,
     format::{Format, Formatter},
-    lex::{Comment, Ident, Role, Sp, Span},
+    lex::{Comment, Ident, Param, Role, Sp, Span},
     num::Num,
     op::*,
 };
@@ -73,6 +73,7 @@ pub enum Expr {
     Op(Sp<Op>),
     UnMod(Sp<RuneUnMod>),
     BinMod(Sp<RuneBinMod>),
+    Param(Sp<Param>),
     Ident(Sp<Ident>),
     Num(Sp<Num>),
     Char(Sp<char>),
@@ -102,6 +103,7 @@ impl Expr {
     pub fn role(&self) -> Role {
         use Expr::*;
         match self {
+            Param(param) => param.role(),
             Num(_) | Char(_) | String(_) | Array(_) => Role::Value,
             Op(_) => Role::Function,
             UnMod(_) => Role::UnModifier,
@@ -118,6 +120,7 @@ impl Expr {
             Expr::Op(expr) => &expr.span,
             Expr::UnMod(expr) => &expr.span,
             Expr::BinMod(expr) => &expr.span,
+            Expr::Param(expr) => &expr.span,
             Expr::Ident(expr) => &expr.span,
             Expr::Num(expr) => &expr.span,
             Expr::Char(expr) => &expr.span,
@@ -133,16 +136,12 @@ impl Expr {
 
 impl fmt::Debug for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // write!(
-        //     f,
-        //     "{}:",
-        //     format!("{:?}", self.role()).chars().next().unwrap()
-        // )?;
         match self {
             Expr::Op(expr) => expr.fmt(f),
             Expr::UnMod(expr) => expr.fmt(f),
             Expr::BinMod(expr) => expr.fmt(f),
             Expr::Ident(expr) => expr.fmt(f),
+            Expr::Param(expr) => expr.fmt(f),
             Expr::Num(expr) => expr.fmt(f),
             Expr::Char(expr) => expr.fmt(f),
             Expr::String(expr) => expr.fmt(f),
@@ -165,6 +164,7 @@ impl Format for Expr {
             Expr::Op(expr) => f.display(expr),
             Expr::UnMod(expr) => f.display(expr),
             Expr::BinMod(expr) => f.display(expr),
+            Expr::Param(expr) => f.display(expr),
             Expr::Ident(expr) => f.display(expr),
             Expr::Num(expr) => f.display(expr),
             Expr::Char(expr) => f.debug(expr),

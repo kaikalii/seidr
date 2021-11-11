@@ -236,15 +236,21 @@ pub enum ParamForm {
     Function,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Param {
     pub place: ParamPlace,
     pub form: ParamForm,
 }
 
 impl Param {
-    pub fn new(place: ParamPlace, form: ParamForm) -> Self {
+    pub const fn new(place: ParamPlace, form: ParamForm) -> Self {
         Param { place, form }
+    }
+    pub const fn role(&self) -> Role {
+        match self.form {
+            ParamForm::Value => Role::Value,
+            ParamForm::Function => Role::Function,
+        }
     }
 }
 
@@ -252,6 +258,12 @@ const W_PARAM_CHAR: char = 'ᚮ';
 const X_PARAM_CHAR: char = 'ᚭ';
 const F_PARAM_CHAR: char = 'ᚯ';
 const G_PARAM_CHAR: char = 'ᚬ';
+
+impl fmt::Debug for Param {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
 
 impl fmt::Display for Param {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

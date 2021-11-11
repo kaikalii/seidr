@@ -159,6 +159,7 @@ impl ToValNode for ExprItem {
 impl ToValNode for Expr {
     fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
         match self {
+            Expr::Param(param) => todo!(),
             Expr::Op(op) => (**op).into(),
             Expr::UnMod(m) => (**m).into(),
             Expr::BinMod(m) => (**m).into(),

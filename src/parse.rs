@@ -313,6 +313,8 @@ impl Parser {
             } else {
                 Expr::Ident(ident)
             }
+        } else if let Some(param) = self.match_to(param) {
+            Expr::Param(param)
         } else {
             return Ok(None);
         };
@@ -431,19 +433,10 @@ fn ident(tt: &TT) -> Option<Ident> {
     }
 }
 
-fn ident_if<F>(f: F) -> impl Fn(&TT) -> Option<Ident>
-where
-    F: Fn(&Ident) -> bool,
-{
-    move |tt: &TT| {
-        if let TT::Ident(ident) = tt {
-            if f(ident) {
-                Some(ident.clone())
-            } else {
-                None
-            }
-        } else {
-            None
-        }
+fn param(tt: &TT) -> Option<Param> {
+    if let TT::Param(param) = tt {
+        Some(*param)
+    } else {
+        None
     }
 }
