@@ -4,7 +4,7 @@ use crate::{
     array::Array,
     error::RuntimeResult,
     format::{Format, Formatter},
-    function::{BinModded, Function, UnModded},
+    function::*,
     lex::Span,
     num::Num,
     op::*,
@@ -16,8 +16,8 @@ pub enum Atom {
     Num(Num),
     Char(char),
     Function(Function),
-    UnMod(RuneUnMod),
-    BinMod(RuneBinMod),
+    UnMod(UnMod),
+    BinMod(BinMod),
 }
 
 impl Atom {
@@ -59,15 +59,15 @@ impl From<Op> for Atom {
     }
 }
 
-impl From<RuneUnMod> for Atom {
-    fn from(m: RuneUnMod) -> Self {
-        Atom::UnMod(m)
+impl From<UnMod> for Atom {
+    fn from(m: UnMod) -> Self {
+        Atom::UnMod(m.into())
     }
 }
 
-impl From<RuneBinMod> for Atom {
-    fn from(m: RuneBinMod) -> Self {
-        Atom::BinMod(m)
+impl From<BinMod> for Atom {
+    fn from(m: BinMod) -> Self {
+        Atom::BinMod(m.into())
     }
 }
 
@@ -85,7 +85,7 @@ impl From<BinModded> for Atom {
 
 impl From<Function> for Atom {
     fn from(f: Function) -> Self {
-        Atom::Function(f)
+        Atom::Function(f.into())
     }
 }
 

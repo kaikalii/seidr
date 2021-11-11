@@ -6,11 +6,12 @@ use crate::{
     array::Array,
     ast::*,
     error::{CompileError, Problem, SpannedCompileWarning},
+    function::*,
     lex::{Ident, Param, Span},
     value::Val,
 };
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ValNode {
     Param(Param),
     Ident(Ident),
@@ -21,14 +22,14 @@ pub enum ValNode {
     Assign(Rc<AssignValNode>),
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct UnValNode {
     pub op: ValNode,
     pub inner: ValNode,
     pub span: Span,
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BinValNode {
     pub op: ValNode,
     pub left: ValNode,
@@ -36,7 +37,7 @@ pub struct BinValNode {
     pub span: Span,
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct AssignValNode {
     pub name: Ident,
     pub body: ValNode,
@@ -165,8 +166,8 @@ impl ToValNode for Expr {
         match self {
             Expr::Param(param) => ValNode::Param(param.data),
             Expr::Op(op) => (**op).into(),
-            Expr::UnMod(m) => (**m).into(),
-            Expr::BinMod(m) => (**m).into(),
+            Expr::UnMod(m) => UnMod::from(**m).into(),
+            Expr::BinMod(m) => BinMod::from(**m).into(),
             Expr::Ident(ident) => {
                 if !builder.lookup(ident) {
                     builder.error(

@@ -2,7 +2,7 @@ use std::{borrow::Cow, cell::RefCell, cmp::Ordering, collections::HashMap, iter,
 
 use crate::{
     error::RuntimeResult,
-    eval::{eval_bin, eval_un, index_array, replicator_int, rt_error},
+    eval::{replicator_int, rt_error},
     format::{Format, Formatter},
     lex::Span,
     num::{modulus, Num},
