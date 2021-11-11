@@ -88,24 +88,13 @@ impl Expr {
     pub fn un(op: Self, inner: Self) -> Self {
         Expr::Un(UnExpr { op, inner }.into())
     }
-    pub fn bin_infix(op: Self, left: Self, right: Self) -> Self {
+    pub fn bin(op: Self, left: Self, right: Self, kind: BinKind) -> Self {
         Expr::Bin(
             BinExpr {
                 op,
                 left,
                 right,
-                infix: true,
-            }
-            .into(),
-        )
-    }
-    pub fn bin_prefix(op: Self, left: Self, right: Self) -> Self {
-        Expr::Bin(
-            BinExpr {
-                op,
-                left,
-                right,
-                infix: false,
+                kind,
             }
             .into(),
         )
@@ -219,29 +208,43 @@ pub struct BinExpr {
     pub op: Expr,
     pub left: Expr,
     pub right: Expr,
-    pub infix: bool,
+    pub kind: BinKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BinKind {
+    Function,
+    Modifier,
+    Fork,
 }
 
 impl fmt::Debug for BinExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.infix {
-            write!(f, "({:?} {:?} {:?})", self.left, self.op, self.right)
-        } else {
-            write!(f, "({:?}{:?}{:?})", self.op, self.left, self.right)
+        match self.kind {
+            BinKind::Function => write!(f, "({:?} {:?} {:?})", self.left, self.op, self.right),
+            BinKind::Fork => write!(f, "({:?}{:?}{:?})", self.left, self.op, self.right),
+            BinKind::Modifier => write!(f, "({:?}{:?}{:?})", self.op, self.left, self.right),
         }
     }
 }
 
 impl Format for BinExpr {
     fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
-        if self.infix {
-            self.left.format(f)?;
-            f.display(" ");
-            self.op.format(f)?;
-            f.display(" ");
-        } else {
-            self.op.format(f)?;
-            self.left.format(f)?;
+        match self.kind {
+            BinKind::Function => {
+                self.left.format(f)?;
+                f.display(" ");
+                self.op.format(f)?;
+                f.display(" ");
+            }
+            BinKind::Fork => {
+                self.left.format(f)?;
+                self.op.format(f)?;
+            }
+            BinKind::Modifier => {
+                self.op.format(f)?;
+                self.left.format(f)?;
+            }
         }
         self.right.format(f)
     }

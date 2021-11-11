@@ -22,7 +22,7 @@ pub enum CompileError {
     NoUnaryImplementation(Op),
     UnknownBinding(Ident),
     MismatchedRoles(Ident, Role),
-    DoubleSubjects,
+    InvalidRole(Role, Vec<Role>),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -55,7 +55,27 @@ impl fmt::Display for CompileError {
                 name.role(),
                 role
             ),
-            CompileError::DoubleSubjects => write!(f, "Double subjects"),
+            CompileError::InvalidRole(found, expected) => {
+                write!(f, "{} role is not valid in this position. Expected ", found)?;
+                natural_list(expected, "or", f)
+            }
+        }
+    }
+}
+
+fn natural_list<T>(items: &[T], conj: &str, f: &mut fmt::Formatter) -> fmt::Result
+where
+    T: fmt::Display,
+{
+    match items {
+        [] => Ok(()),
+        [item] => item.fmt(f),
+        [a, b] => write!(f, "{} {} {}", a, conj, b),
+        [initial @ .., last] => {
+            for item in initial {
+                write!(f, "{}, ", item)?;
+            }
+            write!(f, "{} {}", conj, last)
         }
     }
 }

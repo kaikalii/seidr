@@ -167,46 +167,128 @@ impl Parser {
         })
     }
     fn expr(&mut self) -> CompileResult<Option<Expr>> {
-        let a = if let Some(term) = self.term()? {
-            term
-        } else {
-            return Ok(None);
-        };
-        let b = if let Some(expr) = self.expr()? {
+        Ok(Some(if let Some(expr) = self.function_or_value_expr()? {
+            expr
+        } else if let Some(expr) = self.un_mod_expr()? {
+            expr
+        } else if let Some(expr) = self.bin_mod_expr()? {
             expr
         } else {
-            return Ok(Some(a));
-        };
-        Ok(Some(match (a.role(), b) {
-            (Role::BinModifier, Expr::Un(b)) if b.op.role() <= Role::Function => {
-                Expr::bin_prefix(a, b.op, b.inner)
-            }
-            (Role::BinModifier, Expr::Bin(b)) if b.op.role() <= Role::Function => {
-                Expr::bin_prefix(Expr::un(a, b.op), b.left, b.right)
-            }
-            (Role::UnModifier, Expr::Un(b)) => Expr::un(Expr::un(a, b.op), b.inner),
-            (Role::Value, Expr::Un(b)) if b.op.role() == Role::Function => {
-                Expr::bin_infix(b.op, a, b.inner)
-            }
-            (_, b) => Expr::un(a, b),
+            return Ok(None);
         }))
     }
-    fn term(&mut self) -> CompileResult<Option<Expr>> {
+    fn un_mod_expr(&mut self) -> CompileResult<Option<Expr>> {
+        if let Some(m) = self.match_to(un_mod) {
+            Ok(Some(Expr::UnMod(m)))
+        } else {
+            self.role_term(Role::UnModifier)
+        }
+    }
+    fn bin_mod_expr(&mut self) -> CompileResult<Option<Expr>> {
+        if let Some(m) = self.match_to(bin_mod) {
+            Ok(Some(Expr::BinMod(m)))
+        } else {
+            self.role_term(Role::BinModifier)
+        }
+    }
+    fn function_or_value_expr(&mut self) -> CompileResult<Option<Expr>> {
+        Ok(Some(if let Some(first) = self.function_term()? {
+            // unary, train, or function
+            if let Some(second) = self.function_term()? {
+                //
+                if let Some(right) = self.function_or_value_expr()? {
+                    Expr::bin(second, first, right, BinKind::Fork)
+                } else {
+                    Expr::un(first, second)
+                }
+            } else if let Some(value) = self.value_term()? {
+                // unary
+                Expr::un(first, value)
+            } else {
+                // function
+                first
+            }
+        } else if let Some(left) = self.value_term()? {
+            // binary, fork, or value
+            if let Some(op) = self.function_term()? {
+                // binary or fork
+                let right = self.expect_with("expression", Self::function_or_value_expr)?;
+                let kind = if let Role::Value = right.role() {
+                    BinKind::Function
+                } else {
+                    BinKind::Fork
+                };
+                Expr::bin(op, left, right, kind)
+            } else if let Some(other) = self.expr()? {
+                // error: double subjects
+                return Err(
+                    CompileError::InvalidRole(other.role(), vec![Role::Function])
+                        .at(other.span().clone()),
+                );
+            } else {
+                // value
+                left
+            }
+        } else {
+            return Ok(None);
+        }))
+    }
+    fn function_or_value_term(&mut self) -> CompileResult<Option<Expr>> {
+        Ok(Some(if let Some(function) = self.function_term()? {
+            function
+        } else if let Some(value) = self.value_term()? {
+            value
+        } else {
+            return Ok(None);
+        }))
+    }
+    fn function_term(&mut self) -> CompileResult<Option<Expr>> {
+        let start = self.curr;
+        if let Some(op) = self.un_mod_expr()? {
+            if let Some(inner) = self.function_or_value_term()? {
+                return Ok(Some(Expr::un(op, inner)));
+            }
+        } else if let Some(op) = self.bin_mod_expr()? {
+            if let Some(left) = self.function_or_value_term()? {
+                let right = self.expect_with(
+                    format!("{}'s second argument", op),
+                    Self::function_or_value_term,
+                )?;
+                return Ok(Some(Expr::bin(op, left, right, BinKind::Modifier)));
+            }
+        } else if let Some(op) = self.match_to(op) {
+            return Ok(Some(Expr::Op(op)));
+        } else if let Some(op) = self.role_term(Role::Function)? {
+            return Ok(Some(op));
+        }
+        self.curr = start;
+        Ok(None)
+    }
+    fn value_term(&mut self) -> CompileResult<Option<Expr>> {
+        Ok(Some(if let Some(expr) = self.constant()? {
+            expr
+        } else if let Some(expr) = self.role_term(Role::Value)? {
+            expr
+        } else {
+            return Ok(None);
+        }))
+    }
+    fn constant(&mut self) -> CompileResult<Option<Expr>> {
         Ok(Some(if let Some(num) = self.match_to(num) {
             Expr::Num(num)
         } else if let Some(char) = self.match_to(char) {
             Expr::Char(char)
         } else if let Some(string) = self.match_to(string) {
             Expr::String(string)
-        } else if let Some(op) = self.match_to(op) {
-            Expr::Op(op)
-        } else if let Some(un_mod) = self.match_to(un_mod) {
-            Expr::UnMod(un_mod)
-        } else if let Some(bin_mod) = self.match_to(bin_mod) {
-            Expr::BinMod(bin_mod)
-        } else if let Some(expr) = self.parened()? {
-            expr
         } else if let Some(expr) = self.array()? {
+            expr
+        } else {
+            return Ok(None);
+        }))
+    }
+    fn role_term(&mut self, role: Role) -> CompileResult<Option<Expr>> {
+        let start = self.curr;
+        let expr = if let Some(expr) = self.parened()? {
             expr
         } else if let Some(ident) = self.match_to(ident) {
             if let Some(op) = self.match_to(assign_op) {
@@ -225,7 +307,13 @@ impl Parser {
             }
         } else {
             return Ok(None);
-        }))
+        };
+        Ok(if expr.role() == role {
+            Some(expr)
+        } else {
+            self.curr = start;
+            None
+        })
     }
     fn parened(&mut self) -> CompileResult<Option<Expr>> {
         if self.match_token(TT::OpenParen).is_none() {
@@ -242,18 +330,20 @@ impl Parser {
             return Ok(None);
         };
         let mut items = Vec::new();
-        fn add_item(items: &mut Vec<(Expr, bool)>, expr: Expr, comma: bool) {
-            match expr {
-                Expr::Un(un) if [un.op.role(), un.inner.role()] == [Role::Value; 2] => {
-                    items.push((un.op, false));
-                    add_item(items, un.inner, comma);
+        loop {
+            let start = self.curr;
+            let expr = if let Ok(Some(expr)) = self.expr() {
+                expr
+            } else {
+                self.curr = start;
+                if let Some(expr) = self.function_or_value_term()? {
+                    expr
+                } else {
+                    break;
                 }
-                expr => items.push((expr, comma)),
-            }
-        }
-        while let Some(expr) = self.expr()? {
+            };
             let comma = self.match_token(TT::Comma).is_some();
-            add_item(&mut items, expr, comma);
+            items.push((expr, comma))
         }
         let close = self.expect_token(TT::CloseAngle)?;
         let span = open.span.join(&close.span);
