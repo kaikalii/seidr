@@ -222,6 +222,52 @@ impl fmt::Display for Comment {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ParamPlace {
+    W,
+    X,
+    F,
+    G,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ParamForm {
+    Value,
+    Function,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Param {
+    pub place: ParamPlace,
+    pub form: ParamForm,
+}
+
+impl Param {
+    pub fn new(place: ParamPlace, form: ParamForm) -> Self {
+        Param { place, form }
+    }
+}
+
+const W_PARAM_CHAR: char = 'ᚮ';
+const X_PARAM_CHAR: char = 'ᚭ';
+const F_PARAM_CHAR: char = 'ᚯ';
+const G_PARAM_CHAR: char = 'ᚬ';
+
+impl fmt::Display for Param {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match (self.place, self.form) {
+            (ParamPlace::W, ParamForm::Value) => write!(f, "{}", W_PARAM_CHAR),
+            (ParamPlace::W, ParamForm::Function) => write!(f, "{}᛬", W_PARAM_CHAR),
+            (ParamPlace::X, ParamForm::Value) => write!(f, "{}", X_PARAM_CHAR),
+            (ParamPlace::X, ParamForm::Function) => write!(f, "᛬{}", X_PARAM_CHAR),
+            (ParamPlace::F, ParamForm::Value) => write!(f, "{}᛬", F_PARAM_CHAR),
+            (ParamPlace::F, ParamForm::Function) => write!(f, "{}", F_PARAM_CHAR),
+            (ParamPlace::G, ParamForm::Value) => write!(f, "᛬{}", G_PARAM_CHAR),
+            (ParamPlace::G, ParamForm::Function) => write!(f, "{}", G_PARAM_CHAR),
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Eq)]
 pub enum TT {
     // Literals
@@ -230,6 +276,7 @@ pub enum TT {
     Char(char),
     String(Rc<str>),
     Comment(Comment),
+    Param(Param),
     // Ops
     Op(Op),
     UnMod(RuneUnMod),
@@ -270,6 +317,12 @@ impl From<RuneBinMod> for TT {
     }
 }
 
+impl From<Param> for TT {
+    fn from(param: Param) -> Self {
+        TT::Param(param)
+    }
+}
+
 impl fmt::Debug for TT {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -302,6 +355,7 @@ impl fmt::Display for TT {
             TT::SuperscriptMinus => '‾'.fmt(f),
             TT::Comment(comment) => comment.fmt(f),
             TT::Whitespace => ' '.fmt(f),
+            TT::Param(param) => param.fmt(f),
         }
     }
 }
@@ -515,11 +569,27 @@ impl Lexer {
             span: self.span(),
         });
     }
-    fn token2(&mut self, ch: char, a: TT, b: TT) {
+    fn token2(&mut self, ch: char, a: impl Into<TT>, b: impl Into<TT>) {
         if self.next_if(|c| c == ch).is_some() {
-            self.token(b)
+            self.token(b.into())
         } else {
-            self.token(a)
+            self.token(a.into())
+        }
+    }
+    fn token3(
+        &mut self,
+        a: impl Into<TT>,
+        ch_b: char,
+        b: impl Into<TT>,
+        ch_c: char,
+        c: impl Into<TT>,
+    ) {
+        if self.next_if(|c| c == ch_b).is_some() {
+            self.token(b.into())
+        } else if self.next_if(|c| c == ch_c).is_some() {
+            self.token(c.into())
+        } else {
+            self.token(a.into())
         }
     }
     fn lex(&mut self) -> CompileResult<Vec<Token>> {
@@ -549,6 +619,30 @@ impl Lexer {
                 }
                 '\\' => self.escape()?,
                 '‾' => self.negative_number()?,
+                W_PARAM_CHAR => self.token2(
+                    '᛬',
+                    Param::new(ParamPlace::W, ParamForm::Value),
+                    Param::new(ParamPlace::W, ParamForm::Function),
+                ),
+                F_PARAM_CHAR => self.token2(
+                    '᛬',
+                    Param::new(ParamPlace::F, ParamForm::Function),
+                    Param::new(ParamPlace::F, ParamForm::Value),
+                ),
+                X_PARAM_CHAR => self.token(Param::new(ParamPlace::X, ParamForm::Value)),
+                G_PARAM_CHAR => self.token(Param::new(ParamPlace::G, ParamForm::Function)),
+                '᛬' => match self.next() {
+                    Some(X_PARAM_CHAR) => {
+                        self.token(Param::new(ParamPlace::X, ParamForm::Function))
+                    }
+                    Some(G_PARAM_CHAR) => self.token(Param::new(ParamPlace::G, ParamForm::Value)),
+                    _ => {
+                        return self.error(CompileError::Expected(format!(
+                            "{} or {}",
+                            X_PARAM_CHAR, G_PARAM_CHAR
+                        )))
+                    }
+                },
                 MULTI_LINE_COMMENT_OPEN => self.comment(MULTI_LINE_COMMENT_CLOSE, true),
                 SINGLE_LINE_COMMENT_CHAR | '#' => self.comment('\n', false),
                 c if digit_or_inf(c) => self.number(c, false)?,
@@ -604,6 +698,14 @@ impl Lexer {
             '8' => self.token(TT::Num(Num::INFINIFY, "∞".into())),
             '-' => self.negative_number()?,
             '*' => self.comment('*', true),
+            '1' => self.token(Param::new(ParamPlace::X, ParamForm::Value)),
+            '2' => self.token(Param::new(ParamPlace::W, ParamForm::Value)),
+            '3' => self.token(Param::new(ParamPlace::F, ParamForm::Function)),
+            '4' => self.token(Param::new(ParamPlace::G, ParamForm::Function)),
+            '5' => self.token(Param::new(ParamPlace::X, ParamForm::Function)),
+            '6' => self.token(Param::new(ParamPlace::W, ParamForm::Function)),
+            '7' => self.token(Param::new(ParamPlace::F, ParamForm::Value)),
+            '9' => self.token(Param::new(ParamPlace::G, ParamForm::Value)),
             c => {
                 if let Some(op) = Op::from_escape(c) {
                     self.token(op);

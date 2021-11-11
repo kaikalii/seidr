@@ -1,9 +1,17 @@
 # Literals
 
-| glyph        | meaning  | escape character |
-| ------------ | -------- | ---------------- |
-| ‾ (overline) | negative | -                |
-| ∞            | infinity | 8                |
+| glyph        | meaning                            | escape character |
+| ------------ | ---------------------------------- | ---------------- |
+| ‾ (overline) | negative                           | -                |
+| ∞            | infinity                           | 8                |
+| ᚭ            | right value parameter              | 1                |
+| ᚮ            | left value parameter               | 2                |
+| ᚯ            | first function parameter           | 3                |
+| ᚬ            | second function parameter          | 4                |
+| ᛬ᚭ           | right value parameter as function  | 5                |
+| ᚮ᛬           | left value parameter as function   | 6                |
+| ᚯ᛬           | first function parameter as value  | 7                |
+| ᛬ᚬ           | second function parameter as value | 9                |
 
 # Operators
 
