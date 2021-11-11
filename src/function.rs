@@ -86,7 +86,14 @@ impl Format for Fork {
     fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
         self.left.format(f)?;
         self.center.format(f)?;
+        let paren = !matches!(self.right, Function::Op(_));
+        if paren {
+            f.display('(');
+        }
         self.right.format(f)?;
+        if paren {
+            f.display(')');
+        }
         Ok(())
     }
 }

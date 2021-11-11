@@ -195,15 +195,23 @@ impl Parser {
         Ok(Some(if let Some(first) = self.function_term()? {
             // unary, train, or function
             if let Some(second) = self.function_term()? {
-                //
+                // double unary or train
                 if let Some(right) = self.function_or_value_expr()? {
-                    Expr::bin(second, first, right, BinKind::Fork)
+                    // double unary or fork
+                    if let Role::Value = right.role() {
+                        // double unary
+                        Expr::un(first, Expr::un(second, right))
+                    } else {
+                        // fork
+                        Expr::bin(second, first, right, BinKind::Fork)
+                    }
                 } else {
+                    // atop
                     Expr::un(first, second)
                 }
-            } else if let Some(value) = self.value_term()? {
+            } else if let Some(inner) = self.function_or_value_expr()? {
                 // unary
-                Expr::un(first, value)
+                Expr::un(first, inner)
             } else {
                 // function
                 first
