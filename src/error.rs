@@ -50,9 +50,9 @@ impl fmt::Display for CompileError {
             }
             CompileError::UnknownBinding(name) => write!(f, "Unknown binding `{}`", name),
             CompileError::MismatchedRoles(name, role) => {
-                write!(
+                writeln!(
                     f,
-                    "Mismatched roles. The name `{}` indicates a {}, but the body resolves to a {}. ",
+                    "Mismatched roles\nThe name `{}` indicates a {}, but the body resolves to a {}.",
                     name,
                     name.role(),
                     role
@@ -165,20 +165,38 @@ impl Eq for SpannedCompileWarning {}
 
 impl fmt::Display for SpannedCompileError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", "Error: ".bright_red().bold())?;
-        let message = self.kind.to_string();
-        write!(f, "{}", message)?;
+        format_message("Error", Color::BrightRed, &self.kind.to_string(), f)?;
         self.span.format_error(f, Color::BrightRed)
     }
 }
 
 impl fmt::Display for SpannedCompileWarning {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", "Warning: ".bright_yellow().bold())?;
-        let message = self.kind.to_string();
-        write!(f, "{}", message)?;
+        format_message("Warning", Color::BrightYellow, &self.kind.to_string(), f)?;
         self.span.format_error(f, Color::BrightYellow)
     }
+}
+
+fn format_message(
+    error_kind: &str,
+    error_color: Color,
+    message: &str,
+    f: &mut fmt::Formatter,
+) -> fmt::Result {
+    let mut lines = message.split('\n').map(str::trim);
+    let padding = error_kind.chars().count() + 2;
+    if let Some(line) = lines.next() {
+        write!(
+            f,
+            "{} ",
+            format!("{}:", error_kind).color(error_color).bold()
+        )?;
+        write!(f, "{}", line)?;
+    }
+    for line in lines {
+        write!(f, "\n{:>padding$}{}", "", line, padding = padding)?;
+    }
+    Ok(())
 }
 
 impl fmt::Display for Problem {

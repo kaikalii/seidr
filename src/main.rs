@@ -47,29 +47,40 @@ fn main() {
 
     let mut builder = TreeBuilder::default();
     let rt = Runtime::default();
+    let mut nodes = Vec::new();
+    let mut errored = false;
     for item in items {
         match item {
             Item::Newline | Item::Comment(_) => {}
-            Item::Expr(expr) => {
-                println!();
-                println!("    {:?}", expr.expr);
-                println!("    {}", expr.expr);
-                match builder.build(&expr) {
-                    Ok((node, warnings)) => {
-                        for warning in warnings {
-                            println!("{}", warning);
-                        }
-                        match node.eval(&rt).and_then(|val| val.as_string()) {
-                            Ok(s) => println!("{}", s),
-                            Err(e) => println!("\n{}", e),
-                        }
-                    }
-                    Err(problems) => {
-                        for problem in problems {
-                            println!("{}", problem)
-                        }
+            Item::Expr(expr) => match builder.build(&expr) {
+                Ok((node, warnings)) => {
+                    nodes.push((expr, node));
+                    for warning in warnings {
+                        println!("{}", warning);
                     }
                 }
+                Err(problems) => {
+                    errored = true;
+                    for problem in problems {
+                        println!("{}", problem)
+                    }
+                }
+            },
+        }
+    }
+
+    if errored {
+        return;
+    }
+
+    for (expr, node) in nodes {
+        println!();
+        println!("    {}", expr.expr);
+        match node.eval(&rt).and_then(|val| val.as_string()) {
+            Ok(s) => println!("{}", s),
+            Err(e) => {
+                println!("\n{}", e);
+                break;
             }
         }
     }
