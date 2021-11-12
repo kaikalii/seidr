@@ -75,6 +75,7 @@ fn main() {
 
     for (expr, node) in nodes {
         println!();
+        // println!("    {:?}", expr.expr);
         println!("    {}", expr.expr);
         match node.eval(&rt).and_then(|val| val.as_string()) {
             Ok(s) => println!("{}", s),

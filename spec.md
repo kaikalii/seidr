@@ -45,7 +45,7 @@
 | ᚾ     |                | take      | n                            | naudiz | need          |
 | ᛁ     | absolute value | modulus   | \| (vertical bar, unescaped) | isaz   | ice           |
 | ᛃ     | reverse        |           | j                            | jera   | year/harvest  |
-| ᛇ     |                | join to   | A                            | iwaz   | yew-tree      |
+| ᛇ     |                | join      | A                            | iwaz   | yew-tree      |
 | ᛈ     | first          | index     | p                            | perth  | unknown       |
 | ᛉ     | range          | windows   | z                            | algiz  | elk           |
 | ᛊ     |                |           | s                            | sowilo | sun           |
@@ -86,11 +86,15 @@
 # Unassigned Unary Operators
 - throw
 - print?
+- classify
+- deduplicate
 
 # Unassigned Binary Operators
 - index of
-- member of
+- member of - can be done with index of, length, and equals
 - group
+- left shift? - can be done with take + join
+- right shift? - can be done with take + join
 
 # Unassign Binary Modifiers
 - repeat

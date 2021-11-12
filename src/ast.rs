@@ -232,8 +232,10 @@ impl fmt::Debug for UnExpr {
 impl Format for UnExpr {
     fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
         self.op.format(f)?;
-        if matches!(&self.inner, Expr::Bin(_)) {
-            f.display(" ");
+        if let Expr::Bin(bin) = &self.inner {
+            if bin.kind == BinKind::Function {
+                f.display(" ");
+            }
         }
         self.inner.format(f)
     }
