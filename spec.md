@@ -48,8 +48,8 @@
 | ᛇ     |                | join to   | A                            | iwaz   | yew-tree      |
 | ᛈ     | first          | index     | p                            | perth  | unknown       |
 | ᛉ     | range          | windows   | z                            | algiz  | elk           |
-| ᛊ     | grade          |           | s                            | sowilo | sun           |
-| ᛏ     | sort           |           | t                            | tiwaz  | Týr           |
+| ᛊ     |                |           | s                            | sowilo | sun           |
+| ᛏ     | grade          |           | t                            | tiwaz  | Týr           |
 | ᛚ     | identity       | right     | l                            | laguz  | water/lake    |
 
 # Unary Modifiers

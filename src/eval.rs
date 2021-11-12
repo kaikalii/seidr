@@ -109,8 +109,7 @@ impl Runtime {
                 RuneOp::Laguz => Ok(x),
                 RuneOp::Jera => self.reverse(x, span),
                 RuneOp::Algiz => self.range(x, span).map(Val::from),
-                RuneOp::Tiwaz => self.sort(x, span).map(Val::from),
-                RuneOp::Sowilo => self.grade(x, span).map(Val::from),
+                RuneOp::Tiwaz => self.grade(x, span).map(Val::from),
                 RuneOp::Perth => self.first(x, span),
                 rune => rt_error(format!("{} has no unary form", rune), span),
             },
@@ -406,21 +405,6 @@ impl Runtime {
                 ),
                 span,
             ),
-        }
-    }
-
-    pub fn sort(&self, x: Val, span: &Span) -> RuntimeResult<Array> {
-        match x {
-            Val::Array(arr) => {
-                if arr.len().is_some() {
-                    let mut items = arr.into_vec()?;
-                    items.sort_unstable();
-                    Ok(Array::concrete(items))
-                } else {
-                    rt_error("Unbounded arrays cannot be sorted", span)
-                }
-            }
-            Val::Atom(atom) => rt_error(format!("{} cannot be sorted", atom.type_name()), span),
         }
     }
 
