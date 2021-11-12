@@ -9,7 +9,7 @@ use std::{
 
 use crate::{
     error::RuntimeResult,
-    eval::{replicator_int, rt_error},
+    eval::{replicator_num, rt_error},
     format::{Format, Formatter},
     lex::Span,
     num::Num,
@@ -153,7 +153,7 @@ impl Array {
                     len / *size + 1
                 }
             }
-            Array::Replicate(_) => return None,
+            Array::Replicate(rep) => rep.len()?,
             Array::Scan(scan) => scan.len()?,
             Array::Table(table) => table.len()?,
             Array::Classify(_) => return None,
@@ -569,7 +569,8 @@ impl Eq for SelectArray {}
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ReplicateArray {
-    Int { n: usize, array: Array },
+    Repeat { n: Num, val: Val },
+    Num { n: Num, array: Array },
     Counts(Box<CountsReplicateArray>),
 }
 
@@ -590,8 +591,11 @@ impl PartialEq for CountsReplicateArray {
 impl Eq for CountsReplicateArray {}
 
 impl ReplicateArray {
-    pub fn int(n: usize, array: Array) -> Self {
-        ReplicateArray::Int { n, array }
+    pub fn repeat(n: Num, val: Val) -> Self {
+        ReplicateArray::Repeat { n, val }
+    }
+    pub fn num(n: Num, array: Array) -> Self {
+        ReplicateArray::Num { n, array }
     }
     pub fn counts(counts: Array, array: Array, span: Span) -> Self {
         ReplicateArray::Counts(
@@ -604,17 +608,45 @@ impl ReplicateArray {
             .into(),
         )
     }
+    pub fn len(&self) -> Option<usize> {
+        match self {
+            ReplicateArray::Repeat { n, .. } => {
+                if n.is_infinite() {
+                    None
+                } else {
+                    Some(i64::from(*n) as usize)
+                }
+            }
+            ReplicateArray::Counts(_) => None,
+            ReplicateArray::Num { n, array } => {
+                if n.is_infinite() {
+                    None
+                } else {
+                    Some(i64::from(*n * Num::from(array.len()?)) as usize)
+                }
+            }
+        }
+    }
     pub fn get(&self, index: usize) -> RuntimeResult<Option<Cow<Val>>> {
         Ok(match self {
+            ReplicateArray::Repeat { n, val } => {
+                if n > &Num::from(index) {
+                    Some(Cow::Borrowed(val))
+                } else {
+                    None
+                }
+            }
             ReplicateArray::Counts(cra) => {
                 let mut cache = cra.cache.borrow_mut();
                 while cache.len() <= index {
                     let count = cra.counts.borrow_mut().next().transpose()?;
                     let val = cra.array.borrow_mut().next().transpose()?;
                     if let Some((count, val)) = count.zip(val) {
-                        let n = replicator_int(count, &cra.span)?;
-                        for _ in 0..n {
+                        let n = replicator_num(count, &cra.span)?;
+                        let mut i: i64 = 0;
+                        while n > i {
                             cache.push(val.clone());
+                            i += 0;
                         }
                     } else {
                         break;
@@ -622,7 +654,8 @@ impl ReplicateArray {
                 }
                 cache.get(index).cloned().map(Cow::Owned)
             }
-            ReplicateArray::Int { n, array } => array.get(index / *n)?,
+            ReplicateArray::Num { n, array } if n.is_infinite() => array.get(0)?,
+            ReplicateArray::Num { n, array } => array.get(index / i64::from(*n) as usize)?,
         })
     }
 }

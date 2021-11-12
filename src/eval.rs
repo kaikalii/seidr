@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, iter::repeat};
+use std::collections::BTreeMap;
 
 use crate::{
     array::*,
@@ -284,11 +284,11 @@ impl Runtime {
                 Array::Replicate(ReplicateArray::counts(w, x, span.clone()).into())
             }),
             (w, x) => {
-                let n = replicator_int(w, span)?;
+                let n = replicator_num(w, span)?;
                 Ok(match x {
-                    Val::Atom(x) => Array::concrete(repeat(x).take(n)),
+                    Val::Atom(x) => Array::Replicate(ReplicateArray::repeat(n, x.into()).into()),
                     Val::Array(x) => {
-                        if x.len().is_some() {
+                        if !n.is_infinite() && x.len().is_some() {
                             let arrays: Vec<Array> = x
                                 .into_iter()
                                 .map(|x| x.and_then(|x| self.replicate(n.into(), x, span)))
@@ -297,7 +297,7 @@ impl Runtime {
                                 arrays.into_iter().flatten().collect::<RuntimeResult<_>>()?,
                             )
                         } else {
-                            Array::Replicate(ReplicateArray::int(n, x).into())
+                            Array::Replicate(ReplicateArray::num(n, x).into())
                         }
                     }
                 })
@@ -571,9 +571,9 @@ impl Runtime {
     }
 }
 
-pub fn replicator_int(n: Val, span: &Span) -> RuntimeResult<usize> {
+pub fn replicator_num(n: Val, span: &Span) -> RuntimeResult<Num> {
     match n {
-        Val::Atom(Atom::Num(n)) if n >= 0 => Ok(i64::from(n) as usize),
+        Val::Atom(Atom::Num(n)) if n >= 0 => Ok(n),
         Val::Atom(Atom::Num(_)) => rt_error("Replicator cannot be negative", span),
         val => rt_error(
             format!("{} cannot be used to replicate", val.type_name()),
