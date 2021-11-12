@@ -5,7 +5,7 @@ use crate::{
     eval::{replicator_int, rt_error},
     format::{Format, Formatter},
     lex::Span,
-    num::{modulus, Num},
+    num::Num,
     pervade::PervadedArray,
     rcview::{RcView, RcViewIntoIter},
     runtime::Runtime,
@@ -19,7 +19,6 @@ pub enum Array {
     Concrete(Items),
     AsciiString(Rc<str>),
     Cached(Rc<CachedArray>),
-    Rotate(Box<Self>, i64),
     Reverse(Box<Self>),
     Range(Num),
     JoinTo(Box<Self>, Box<Self>),
@@ -110,7 +109,7 @@ impl Array {
             Array::Concrete(items) => items.len(),
             Array::AsciiString(s) => s.len(),
             Array::Cached(arr) => arr.len()?,
-            Array::Rotate(arr, _) | Array::Reverse(arr) => arr.len()?,
+            Array::Reverse(arr) => arr.len()?,
             Array::Range(n) => {
                 if n.is_infinite() {
                     return None;
@@ -162,21 +161,6 @@ impl Array {
                 .map(Val::from)
                 .map(Cow::Owned),
             Array::Cached(arr) => arr.get(index)?.map(Cow::Owned),
-            Array::Rotate(arr, r) => {
-                if let Some(len) = arr.len() {
-                    if index >= len {
-                        None
-                    } else {
-                        let index = modulus(index as i64 + *r, len as i64) as usize;
-                        arr.get(index)?
-                    }
-                } else if *r >= 0 {
-                    let index = index + *r as usize;
-                    arr.get(index)?
-                } else {
-                    None
-                }
-            }
             Array::Reverse(arr) => {
                 if let Some(len) = arr.len() {
                     if index >= len {

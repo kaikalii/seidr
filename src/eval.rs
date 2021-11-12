@@ -187,7 +187,6 @@ impl Runtime {
             Function::Op(Op::Rune(rune)) => match rune {
                 RuneOp::Laguz => Ok(x),
                 RuneOp::Fehu => self.replicate(w, x, span).map(Val::from),
-                RuneOp::Jera => self.rotate(w, x, span),
                 RuneOp::Iwaz => {
                     Ok(Array::JoinTo(w.into_array().into(), x.into_array().into()).into())
                 }
@@ -244,35 +243,6 @@ impl Runtime {
                 },
                 BinMod::Node(node) => todo!(),
             },
-        }
-    }
-
-    fn rotate(&self, w: Val, x: Val, span: &Span) -> RuntimeResult {
-        match (w, x) {
-            (Val::Atom(Atom::Num(n)), Val::Array(arr)) => {
-                Ok(Array::Rotate(arr.into(), i64::from(n)).into())
-            }
-            (Val::Array(ns), x) if ns.len() == Some(1) => {
-                self.rotate(ns.get(0)?.unwrap().into_owned(), x, span)
-            }
-            (Val::Array(ns), Val::Array(arr)) => {
-                let mut ns = ns.into_iter();
-                let first = ns.next().unwrap()?;
-                let sub_ns: Array = ns.skip(1).collect::<RuntimeResult<_>>()?;
-                self.rotate(
-                    first,
-                    Array::try_concrete(arr.into_iter().map(|sub| {
-                        sub.and_then(|sub| self.rotate(sub_ns.clone().into(), sub, span))
-                    }))?
-                    .into(),
-                    span,
-                )
-            }
-            (Val::Atom(atom), _) => rt_error(
-                format!("Attempted to rotate with {}", atom.type_name()),
-                span,
-            ),
-            (_, Val::Atom(_)) => rt_error("x must be an array", span),
         }
     }
 

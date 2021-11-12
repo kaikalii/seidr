@@ -44,8 +44,8 @@
 | ᚷ     |                | drop      | g                            | gebo   | gift          |
 | ᚾ     |                | take      | n                            | naudiz | need          |
 | ᛁ     | absolute value | modulus   | \| (vertical bar, unescaped) | isaz   | ice           |
-| ᛃ     | reverse        | rotate    | j                            | jera   | year/harvest  |
-| ᛇ     | join           | join to   | A                            | iwaz   | yew-tree      |
+| ᛃ     | reverse        |           | j                            | jera   | year/harvest  |
+| ᛇ     |                | join to   | A                            | iwaz   | yew-tree      |
 | ᛈ     | first          | index     | p                            | perth  | unknown       |
 | ᛉ     | range          | windows   | z                            | algiz  | elk           |
 | ᛊ     | grade          |           | s                            | sowilo | sun           |
