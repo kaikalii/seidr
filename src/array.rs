@@ -1,4 +1,11 @@
-use std::{borrow::Cow, cell::RefCell, cmp::Ordering, collections::HashMap, iter, rc::Rc};
+use std::{
+    borrow::Cow,
+    cell::{Cell, RefCell},
+    cmp::Ordering,
+    collections::{BTreeMap, HashMap},
+    iter,
+    rc::Rc,
+};
 
 use crate::{
     error::RuntimeResult,
@@ -32,6 +39,7 @@ pub enum Array {
     Replicate(Rc<ReplicateArray>),
     Scan(Rc<ScanArray>),
     Table(Rc<TableArray>),
+    Classify(Rc<ClassifyArray>),
 }
 
 fn _array_size() {
@@ -148,6 +156,7 @@ impl Array {
             Array::Replicate(_) => return None,
             Array::Scan(scan) => scan.len()?,
             Array::Table(table) => table.len()?,
+            Array::Classify(_) => return None,
         })
     }
     pub fn get(&self, index: usize) -> RuntimeResult<Option<Cow<Val>>> {
@@ -263,6 +272,7 @@ impl Array {
             Array::Replicate(rep) => rep.get(index)?,
             Array::Scan(scan) => scan.get(index)?.map(Cow::Owned),
             Array::Table(table) => table.get(index)?.map(Cow::Owned),
+            Array::Classify(class) => class.get(index)?.map(Cow::Owned),
         })
     }
     pub fn iter(&self) -> impl Iterator<Item = RuntimeResult<Cow<Val>>> {
@@ -726,5 +736,69 @@ impl TableArray {
             }
             .into(),
         ))))
+    }
+}
+
+#[derive(Debug)]
+pub struct ClassifyArray {
+    arr: Array,
+    next_index: Cell<usize>,
+    resolved: Cell<usize>,
+    indices: RefCell<BTreeMap<Val, usize>>,
+}
+
+impl ClassifyArray {
+    pub fn new(arr: Array) -> Self {
+        ClassifyArray {
+            arr,
+            next_index: Cell::new(0),
+            resolved: Cell::new(0),
+            indices: Default::default(),
+        }
+    }
+    pub fn get(&self, index: usize) -> RuntimeResult<Option<Val>> {
+        while self.resolved.get() <= index {
+            let resolved = self.resolved.get();
+            let val = self.arr.get(resolved)?;
+            if let Some(val) = val {
+                let mut indices = self.indices.borrow_mut();
+                if !indices.contains_key(&val) {
+                    let next_index = self.next_index.get();
+                    indices.insert(val.into_owned(), next_index);
+                    self.next_index.set(next_index + 1);
+                }
+                self.resolved.set(resolved + 1);
+            } else {
+                return Ok(None);
+            }
+        }
+        Ok(self.arr.get(index)?.map(|val| {
+            (*self
+                .indices
+                .borrow()
+                .get(&val)
+                .expect("No index for classified value"))
+            .into()
+        }))
+    }
+}
+
+impl PartialEq for ClassifyArray {
+    fn eq(&self, other: &Self) -> bool {
+        self.arr == other.arr
+    }
+}
+
+impl Eq for ClassifyArray {}
+
+impl PartialOrd for ClassifyArray {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for ClassifyArray {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.arr.cmp(&other.arr)
     }
 }

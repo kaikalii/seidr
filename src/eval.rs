@@ -1,4 +1,4 @@
-use std::iter::repeat;
+use std::{collections::BTreeMap, iter::repeat};
 
 use crate::{
     array::*,
@@ -111,6 +111,7 @@ impl Runtime {
                 RuneOp::Algiz => self.range(x, span).map(Val::from),
                 RuneOp::Tiwaz => self.grade(x, span).map(Val::from),
                 RuneOp::Perth => self.first(x, span),
+                RuneOp::Ansuz => classify(x, span).map(Val::from),
                 rune => rt_error(format!("{} has no unary form", rune), span),
             },
             Function::Op(Op::Other(other)) => match other {
@@ -627,6 +628,28 @@ pub fn function_fold_identity(function: &Function, span: &Span) -> RuntimeResult
             )
         }
     })
+}
+
+pub fn classify(x: Val, span: &Span) -> RuntimeResult<Array> {
+    match x {
+        Val::Array(arr) if arr.len().is_none() => {
+            Ok(Array::Classify(ClassifyArray::new(arr).into()))
+        }
+        Val::Array(arr) => {
+            let mut indices = BTreeMap::new();
+            let mut next_index: usize = 0;
+            Array::try_concrete(arr.into_iter().map(|val| {
+                let val = val?;
+                let index = indices.entry(val).or_insert_with(|| {
+                    let index = next_index;
+                    next_index += 1;
+                    index
+                });
+                Ok((*index).into())
+            }))
+        }
+        Val::Atom(x) => rt_error(format!("{}s cannot be classified", x.type_name()), span),
+    }
 }
 
 pub fn rt_error<T>(message: impl Into<String>, span: &Span) -> RuntimeResult<T> {

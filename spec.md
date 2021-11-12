@@ -37,9 +37,9 @@
 
 | glyph | unary          | binary    | escape character             | name   | meaning       |
 | ----- | -------------- | --------- | ---------------------------- | ------ | ------------- |
-| ᚠ     |                | replicate | f                            | fehu   | cattle/wealth |
+| ᚠ     | deduplicate    | replicate | f                            | fehu   | cattle/wealth |
 | ᚢ     | transpose      | chunks    | u                            | uruz   | strength      |
-| ᚨ     |                | select    | a                            | ansuz  | god           |
+| ᚨ     | classify       | select    | a                            | ansuz  | god           |
 | ᚲ     |                |           | k                            | kaunan | torch         |
 | ᚷ     |                | drop      | g                            | gebo   | gift          |
 | ᚾ     |                | take      | n                            | naudiz | need          |
@@ -86,13 +86,12 @@
 # Unassigned Unary Operators
 - throw
 - print?
-- classify
-- deduplicate
 
 # Unassigned Binary Operators
 - index of
 - member of - can be done with index of, length, and equals
 - group
+- fill?
 - left shift? - can be done with take + join
 - right shift? - can be done with take + join
 
