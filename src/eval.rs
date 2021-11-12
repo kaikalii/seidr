@@ -318,11 +318,17 @@ impl Runtime {
                 Ok(match x {
                     Val::Atom(x) => Array::concrete(repeat(x).take(n)),
                     Val::Array(x) => {
-                        let arrays: Vec<Array> = x
-                            .into_iter()
-                            .map(|x| x.and_then(|x| self.replicate(n.into(), x, span)))
-                            .collect::<RuntimeResult<_>>()?;
-                        Array::Concrete(arrays.into_iter().flatten().collect::<RuntimeResult<_>>()?)
+                        if x.len().is_some() {
+                            let arrays: Vec<Array> = x
+                                .into_iter()
+                                .map(|x| x.and_then(|x| self.replicate(n.into(), x, span)))
+                                .collect::<RuntimeResult<_>>()?;
+                            Array::Concrete(
+                                arrays.into_iter().flatten().collect::<RuntimeResult<_>>()?,
+                            )
+                        } else {
+                            Array::Replicate(ReplicateArray::int(n, x).into())
+                        }
                     }
                 })
             }
