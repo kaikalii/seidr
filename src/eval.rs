@@ -282,12 +282,12 @@ impl Runtime {
                     .collect::<RuntimeResult<_>>()?;
                 Array::Concrete(arrays.into_iter().flatten().collect::<RuntimeResult<_>>()?)
             } else {
-                Array::Replicate(ReplicateArray::counts(w, x, span.clone()).into())
+                Array::Replicate(LazyReplicate::counts(w, x, span.clone()).into())
             }),
             (w, x) => {
                 let n = replicator_num(w, span)?;
                 Ok(match x {
-                    Val::Atom(x) => Array::Replicate(ReplicateArray::repeat(n, x.into()).into()),
+                    Val::Atom(x) => Array::Replicate(LazyReplicate::repeat(n, x.into()).into()),
                     Val::Array(x) => {
                         if !n.is_infinite() && x.len().is_some() {
                             let arrays: Vec<Array> = x
@@ -298,7 +298,7 @@ impl Runtime {
                                 arrays.into_iter().flatten().collect::<RuntimeResult<_>>()?,
                             )
                         } else {
-                            Array::Replicate(ReplicateArray::num(n, x).into())
+                            Array::Replicate(LazyReplicate::num(n, x).into())
                         }
                     }
                 })
@@ -337,7 +337,7 @@ impl Runtime {
     pub fn scan(&self, op: Val, w: Option<Val>, x: Val, span: &Span) -> RuntimeResult<Array> {
         match x {
             Val::Array(arr) => Ok(Array::Scan(
-                ScanArray::new(op, arr, w, span.clone(), self.clone()).into(),
+                LazyScan::new(op, arr, w, span.clone(), self.clone()).into(),
             )),
             Val::Atom(atom) => {
                 rt_error(format!("Attempted to scan over {}", atom.type_name()), span)
@@ -372,7 +372,7 @@ impl Runtime {
     pub fn each_un(&self, op: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
         match x {
             Val::Array(arr) => Ok(Array::Each(
-                EachArray {
+                LazyEach {
                     zip: ZipForm::Un(arr),
                     f: op,
                     span: span.clone(),
@@ -390,7 +390,7 @@ impl Runtime {
     pub fn each_bin(&self, op: Val, w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
         match ZipForm::bin(w, x) {
             Ok(zip) => Ok(Array::Each(
-                EachArray {
+                LazyEach {
                     zip,
                     f: op,
                     span: span.clone(),
@@ -503,7 +503,7 @@ impl Runtime {
             w @ Val::Atom(_) => self.index(w, x, span),
             Val::Array(w) => match x {
                 Val::Array(x) => Ok(Array::Select(
-                    SelectArray {
+                    LazySelect {
                         indices: w,
                         array: x,
                         span: span.clone(),
@@ -565,7 +565,7 @@ impl Runtime {
     pub fn table(&self, f: Val, w: Val, x: Val, span: &Span) -> RuntimeResult<Array> {
         match (w, x) {
             (Val::Array(w), Val::Array(x)) => Ok(Array::Table(
-                TableArray::new(f, w, x, span.clone(), self.clone()).into(),
+                LazyTable::new(f, w, x, span.clone(), self.clone()).into(),
             )),
             (w, x) => self.each_bin(f, w, x, span),
         }
@@ -634,7 +634,7 @@ pub fn function_fold_identity(function: &Function, span: &Span) -> RuntimeResult
 pub fn classify(x: Val, span: &Span) -> RuntimeResult<Array> {
     match x {
         Val::Array(arr) if arr.len().is_none() => {
-            Ok(Array::Classify(ClassifyArray::new(arr).into()))
+            Ok(Array::Classify(LazyClassify::new(arr).into()))
         }
         Val::Array(arr) => {
             let mut indices = BTreeMap::new();
@@ -656,7 +656,7 @@ pub fn classify(x: Val, span: &Span) -> RuntimeResult<Array> {
 pub fn deduplicate(x: Val, span: &Span) -> RuntimeResult<Array> {
     match x {
         Val::Array(arr) if arr.len().is_none() => {
-            Ok(Array::Deduplicate(DeduplicateArray::new(arr).into()))
+            Ok(Array::Deduplicate(LazyDeduplicate::new(arr).into()))
         }
         Val::Array(arr) => {
             let mut seen = BTreeSet::new();

@@ -13,7 +13,7 @@ use crate::{
     format::{Format, Formatter},
     lex::Span,
     num::Num,
-    pervade::PervadedArray,
+    pervade::LazyPervade,
     rcview::{RcView, RcViewIntoIter},
     runtime::Runtime,
     value::{Atom, Val},
@@ -29,18 +29,18 @@ pub enum Array {
     Reverse(Box<Self>),
     Range(Num),
     JoinTo(Box<Self>, Box<Self>),
-    Pervaded(Box<PervadedArray>),
+    Pervaded(Box<LazyPervade>),
     Take(Box<Self>, i64),
     Drop(Box<Self>, i64),
-    Each(Box<EachArray>),
-    Select(Box<SelectArray>),
+    Each(Box<LazyEach>),
+    Select(Box<LazySelect>),
     Windows(Box<Self>, usize),
     Chunks(Box<Self>, usize),
-    Replicate(Rc<ReplicateArray>),
-    Scan(Rc<ScanArray>),
-    Table(Rc<TableArray>),
-    Classify(Rc<ClassifyArray>),
-    Deduplicate(Rc<DeduplicateArray>),
+    Replicate(Rc<LazyReplicate>),
+    Deduplicate(Rc<LazyDeduplicate>),
+    Scan(Rc<LazyScan>),
+    Table(Rc<LazyTable>),
+    Classify(Rc<LazyClassify>),
 }
 
 fn _array_size() {
@@ -380,8 +380,8 @@ impl Format for Array {
     }
 }
 
-impl From<PervadedArray> for Array {
-    fn from(pa: PervadedArray) -> Self {
+impl From<LazyPervade> for Array {
+    fn from(pa: LazyPervade) -> Self {
         Array::Pervaded(pa.into())
     }
 }
@@ -539,39 +539,39 @@ impl PartialEq for CachedArray {
 impl Eq for CachedArray {}
 
 #[derive(Debug, Clone)]
-pub struct EachArray {
+pub struct LazyEach {
     pub zip: ZipForm,
     pub f: Val,
     pub span: Span,
     pub rt: Runtime,
 }
 
-impl PartialEq for EachArray {
+impl PartialEq for LazyEach {
     fn eq(&self, other: &Self) -> bool {
         self.f == other.f && self.zip == other.zip
     }
 }
 
-impl Eq for EachArray {}
+impl Eq for LazyEach {}
 
 #[derive(Debug, Clone)]
-pub struct SelectArray {
+pub struct LazySelect {
     pub indices: Array,
     pub array: Array,
     pub span: Span,
     pub rt: Runtime,
 }
 
-impl PartialEq for SelectArray {
+impl PartialEq for LazySelect {
     fn eq(&self, other: &Self) -> bool {
         self.indices == other.indices && self.array == other.array
     }
 }
 
-impl Eq for SelectArray {}
+impl Eq for LazySelect {}
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum ReplicateArray {
+pub enum LazyReplicate {
     Repeat { n: Num, val: Val },
     Num { n: Num, array: Array },
     Counts(Box<CountsReplicateArray>),
@@ -593,15 +593,15 @@ impl PartialEq for CountsReplicateArray {
 
 impl Eq for CountsReplicateArray {}
 
-impl ReplicateArray {
+impl LazyReplicate {
     pub fn repeat(n: Num, val: Val) -> Self {
-        ReplicateArray::Repeat { n, val }
+        LazyReplicate::Repeat { n, val }
     }
     pub fn num(n: Num, array: Array) -> Self {
-        ReplicateArray::Num { n, array }
+        LazyReplicate::Num { n, array }
     }
     pub fn counts(counts: Array, array: Array, span: Span) -> Self {
-        ReplicateArray::Counts(
+        LazyReplicate::Counts(
             CountsReplicateArray {
                 counts: counts.into_iter().into(),
                 array: array.into_iter().into(),
@@ -613,15 +613,15 @@ impl ReplicateArray {
     }
     pub fn len(&self) -> Option<usize> {
         match self {
-            ReplicateArray::Repeat { n, .. } => {
+            LazyReplicate::Repeat { n, .. } => {
                 if n.is_infinite() {
                     None
                 } else {
                     Some(i64::from(*n) as usize)
                 }
             }
-            ReplicateArray::Counts(_) => None,
-            ReplicateArray::Num { n, array } => {
+            LazyReplicate::Counts(_) => None,
+            LazyReplicate::Num { n, array } => {
                 if n.is_infinite() {
                     None
                 } else {
@@ -632,14 +632,14 @@ impl ReplicateArray {
     }
     pub fn get(&self, index: usize) -> RuntimeResult<Option<Cow<Val>>> {
         Ok(match self {
-            ReplicateArray::Repeat { n, val } => {
+            LazyReplicate::Repeat { n, val } => {
                 if n > &Num::from(index) {
                     Some(Cow::Borrowed(val))
                 } else {
                     None
                 }
             }
-            ReplicateArray::Counts(cra) => {
+            LazyReplicate::Counts(cra) => {
                 let mut cache = cra.cache.borrow_mut();
                 while cache.len() <= index {
                     let count = cra.counts.borrow_mut().next().transpose()?;
@@ -657,14 +657,14 @@ impl ReplicateArray {
                 }
                 cache.get(index).cloned().map(Cow::Owned)
             }
-            ReplicateArray::Num { n, array } if n.is_infinite() => array.get(0)?,
-            ReplicateArray::Num { n, array } => array.get(index / i64::from(*n) as usize)?,
+            LazyReplicate::Num { n, array } if n.is_infinite() => array.get(0)?,
+            LazyReplicate::Num { n, array } => array.get(index / i64::from(*n) as usize)?,
         })
     }
 }
 
 #[derive(Debug)]
-pub struct ScanArray {
+pub struct LazyScan {
     f: Val,
     array: Array,
     init: Option<Val>,
@@ -673,17 +673,17 @@ pub struct ScanArray {
     rt: Runtime,
 }
 
-impl PartialEq for ScanArray {
+impl PartialEq for LazyScan {
     fn eq(&self, other: &Self) -> bool {
         self.f == other.f && self.array == other.array && self.init == other.init
     }
 }
 
-impl Eq for ScanArray {}
+impl Eq for LazyScan {}
 
-impl ScanArray {
+impl LazyScan {
     pub fn new(f: Val, array: Array, init: Option<Val>, span: Span, rt: Runtime) -> Self {
-        ScanArray {
+        LazyScan {
             f,
             array,
             init,
@@ -734,7 +734,7 @@ impl ScanArray {
 }
 
 #[derive(Debug)]
-pub struct TableArray {
+pub struct LazyTable {
     f: Val,
     w: Array,
     x: Array,
@@ -742,17 +742,17 @@ pub struct TableArray {
     rt: Runtime,
 }
 
-impl PartialEq for TableArray {
+impl PartialEq for LazyTable {
     fn eq(&self, other: &Self) -> bool {
         self.f == other.f && self.w == other.w && self.x == other.x
     }
 }
 
-impl Eq for TableArray {}
+impl Eq for LazyTable {}
 
-impl TableArray {
+impl LazyTable {
     pub fn new(f: Val, w: Array, x: Array, span: Span, rt: Runtime) -> Self {
-        TableArray { f, w, x, span, rt }
+        LazyTable { f, w, x, span, rt }
     }
     pub fn len(&self) -> Option<usize> {
         self.w.len()
@@ -764,7 +764,7 @@ impl TableArray {
             return Ok(None);
         };
         Ok(Some(Val::Array(Array::Each(
-            EachArray {
+            LazyEach {
                 zip: ZipForm::BinLeft(val, self.x.clone()),
                 f: self.f.clone(),
                 span: self.span.clone(),
@@ -776,16 +776,16 @@ impl TableArray {
 }
 
 #[derive(Debug)]
-pub struct ClassifyArray {
+pub struct LazyClassify {
     arr: Array,
     next_index: Cell<usize>,
     resolved: Cell<usize>,
     indices: RefCell<BTreeMap<Val, usize>>,
 }
 
-impl ClassifyArray {
+impl LazyClassify {
     pub fn new(arr: Array) -> Self {
-        ClassifyArray {
+        LazyClassify {
             arr,
             next_index: Cell::new(0),
             resolved: Cell::new(0),
@@ -819,37 +819,37 @@ impl ClassifyArray {
     }
 }
 
-impl PartialEq for ClassifyArray {
+impl PartialEq for LazyClassify {
     fn eq(&self, other: &Self) -> bool {
         self.arr == other.arr
     }
 }
 
-impl Eq for ClassifyArray {}
+impl Eq for LazyClassify {}
 
-impl PartialOrd for ClassifyArray {
+impl PartialOrd for LazyClassify {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for ClassifyArray {
+impl Ord for LazyClassify {
     fn cmp(&self, other: &Self) -> Ordering {
         self.arr.cmp(&other.arr)
     }
 }
 
 #[derive(Debug)]
-pub struct DeduplicateArray {
+pub struct LazyDeduplicate {
     arr: Array,
     resolved: Cell<usize>,
     cache: RefCell<Vec<Val>>,
     seen: RefCell<BTreeSet<Val>>,
 }
 
-impl DeduplicateArray {
+impl LazyDeduplicate {
     pub fn new(arr: Array) -> Self {
-        DeduplicateArray {
+        LazyDeduplicate {
             arr,
             resolved: Cell::new(0),
             cache: Default::default(),
@@ -876,21 +876,21 @@ impl DeduplicateArray {
     }
 }
 
-impl PartialEq for DeduplicateArray {
+impl PartialEq for LazyDeduplicate {
     fn eq(&self, other: &Self) -> bool {
         self.arr == other.arr
     }
 }
 
-impl Eq for DeduplicateArray {}
+impl Eq for LazyDeduplicate {}
 
-impl PartialOrd for DeduplicateArray {
+impl PartialOrd for LazyDeduplicate {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for DeduplicateArray {
+impl Ord for LazyDeduplicate {
     fn cmp(&self, other: &Self) -> Ordering {
         self.arr.cmp(&other.arr)
     }

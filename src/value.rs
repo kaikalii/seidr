@@ -8,7 +8,7 @@ use crate::{
     lex::Span,
     num::Num,
     op::*,
-    pervade::PervadedArray,
+    pervade::LazyPervade,
 };
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -176,8 +176,8 @@ impl From<Array> for Val {
     }
 }
 
-impl From<PervadedArray> for Val {
-    fn from(pa: PervadedArray) -> Self {
+impl From<LazyPervade> for Val {
+    fn from(pa: LazyPervade) -> Self {
         Val::Array(pa.into())
     }
 }

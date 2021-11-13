@@ -11,7 +11,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub struct PervadedArray {
+pub struct LazyPervade {
     form: PervadedArrayForm,
     op: Rc<PervadedArrayOp>,
 }
@@ -31,15 +31,15 @@ pub enum PervadedArrayForm {
 }
 
 impl PervadedArrayForm {
-    pub fn with(self, per: Pervasive, span: Span) -> PervadedArray {
-        PervadedArray {
+    pub fn with(self, per: Pervasive, span: Span) -> LazyPervade {
+        LazyPervade {
             form: self,
             op: PervadedArrayOp { per, span }.into(),
         }
     }
 }
 
-impl PervadedArray {
+impl LazyPervade {
     pub fn len(&self) -> Option<usize> {
         match &self.form {
             PervadedArrayForm::Un(arr)
@@ -64,7 +64,7 @@ impl PervadedArray {
                 match val {
                     Val::Atom(atom) => un_pervade_atom(self.op.per, atom, &self.op.span).map(Some),
                     Val::Array(arr) => Ok(Some(
-                        Array::from(PervadedArray {
+                        Array::from(LazyPervade {
                             form: PervadedArrayForm::Un(arr),
                             op: self.op.clone(),
                         })
@@ -83,7 +83,7 @@ impl PervadedArray {
                         bin_pervade_atom(self.op.per, w.clone(), x, &self.op.span).map(Some)
                     }
                     Val::Array(x) => Ok(Some(
-                        Array::from(PervadedArray {
+                        Array::from(LazyPervade {
                             form: PervadedArrayForm::BinLeft(w.clone(), x),
                             op: self.op.clone(),
                         })
@@ -102,7 +102,7 @@ impl PervadedArray {
                         bin_pervade_atom(self.op.per, w, x.clone(), &self.op.span).map(Some)
                     }
                     Val::Array(w) => Ok(Some(
-                        Array::from(PervadedArray {
+                        Array::from(LazyPervade {
                             form: PervadedArrayForm::BinRight(w, x.clone()),
                             op: self.op.clone(),
                         })
@@ -234,10 +234,10 @@ pub fn bin_pervade_atom(per: Pervasive, w: Atom, x: Atom, span: &Span) -> Runtim
     }
 }
 
-impl PartialEq for PervadedArray {
+impl PartialEq for LazyPervade {
     fn eq(&self, other: &Self) -> bool {
         self.op.per == other.op.per && self.form == other.form
     }
 }
 
-impl Eq for PervadedArray {}
+impl Eq for LazyPervade {}

@@ -1,4 +1,6 @@
-# Literals
+# Glyphs
+
+## Literals
 
 | glyph        | meaning                            | escape character |
 | ------------ | ---------------------------------- | ---------------- |
@@ -13,7 +15,7 @@
 | ᚯ᛬           | first function parameter as value  | 7                |
 | ᛬ᚬ           | second function parameter as value | 9                |
 
-# Operators
+## Operators
 
 | glyph | unary       | binary                    | escape character |
 | ----- | ----------- | ------------------------- | ---------------- |
@@ -33,7 +35,7 @@
 | ⎡     | ceiling     | max                       | ^                |
 | ⎣     | floor       | min                       | _                |
 
-# Rune Operators
+## Rune Operators
 
 | glyph | unary          | binary    | escape character             | name   | meaning       |
 | ----- | -------------- | --------- | ---------------------------- | ------ | ------------- |
@@ -52,12 +54,12 @@
 | ᛏ     | grade          |           | t                            | tiwaz  | Týr           |
 | ᛚ     | identity       | right     | l                            | laguz  | water/lake    |
 
-# Unary Modifiers
+## Unary Modifiers
 
 | glyph | meaning | escape character |
 | ----- | ------- | ---------------- |
 
-# Rune Unary Modifiers
+## Rune Unary Modifiers
 
 | glyph | meaing    | escape character | name     | meaning             |
 | ----- | --------- | ---------------- | -------- | ------------------- |
@@ -68,12 +70,12 @@
 | ᛜ     | constant  | N                | ingwaz   | Yngvi               |
 | ᛟ     | both/flip | o                | othala   | heritage/possession |
 
-# Binary Modifiers
+## Binary Modifiers
 
 | glyph | meaning | escape character |
 | ----- | ------- | ---------------- |
 
-# Rune Binary Modifiers
+## Rune Binary Modifiers
 
 | glyph | meaing | escape character | name   | meaning |
 | ----- | ------ | ---------------- | ------ | ------- |
@@ -83,11 +85,11 @@
 | ᛞ     | choose | d                | dagaz  | day     |
 | ᛥ     | catch  | S                | stan   | stone   |
 
-# Unassigned Unary Operators
+## Unassigned Unary Operators
 - throw
 - print?
 
-# Unassigned Binary Operators
+## Unassigned Binary Operators
 - index of
 - member of - can be done with index of, length, and equals
 - group
@@ -95,5 +97,27 @@
 - left shift? - can be done with take + join
 - right shift? - can be done with take + join
 
-# Unassign Binary Modifiers
+## Unassign Binary Modifiers
 - repeat
+
+# Array Types
+
+| Type        | Access     |
+| ----------- | ---------- |
+| concrete    | source     |
+| string      | source     |
+| range       | source     |
+| reverse     | random     |
+| join        | random     |
+| pervaded    | random     |
+| take        | random     |
+| drop        | random     |
+| each        | random     |
+| select      | random     |
+| windows     | random     |
+| chunks      | random     |
+| table       | random     |
+| replicate   | sequential |
+| classify    | sequential |
+| deduplicate | sequential |
+| scan        | sequential |
