@@ -2,7 +2,7 @@ use std::{
     borrow::Cow,
     cell::{Cell, RefCell},
     cmp::Ordering,
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, BTreeSet, HashMap},
     iter,
     rc::Rc,
 };
@@ -40,6 +40,7 @@ pub enum Array {
     Scan(Rc<ScanArray>),
     Table(Rc<TableArray>),
     Classify(Rc<ClassifyArray>),
+    Deduplicate(Rc<DeduplicateArray>),
 }
 
 fn _array_size() {
@@ -157,6 +158,7 @@ impl Array {
             Array::Scan(scan) => scan.len()?,
             Array::Table(table) => table.len()?,
             Array::Classify(_) => return None,
+            Array::Deduplicate(_) => return None,
         })
     }
     pub fn get(&self, index: usize) -> RuntimeResult<Option<Cow<Val>>> {
@@ -273,6 +275,7 @@ impl Array {
             Array::Scan(scan) => scan.get(index)?.map(Cow::Owned),
             Array::Table(table) => table.get(index)?.map(Cow::Owned),
             Array::Classify(class) => class.get(index)?.map(Cow::Owned),
+            Array::Deduplicate(dedup) => dedup.get(index)?.map(Cow::Owned),
         })
     }
     pub fn iter(&self) -> impl Iterator<Item = RuntimeResult<Cow<Val>>> {
@@ -831,6 +834,63 @@ impl PartialOrd for ClassifyArray {
 }
 
 impl Ord for ClassifyArray {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.arr.cmp(&other.arr)
+    }
+}
+
+#[derive(Debug)]
+pub struct DeduplicateArray {
+    arr: Array,
+    resolved: Cell<usize>,
+    cache: RefCell<Vec<Val>>,
+    seen: RefCell<BTreeSet<Val>>,
+}
+
+impl DeduplicateArray {
+    pub fn new(arr: Array) -> Self {
+        DeduplicateArray {
+            arr,
+            resolved: Cell::new(0),
+            cache: Default::default(),
+            seen: Default::default(),
+        }
+    }
+    pub fn get(&self, index: usize) -> RuntimeResult<Option<Val>> {
+        let mut cache = self.cache.borrow_mut();
+        let mut seen = self.seen.borrow_mut();
+        while cache.len() <= index {
+            let resolved = self.resolved.get();
+            if let Some(val) = self.arr.get(resolved)? {
+                if !seen.contains(&val) {
+                    let val = val.into_owned();
+                    seen.insert(val.clone());
+                    cache.push(val);
+                }
+                self.resolved.set(resolved + 1);
+            } else {
+                break;
+            }
+        }
+        Ok(cache.get(index).cloned())
+    }
+}
+
+impl PartialEq for DeduplicateArray {
+    fn eq(&self, other: &Self) -> bool {
+        self.arr == other.arr
+    }
+}
+
+impl Eq for DeduplicateArray {}
+
+impl PartialOrd for DeduplicateArray {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for DeduplicateArray {
     fn cmp(&self, other: &Self) -> Ordering {
         self.arr.cmp(&other.arr)
     }

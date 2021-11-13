@@ -1,4 +1,1 @@
 - Implement rest of ops and modifiers
-- Simplify assignment parsing
-- Add parameters
-- Add variables

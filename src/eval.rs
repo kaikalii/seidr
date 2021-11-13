@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{
     array::*,
@@ -112,6 +112,7 @@ impl Runtime {
                 RuneOp::Tiwaz => self.grade(x, span).map(Val::from),
                 RuneOp::Perth => self.first(x, span),
                 RuneOp::Ansuz => classify(x, span).map(Val::from),
+                RuneOp::Fehu => deduplicate(x, span).map(Val::from),
                 rune => rt_error(format!("{} has no unary form", rune), span),
             },
             Function::Op(Op::Other(other)) => match other {
@@ -649,6 +650,27 @@ pub fn classify(x: Val, span: &Span) -> RuntimeResult<Array> {
             }))
         }
         Val::Atom(x) => rt_error(format!("{}s cannot be classified", x.type_name()), span),
+    }
+}
+
+pub fn deduplicate(x: Val, span: &Span) -> RuntimeResult<Array> {
+    match x {
+        Val::Array(arr) if arr.len().is_none() => {
+            Ok(Array::Deduplicate(DeduplicateArray::new(arr).into()))
+        }
+        Val::Array(arr) => {
+            let mut seen = BTreeSet::new();
+            let mut deduplicated = Vec::new();
+            for val in arr.into_iter() {
+                let val = val?;
+                if !seen.contains(&val) {
+                    seen.insert(val.clone());
+                    deduplicated.push(val);
+                }
+            }
+            Ok(Array::concrete(deduplicated))
+        }
+        Val::Atom(x) => rt_error(format!("{}s cannot be deduplicated", x.type_name()), span),
     }
 }
 
