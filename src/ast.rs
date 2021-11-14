@@ -83,7 +83,7 @@ pub enum Expr {
     Un(Box<UnExpr>),
     Bin(Box<BinExpr>),
     Assign(Box<AssignExpr>),
-    Function(Box<Self>),
+    Function(Box<FunctionLiteral>),
 }
 
 impl Expr {
@@ -114,10 +114,13 @@ impl Expr {
             Un(expr) => expr.op.role().un(expr.inner.role()),
             Bin(expr) => expr.op.role().bin(expr.left.role(), expr.right.role()),
             Assign(expr) => expr.name.role(),
-            Function(expr) => expr
-                .max_param()
-                .map(|param| param.place.min_role())
-                .unwrap_or(Role::Function),
+            Function(items) => items.expressions().fold(Role::Function, |max, expr| {
+                let expr_role = expr
+                    .max_param()
+                    .map(|param| param.place.min_role())
+                    .unwrap_or(Role::Function);
+                max.max(expr_role)
+            }),
         }
     }
     pub fn max_param(&self) -> Option<&Sp<Param>> {
@@ -154,7 +157,7 @@ impl Expr {
             Expr::Un(expr) => expr.op.span(),
             Expr::Bin(expr) => expr.op.span(),
             Expr::Assign(expr) => &expr.span,
-            Expr::Function(expr) => expr.span(),
+            Expr::Function(body) => &body.span,
         }
     }
 }
@@ -179,11 +182,7 @@ impl fmt::Debug for Expr {
             Expr::Un(expr) => expr.fmt(f),
             Expr::Bin(expr) => expr.fmt(f),
             Expr::Assign(expr) => expr.fmt(f),
-            Expr::Function(expr) => {
-                write!(f, "⦑")?;
-                expr.fmt(f)?;
-                write!(f, "⦒")
-            }
+            Expr::Function(expr) => expr.fmt(f),
         }
     }
 }
@@ -378,6 +377,50 @@ impl Format for ArrayExpr {
             }
         }
         f.display('⟩');
+        Ok(())
+    }
+}
+
+pub struct FunctionLiteral {
+    pub items: Vec<Item>,
+    pub span: Span,
+}
+
+impl FunctionLiteral {
+    pub fn expressions(&self) -> impl Iterator<Item = &Expr> {
+        self.items.iter().filter_map(|item| {
+            if let Item::Expr(expr) = item {
+                Some(&expr.expr)
+            } else {
+                None
+            }
+        })
+    }
+    pub fn max_param(&self) -> Param {
+        todo!()
+    }
+}
+
+impl fmt::Debug for FunctionLiteral {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "⦑")?;
+        for item in &self.items {
+            item.fmt(f)?;
+            write!(f, ", ")?;
+        }
+        write!(f, "⦒")
+    }
+}
+
+impl Format for FunctionLiteral {
+    fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
+        f.display('⦑');
+        f.indent(2);
+        for item in &self.items {
+            item.format(f)?;
+        }
+        f.deindent(2);
+        f.display('⦒');
         Ok(())
     }
 }

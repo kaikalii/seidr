@@ -336,12 +336,22 @@ impl Parser {
         Ok(Some(Expr::Parened(expr.into())))
     }
     fn function_literal(&mut self) -> CompileResult<Option<Expr>> {
-        if self.match_token(TT::OpenAngleDot).is_none() {
+        let open = if let Some(token) = self.match_token(TT::OpenAngleDot) {
+            token
+        } else {
             return Ok(None);
+        };
+        let mut items = Vec::new();
+        while let Some(item) = self.item()? {
+            items.push(item);
+            self.match_token(TT::Comma);
         }
-        let expr = self.expect_with("function body", Self::expr)?;
-        self.expect_token(TT::CloseAngleDot)?;
-        Ok(Some(Expr::Function(expr.into())))
+        let close = self.expect_token(TT::CloseAngleDot)?;
+        let span = open.span.join(&close.span);
+        if !items.iter().any(|item| matches!(item, Item::Expr(_))) {
+            return Err(CompileError::EmptyFunction.at(span));
+        }
+        Ok(Some(Expr::Function(FunctionLiteral { items, span }.into())))
     }
     fn array(&mut self) -> CompileResult<Option<Expr>> {
         let open = if let Some(token) = self.match_token(TT::OpenAngle) {

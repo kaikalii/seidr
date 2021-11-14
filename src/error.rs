@@ -24,6 +24,7 @@ pub enum CompileError {
     MismatchedRoles(Ident, Role),
     InvalidRole(Role, Vec<Role>),
     ParameterOutsideFunction,
+    EmptyFunction,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -77,6 +78,9 @@ impl fmt::Display for CompileError {
             }
             CompileError::ParameterOutsideFunction => {
                 write!(f, "Parameters can only occur within functions")
+            }
+            CompileError::EmptyFunction => {
+                write!(f, "Functions must contain at least one expression")
             }
         }
     }
