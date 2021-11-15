@@ -82,6 +82,14 @@ impl Eval for BinValNode {
 }
 
 impl Runtime {
+    pub fn eval_nodes(&self, nodes: impl IntoIterator<Item = ValNode>) -> RuntimeResult {
+        let mut res: Val = Num::Int(0).into();
+        for node in nodes {
+            res = node.eval(self)?;
+        }
+        Ok(res)
+    }
+
     pub fn eval_un(&self, op: Val, x: Val, span: &Span) -> RuntimeResult {
         match op {
             Val::Atom(Atom::Function(function)) => self.eval_un_function(function, x, span),
@@ -95,10 +103,10 @@ impl Runtime {
             return Ok(Function::Atop(Atop { f: function, g }.into()).into());
         }
         match function {
-            Function::Node(node) => {
+            Function::Nodes(nodes) => {
                 let rt = self.push();
                 rt.bind_param(ParamPlace::X, x);
-                node.eval(&rt)
+                rt.eval_nodes(nodes)
             }
             Function::Op(Op::Pervasive(Pervasive::Comparison(ComparisonOp::Equal))) => match x {
                 Val::Array(arr) => Ok(arr.len().map(Num::from).unwrap_or(Num::INFINIFY).into()),
@@ -138,7 +146,12 @@ impl Runtime {
                         self.each_un(un_mod.f, x, span).map(Val::from)
                     }
                 },
-                UnMod::Node(node) => todo!(),
+                UnMod::Nodes(nodes) => {
+                    let rt = self.push();
+                    rt.bind_param(ParamPlace::F, un_mod.f);
+                    rt.bind_param(ParamPlace::X, x);
+                    rt.eval_nodes(nodes)
+                }
             },
             Function::BinMod(bin_mod) => match bin_mod.m {
                 BinMod::Rune(rune) => match rune {
@@ -157,7 +170,13 @@ impl Runtime {
                     }
                     m => todo!("{:?}", m),
                 },
-                BinMod::Node(node) => todo!(),
+                BinMod::Nodes(nodes) => {
+                    let rt = self.push();
+                    rt.bind_param(ParamPlace::F, bin_mod.f);
+                    rt.bind_param(ParamPlace::G, bin_mod.g);
+                    rt.bind_param(ParamPlace::X, x);
+                    rt.eval_nodes(nodes)
+                }
             },
         }
     }
@@ -183,7 +202,12 @@ impl Runtime {
             .into());
         }
         match function {
-            Function::Node(node) => todo!(),
+            Function::Nodes(nodes) => {
+                let rt = self.push();
+                rt.bind_param(ParamPlace::X, x);
+                rt.bind_param(ParamPlace::W, w);
+                rt.eval_nodes(nodes)
+            }
             Function::Op(Op::Pervasive(per)) => bin_pervade_val(per, w, x, span),
             Function::Op(Op::Rune(rune)) => match rune {
                 RuneOp::Laguz => Ok(x),
@@ -221,7 +245,13 @@ impl Runtime {
                     RuneUnMod::Berkanan => self.each_bin(un_mod.f, w, x, span).map(Val::from),
                     RuneUnMod::Wunjo => self.table(un_mod.f, w, x, span).map(Val::from),
                 },
-                UnMod::Node(node) => todo!(),
+                UnMod::Nodes(nodes) => {
+                    let rt = self.push();
+                    rt.bind_param(ParamPlace::X, x);
+                    rt.bind_param(ParamPlace::W, w);
+                    rt.bind_param(ParamPlace::F, un_mod.f);
+                    rt.eval_nodes(nodes)
+                }
             },
             Function::BinMod(bin_mod) => match bin_mod.m {
                 BinMod::Rune(rune) => match rune {
@@ -242,7 +272,14 @@ impl Runtime {
                     }
                     m => todo!("{:?}", m),
                 },
-                BinMod::Node(node) => todo!(),
+                BinMod::Nodes(nodes) => {
+                    let rt = self.push();
+                    rt.bind_param(ParamPlace::X, x);
+                    rt.bind_param(ParamPlace::W, w);
+                    rt.bind_param(ParamPlace::F, bin_mod.f);
+                    rt.bind_param(ParamPlace::G, bin_mod.g);
+                    rt.eval_nodes(nodes)
+                }
             },
         }
     }

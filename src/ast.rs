@@ -49,7 +49,6 @@ impl Format for Item {
             Item::Comment(comment) => f.display(comment),
             Item::Expr(expr) => expr.format(f)?,
         };
-        f.newline();
         Ok(())
     }
 }
@@ -207,11 +206,7 @@ impl Format for Expr {
             Expr::Un(expr) => expr.format(f)?,
             Expr::Bin(expr) => expr.format(f)?,
             Expr::Assign(expr) => expr.format(f)?,
-            Expr::Function(expr) => {
-                f.display("⦑ ");
-                expr.format(f)?;
-                f.display(" ⦒");
-            }
+            Expr::Function(func) => func.format(f)?,
         }
         Ok(())
     }
@@ -396,8 +391,12 @@ impl FunctionLiteral {
             }
         })
     }
-    pub fn max_param(&self) -> Param {
-        todo!()
+    pub fn max_param(&self) -> Option<Param> {
+        self.expressions()
+            .map(|expr| expr.max_param())
+            .max()
+            .flatten()
+            .map(|param| param.data)
     }
 }
 
@@ -415,11 +414,19 @@ impl fmt::Debug for FunctionLiteral {
 impl Format for FunctionLiteral {
     fn format(&self, f: &mut Formatter) -> RuntimeResult<()> {
         f.display('⦑');
-        f.indent(2);
+        if self.items.len() == 1 {
+            f.display(' ');
+        } else {
+            f.indent(2);
+        }
         for item in &self.items {
             item.format(f)?;
         }
-        f.deindent(2);
+        if self.items.len() == 1 {
+            f.display(' ');
+        } else {
+            f.deindent(2);
+        }
         f.display('⦒');
         Ok(())
     }

@@ -182,6 +182,24 @@ where
 
 impl<T> Eq for RcView<T> where T: Eq {}
 
+impl<T> PartialOrd for RcView<T>
+where
+    T: PartialOrd,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.iter().partial_cmp(other.iter())
+    }
+}
+
+impl<T> Ord for RcView<T>
+where
+    T: Ord,
+{
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.iter().cmp(other.iter())
+    }
+}
+
 impl<T> fmt::Debug for RcView<T>
 where
     T: fmt::Debug,

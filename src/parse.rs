@@ -22,7 +22,7 @@ where
         );
     }
     // Write back to file
-    let formatted: String = items.iter().map(|item| item.to_string()).collect();
+    let formatted: String = items.iter().map(|item| format!("{}\n", item)).collect();
     if formatted != input {
         return parse(&formatted, file);
     }

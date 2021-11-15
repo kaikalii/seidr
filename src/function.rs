@@ -1,17 +1,18 @@
-use std::{fmt, rc::Rc};
+use std::fmt;
 
 use crate::{
     cwt::ValNode,
     error::RuntimeResult,
     format::{Format, Formatter},
     op::*,
+    rcview::RcView,
     value::Val,
 };
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Modifier<R> {
     Rune(R),
-    Node(Rc<ValNode>),
+    Nodes(RcView<ValNode>),
 }
 
 impl<R> fmt::Debug for Modifier<R>
@@ -23,9 +24,9 @@ where
     }
 }
 
-impl<R> From<ValNode> for Modifier<R> {
-    fn from(node: ValNode) -> Self {
-        Modifier::Node(node.into())
+impl<R> From<RcView<ValNode>> for Modifier<R> {
+    fn from(nodes: RcView<ValNode>) -> Self {
+        Modifier::Nodes(nodes)
     }
 }
 
@@ -48,7 +49,7 @@ impl fmt::Display for UnMod {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Modifier::Rune(rune) => rune.fmt(f),
-            Modifier::Node(_) => "<unary modifier>".fmt(f),
+            Modifier::Nodes(_) => "<unary modifier>".fmt(f),
         }
     }
 }
@@ -57,7 +58,7 @@ impl fmt::Display for BinMod {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Modifier::Rune(rune) => rune.fmt(f),
-            Modifier::Node(_) => "<binary modifier>".fmt(f),
+            Modifier::Nodes(_) => "<binary modifier>".fmt(f),
         }
     }
 }
@@ -156,7 +157,7 @@ impl Format for Fork {
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Function {
     Op(Op),
-    Node(Rc<ValNode>),
+    Nodes(RcView<ValNode>),
     UnMod(Box<UnModded>),
     BinMod(Box<BinModded>),
     Atop(Box<Atop>),
@@ -167,7 +168,7 @@ impl Function {
     pub const fn type_name(&self) -> &'static str {
         match self {
             Function::Op(_) => "function",
-            Function::Node(_) => "function",
+            Function::Nodes(_) => "function",
             Function::UnMod(_) => "unary modifier",
             Function::BinMod(_) => "binary modifier",
             Function::Atop(atop) => atop.f.type_name(),
@@ -201,7 +202,7 @@ impl fmt::Debug for Function {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Function::Op(op) => op.fmt(f),
-            Function::Node(node) => node.fmt(f),
+            Function::Nodes(nodes) => nodes.fmt(f),
             Function::UnMod(un) => un.fmt(f),
             Function::BinMod(bin) => bin.fmt(f),
             Function::Atop(atop) => atop.f.fmt(f),
@@ -217,7 +218,7 @@ impl Format for Function {
                 f.display(op);
                 Ok(())
             }
-            Function::Node(node) => {
+            Function::Nodes(_) => {
                 f.display("<function>");
                 Ok(())
             }

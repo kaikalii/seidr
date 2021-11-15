@@ -19,6 +19,7 @@ pub trait Format {
 
 pub struct Formatter<'w> {
     indent: usize,
+    indent_queue: usize,
     writer: &'w mut dyn fmt::Write,
     prev_alphanum: bool,
 }
@@ -27,11 +28,17 @@ impl<'w> Formatter<'w> {
     pub fn new<W: fmt::Write>(writer: &'w mut W) -> Self {
         Formatter {
             indent: 0,
+            indent_queue: 0,
             writer,
             prev_alphanum: false,
         }
     }
     fn write_str(&mut self, s: &str) {
+        for _ in 0..self.indent_queue {
+            write!(self.writer, " ").unwrap_or_else(|e| panic!("{}", e));
+        }
+        self.indent_queue = 0;
+
         if self.prev_alphanum && s.starts_with(|c| ident_head_char(c) || digit_or_inf(c)) {
             write!(self.writer, " ").unwrap_or_else(|e| panic!("{}", e));
         }
@@ -57,12 +64,11 @@ impl<'w> Formatter<'w> {
     }
     pub fn deindent(&mut self, delta: usize) {
         self.indent -= delta;
+        self.indent_queue = self.indent_queue.saturating_sub(delta);
     }
     pub fn newline(&mut self) {
         self.display('\n');
-        for _ in 0..self.indent {
-            self.display(' ');
-        }
+        self.indent_queue = self.indent;
     }
     pub fn array(&mut self, array: &Array) -> RuntimeResult<()> {
         let unbounded = array.len().is_none();

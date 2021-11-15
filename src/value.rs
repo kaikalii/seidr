@@ -122,9 +122,9 @@ pub enum Val {
 
 fn _val_size() {
     use std::mem::transmute;
-    let _: [u8; 24] = unsafe { transmute(Atom::from(1i64)) };
+    let _: [u8; 48] = unsafe { transmute(Atom::from(1i64)) };
     let _: [u8; 40] = unsafe { transmute(Array::string("")) };
-    let _: [u8; 48] = unsafe { transmute(Val::from(1i64)) };
+    let _: [u8; 56] = unsafe { transmute(Val::from(1i64)) };
 }
 
 impl Val {

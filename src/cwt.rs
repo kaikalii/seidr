@@ -9,6 +9,7 @@ use crate::{
     function::*,
     lex::{Ident, Param, ParamPlace, Span},
     op::AssignOp,
+    rcview::RcView,
     value::{Atom, Val},
 };
 
@@ -194,14 +195,7 @@ impl ToValNode for Expr {
             Expr::Un(expr) => expr.to_val(builder),
             Expr::Bin(expr) => expr.to_val(builder),
             Expr::Assign(expr) => expr.to_val(builder),
-            Expr::Function(expr) => {
-                let node = Rc::new(expr.to_val(builder));
-                match expr.max_param().map(|param| param.place) {
-                    Some(ParamPlace::W | ParamPlace::X) | None => Function::Node(node).into(),
-                    Some(ParamPlace::F) => Atom::UnMod(UnMod::Node(node)).into(),
-                    Some(ParamPlace::G) => Atom::BinMod(BinMod::Node(node)).into(),
-                }
-            }
+            Expr::Function(func) => func.to_val(builder),
         }
     }
 }
@@ -250,5 +244,19 @@ impl ToValNode for AssignExpr {
             }
             .into(),
         )
+    }
+}
+
+impl ToValNode for FunctionLiteral {
+    fn to_val(&self, builder: &mut TreeBuilder) -> ValNode {
+        let nodes: RcView<ValNode> = self
+            .expressions()
+            .map(|expr| expr.to_val(builder))
+            .collect();
+        match self.max_param().map(|param| param.place) {
+            Some(ParamPlace::W | ParamPlace::X) | None => Function::Nodes(nodes).into(),
+            Some(ParamPlace::F) => Atom::UnMod(UnMod::Nodes(nodes)).into(),
+            Some(ParamPlace::G) => Atom::BinMod(BinMod::Nodes(nodes)).into(),
+        }
     }
 }
