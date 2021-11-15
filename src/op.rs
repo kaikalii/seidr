@@ -57,7 +57,7 @@ pub enum Pervasive {
 
 op!(
     MathOp,
-    (Add, '+'),
+    (Add, '᛭'),
     (Sub, '-'),
     (Mul, '×', 'x'),
     (Div, '÷', '/'),

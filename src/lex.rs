@@ -646,6 +646,7 @@ impl Lexer {
                 ',' => self.token(TT::Comma),
                 '\n' => self.token(TT::Newline),
                 '∞' => self.token(TT::Num(Num::INFINIFY, "∞".into())),
+                '+' => self.token(MathOp::Add),
                 '「' => self.token(MathOp::Max),
                 '|' => self.token(MathOp::Mod),
                 '"' => self.string()?,
