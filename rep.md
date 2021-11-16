@@ -37,35 +37,33 @@ An expression has a tag and associated data
 
 | name                   | opcode |
 | ---------------------- | ------ |
-| plus                   | 0      |
-| negate/subtract        | 1      |
-| sign/multiply          | 2      |
-| reciprocal/divide      | 3      |
-| exponential/power      | 4      |
-| length/equals          | 5      |
-| not/does not equal     | 6      |
-| depth/matches          | 7      |
-| does not match         | 8      |
-| less than              | 9      |
-| less than or equal     | 10     |
-| greater than           | 11     |
-| greater than or equal  | 12     |
-| ceiling/max            | 13     |
-| floor/min              | 14     |
-| deduplicate/replicate  | 15     |
-| transpose/chunks       | 16     |
-| classify/select        | 17     |
-| <kaunan>               | 18     |
-| drop                   | 19     |
-| take                   | 20     |
-| absolute value/modulus | 21     |
-| reverse                | 22     |
-| join                   | 23     |
-| first/index            | 24     |
-| range/windows          | 25     |
-| <sowilo>               | 26     |
-| grade                  | 27     |
-| identity/right         | 28     |
+| identity/right         | 0      |
+| plus                   | 1      |
+| negate/subtract        | 2      |
+| sign/multiply          | 3      |
+| reciprocal/divide      | 4      |
+| exponential/power      | 5      |
+| length/equals          | 6      |
+| not/does not equal     | 7      |
+| depth/matches          | 8      |
+| does not match         | 9      |
+| less than              | 10     |
+| less than or equal     | 11     |
+| ceiling/max            | 12     |
+| floor/min              | 13     |
+| deduplicate/replicate  | 14     |
+| transpose/chunks       | 15     |
+| classify/select        | 16     |
+| <kaunan>               | 17     |
+| drop                   | 18     |
+| take                   | 19     |
+| absolute value/modulus | 20     |
+| reverse                | 21     |
+| join                   | 22     |
+| first/index            | 23     |
+| range/windows          | 24     |
+| <sowilo>               | 25     |
+| grade                  | 26     |
 
 # Unary Modifier
 
